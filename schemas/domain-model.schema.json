@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/jonathan-ai-pm/domain-model.schema.json",
+  "title": "Jonathan AI PM domain snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workspaces",
+    "clients",
+    "projects",
+    "deliverables",
+    "tasks",
+    "meetings",
+    "action_items",
+    "work_logs"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "workspaces": { "type": "array", "items": { "$ref": "#/$defs/workspace" } },
+    "clients": { "type": "array", "items": { "$ref": "#/$defs/client" } },
+    "projects": { "type": "array", "items": { "$ref": "#/$defs/project" } },
+    "deliverables": { "type": "array", "items": { "$ref": "#/$defs/deliverable" } },
+    "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } },
+    "meetings": { "type": "array", "items": { "$ref": "#/$defs/meeting" } },
+    "action_items": { "type": "array", "items": { "$ref": "#/$defs/actionItem" } },
+    "work_logs": { "type": "array", "items": { "$ref": "#/$defs/workLog" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]+$" },
+    "date": { "type": "string", "format": "date" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status", "timezone"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["active", "paused", "archived"] },
+        "timezone": { "type": "string", "minLength": 1 }
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "workspace_id", "name", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "workspace_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["active", "paused", "archived"] }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "client_id", "name", "status", "health"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "client_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["planned", "active", "paused", "completed", "cancelled"] },
+        "health": { "enum": ["unknown", "on_track", "at_risk", "off_track"] }
+      }
+    },
+    "deliverable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "project_id", "title", "status", "due_at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["planned", "in_progress", "in_review", "accepted", "blocked", "cancelled"] },
+        "due_at": { "$ref": "#/$defs/date" },
+        "drive_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "project_id", "title", "status", "priority"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "deliverable_id": { "$ref": "#/$defs/id" },
+        "source_action_item_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["inbox", "ready", "in_progress", "blocked", "done", "cancelled"] },
+        "priority": { "enum": ["low", "medium", "high", "critical"] },
+        "due_at": { "$ref": "#/$defs/date" }
+      }
+    },
+    "meeting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "project_id", "title", "starts_at", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "project_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "starts_at": { "$ref": "#/$defs/timestamp" },
+        "status": { "enum": ["scheduled", "completed", "cancelled"] }
+      }
+    },
+    "actionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "meeting_id", "title", "status", "owner"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "meeting_id": { "$ref": "#/$defs/id" },
+        "task_id": { "$ref": "#/$defs/id" },
+        "deliverable_id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["captured", "accepted", "done", "dismissed"] },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "workLog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "task_id", "started_at", "minutes", "summary"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "task_id": { "$ref": "#/$defs/id" },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "minutes": { "type": "integer", "minimum": 1 },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

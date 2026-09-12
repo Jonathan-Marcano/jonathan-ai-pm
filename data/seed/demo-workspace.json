@@ -1,0 +1,70 @@
+{
+  "schema_version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "wrk_demo_consulting",
+      "name": "Demo Consulting Job",
+      "status": "active",
+      "timezone": "America/Santiago"
+    }
+  ],
+  "clients": [
+    {
+      "id": "cli_demo_northwind",
+      "workspace_id": "wrk_demo_consulting",
+      "name": "Northwind Demo Bank",
+      "status": "active"
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj_demo_network_refresh",
+      "client_id": "cli_demo_northwind",
+      "name": "Data Center Network Refresh",
+      "status": "active",
+      "health": "on_track"
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "del_demo_migration_plan",
+      "project_id": "prj_demo_network_refresh",
+      "title": "Migration Plan",
+      "status": "in_progress",
+      "due_at": "2026-10-15"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "tsk_demo_validate_dependencies",
+      "project_id": "prj_demo_network_refresh",
+      "deliverable_id": "del_demo_migration_plan",
+      "source_action_item_id": "act_demo_confirm_dependencies",
+      "title": "Validate migration dependencies",
+      "status": "ready",
+      "priority": "high",
+      "due_at": "2026-09-16"
+    }
+  ],
+  "meetings": [
+    {
+      "id": "mtg_demo_design_review",
+      "project_id": "prj_demo_network_refresh",
+      "title": "Design Review",
+      "starts_at": "2026-09-14T13:00:00Z",
+      "status": "scheduled"
+    }
+  ],
+  "action_items": [
+    {
+      "id": "act_demo_confirm_dependencies",
+      "meeting_id": "mtg_demo_design_review",
+      "task_id": "tsk_demo_validate_dependencies",
+      "deliverable_id": "del_demo_migration_plan",
+      "title": "Confirm application migration dependencies",
+      "status": "accepted",
+      "owner": "Demo Engineer"
+    }
+  ],
+  "work_logs": []
+}
