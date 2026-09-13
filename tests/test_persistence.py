@@ -65,6 +65,46 @@ def test_action_item_retains_meeting_and_links_one_task(session) -> None:
     assert action.task_id == "tsk_demo"
 
 
+def test_action_item_creates_task_in_meeting_project(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    store.create(
+        "meeting",
+        id="mtg_demo",
+        project_id="prj_demo",
+        title="Review",
+        starts_at=datetime(2026, 9, 15, 13, 0, tzinfo=UTC),
+    )
+    store.create(
+        "action_item",
+        id="act_demo",
+        meeting_id="mtg_demo",
+        title="Prepare validation",
+        owner="Demo Engineer",
+    )
+    task = store.create_task_from_action(
+        "act_demo", "tsk_from_action", priority="high", due_at=date(2026, 9, 16)
+    )
+    assert task.project_id == "prj_demo"
+    assert task.status == "ready"
+    assert store.get("action_item", "act_demo").task_id == "tsk_from_action"
+
+
+def test_task_cannot_link_deliverable_from_another_project(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    store.create("project", id="prj_other", client_id="cli_demo", name="Other Project")
+    with pytest.raises(DomainRuleError):
+        store.create(
+            "task",
+            id="tsk_invalid",
+            project_id="prj_other",
+            deliverable_id="del_demo",
+            title="Invalid link",
+        )
+    session.rollback()
+
+
 def test_task_completion_requires_evidence(session) -> None:
     store = DomainStore(session)
     build_hierarchy(store)

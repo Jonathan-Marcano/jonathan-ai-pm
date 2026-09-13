@@ -9,8 +9,8 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | ID | Priority | Story | Acceptance summary |
 |---|---:|---|---|
 | P1-01 | Must | Select the Phase 1 stack and record the decision | **Done** — ADR 0002 covers runtime, database, API, testing, migration, and local setup |
-| P1-02 | Must | Persist the core hierarchy | **In progress** — local CRUD and relational constraints exist; HTTP endpoints remain |
-| P1-03 | Must | Manage meetings and action items | **In progress** — records retain meeting source and enforce one linked task; task creation flow remains |
+| P1-02 | Must | Persist the core hierarchy | **Done** — CRUD, HTTP endpoints, filters, and relational constraints exist |
+| P1-03 | Must | Manage meetings and action items | **Done** — actions retain meeting source and create or link one task transactionally |
 | P1-04 | Must | Capture work into one inbox | Manual capture requires only text; project and type can be assigned during triage |
 | P1-05 | Must | Triage every capture | Item can become task/action/reference/dismissed; disposition is auditable |
 | P1-06 | Must | Generate a Morning Brief | Shows meetings, overdue/due-soon work, priorities, blockers, and deliverable opportunities |

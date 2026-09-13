@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from jonathan_ai_pm.config import get_settings
 
@@ -12,7 +13,13 @@ def build_engine(database_url: str | None = None) -> Engine:
     if url.startswith("sqlite:///") and url != "sqlite:///:memory:":
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
 
-    engine = create_engine(url)
+    engine_options = {}
+    if url.startswith("sqlite"):
+        engine_options["connect_args"] = {"check_same_thread": False}
+    if url == "sqlite:///:memory:":
+        engine_options["poolclass"] = StaticPool
+
+    engine = create_engine(url, **engine_options)
     if url.startswith("sqlite"):
         event.listen(engine, "connect", _enable_sqlite_foreign_keys)
     return engine

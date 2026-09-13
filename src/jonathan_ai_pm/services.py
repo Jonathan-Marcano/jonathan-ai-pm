@@ -1,9 +1,16 @@
+from datetime import date
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
-from jonathan_ai_pm.models import MODEL_BY_KIND, Deliverable, Task, WorkLog
+from jonathan_ai_pm.models import (
+    MODEL_BY_KIND,
+    ActionItem,
+    Deliverable,
+    Task,
+    WorkLog,
+)
 
 
 class DomainRuleError(ValueError):
@@ -20,6 +27,7 @@ class DomainStore:
         model = self._model(kind)
         entity = model(**attributes)
         self.session.add(entity)
+        self._validate_links(entity)
         self.session.commit()
         self.session.refresh(entity)
         return entity
@@ -27,9 +35,11 @@ class DomainStore:
     def get(self, kind: str, entity_id: str):
         return self.session.get(self._model(kind), entity_id)
 
-    def list(self, kind: str):
+    def list(self, kind: str, **filters: Any):
         model = self._model(kind)
-        return list(self.session.scalars(select(model).order_by(model.id)))
+        statement = select(model)
+        statement = self._apply_filters(statement, model, filters)
+        return list(self.session.scalars(statement.order_by(model.id)))
 
     def update(self, kind: str, entity_id: str, **changes: Any):
         entity = self._required(kind, entity_id)
@@ -37,6 +47,7 @@ class DomainStore:
             if name in {"id", "created_at", "updated_at"} or not hasattr(entity, name):
                 raise DomainRuleError(f"Field cannot be updated: {name}")
             setattr(entity, name, value)
+        self._validate_links(entity)
         self.session.commit()
         self.session.refresh(entity)
         return entity
@@ -70,6 +81,60 @@ class DomainStore:
         self.session.refresh(deliverable)
         return deliverable
 
+    def create_task_from_action(
+        self,
+        action_item_id: str,
+        task_id: str,
+        priority: str = "medium",
+        due_at: date | None = None,
+        deliverable_id: str | None = None,
+    ) -> Task:
+        action = self._required("action_item", action_item_id)
+        if action.task_id:
+            raise DomainRuleError(f"Action item already links task: {action.task_id}")
+
+        meeting = self._required("meeting", action.meeting_id)
+        selected_deliverable_id = deliverable_id or action.deliverable_id
+        if selected_deliverable_id:
+            deliverable = self._required("deliverable", selected_deliverable_id)
+            if deliverable.project_id != meeting.project_id:
+                raise DomainRuleError("Task and deliverable must belong to the meeting project")
+
+        task = Task(
+            id=task_id,
+            project_id=meeting.project_id,
+            deliverable_id=selected_deliverable_id,
+            title=action.title,
+            status="ready",
+            priority=priority,
+            due_at=due_at,
+        )
+        self.session.add(task)
+        self.session.flush()
+        action.task_id = task.id
+        action.deliverable_id = selected_deliverable_id
+        action.status = "accepted"
+        self.session.commit()
+        self.session.refresh(task)
+        return task
+
+    @staticmethod
+    def _apply_filters(statement: Select, model, filters: dict[str, Any]) -> Select:
+        for name, value in filters.items():
+            if value is None:
+                continue
+            if name.endswith("_from"):
+                field_name = name.removesuffix("_from")
+                statement = statement.where(getattr(model, field_name) >= value)
+            elif name.endswith("_to"):
+                field_name = name.removesuffix("_to")
+                statement = statement.where(getattr(model, field_name) <= value)
+            elif not hasattr(model, name):
+                raise DomainRuleError(f"Unknown filter for {model.__tablename__}: {name}")
+            else:
+                statement = statement.where(getattr(model, name) == value)
+        return statement
+
     @staticmethod
     def _model(kind: str):
         try:
@@ -82,3 +147,22 @@ class DomainStore:
         if entity is None:
             raise DomainRuleError(f"{kind} not found: {entity_id}")
         return entity
+
+    def _validate_links(self, entity) -> None:
+        if isinstance(entity, Task) and entity.deliverable_id:
+            deliverable = self._required("deliverable", entity.deliverable_id)
+            if deliverable.project_id != entity.project_id:
+                raise DomainRuleError("Task and deliverable must belong to the same project")
+
+        if isinstance(entity, ActionItem):
+            meeting = self._required("meeting", entity.meeting_id)
+            if entity.task_id:
+                task = self._required("task", entity.task_id)
+                if task.project_id != meeting.project_id:
+                    raise DomainRuleError("Action item and task must belong to the same project")
+            if entity.deliverable_id:
+                deliverable = self._required("deliverable", entity.deliverable_id)
+                if deliverable.project_id != meeting.project_id:
+                    raise DomainRuleError(
+                        "Action item and deliverable must belong to the same project"
+                    )

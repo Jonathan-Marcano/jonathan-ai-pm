@@ -39,6 +39,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Daily workflow](docs/workflow.md)
 - [Roadmap](docs/roadmap.md)
 - [Phase 1 backlog](docs/backlog/phase-1.md)
+- [Phase 1 HTTP API](docs/api.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
@@ -70,7 +71,8 @@ uv run jonathan-ai-pm seed-demo
 uv run uvicorn jonathan_ai_pm.api:app --reload
 ```
 
-The API health check is available at `http://127.0.0.1:8000/health`. Run quality checks with:
+The API health check is available at `http://127.0.0.1:8000/health` and interactive endpoint
+documentation at `http://127.0.0.1:8000/docs`. Run quality checks with:
 
 ```bash
 uv run ruff check .
@@ -83,7 +85,7 @@ Seed data under `data/seed/` is intentionally fictional.
 ## Current status
 
 - Phase 0: complete.
-- Phase 1 / Slice A: in progress; stack, initial migration, core persistence, meeting/action-item links, and first domain rules are implemented.
+- Phase 1 / Slice A: core CRUD, filters, migrations, meeting/action-item conversion, and guarded lifecycle transitions are implemented.
 - Phase 1 / Slice B: not started.
 - External integrations: documented for later phases; not implemented.
 
