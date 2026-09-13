@@ -8,15 +8,15 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 
 | ID | Priority | Story | Acceptance summary |
 |---|---:|---|---|
-| P1-01 | Must | Select the Phase 1 stack and record the decision | ADR covers runtime, database, UI/API, testing, migration, and local setup |
-| P1-02 | Must | Persist the core hierarchy | CRUD and constraints exist for workspace/job, client, project, deliverable, and task |
-| P1-03 | Must | Manage meetings and action items | Actions retain meeting source and can create or link one task |
+| P1-01 | Must | Select the Phase 1 stack and record the decision | **Done** — ADR 0002 covers runtime, database, API, testing, migration, and local setup |
+| P1-02 | Must | Persist the core hierarchy | **In progress** — local CRUD and relational constraints exist; HTTP endpoints remain |
+| P1-03 | Must | Manage meetings and action items | **In progress** — records retain meeting source and enforce one linked task; task creation flow remains |
 | P1-04 | Must | Capture work into one inbox | Manual capture requires only text; project and type can be assigned during triage |
 | P1-05 | Must | Triage every capture | Item can become task/action/reference/dismissed; disposition is auditable |
 | P1-06 | Must | Generate a Morning Brief | Shows meetings, overdue/due-soon work, priorities, blockers, and deliverable opportunities |
 | P1-07 | Must | Record incremental work | User can start/update/complete tasks and add minutes plus evidence summary |
 | P1-08 | Must | Run Evening Close | User reconciles today's captures, work, deferrals, blockers, and project changes |
-| P1-09 | Must | Validate domain rules | Service and schema tests cover relationships, status transitions, and invalid records |
+| P1-09 | Must | Validate domain rules | **In progress** — first persistence, evidence, and lifecycle checks are automated |
 | P1-10 | Should | Summarize workload and progress | Views aggregate tasks and logged time by workspace, client, project, and deliverable |
 | P1-11 | Should | Import/export a portable snapshot | JSON export and validated import support backup and development fixtures |
 | P1-12 | Should | Add basic audit history | Creation, status, assignment, and due-date changes retain actor and timestamp |
@@ -28,6 +28,9 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 ### Slice A — Reliable records
 
 P1-01, P1-02, P1-03, P1-09, and migrations.
+
+Current increment: stack decision, initial migration, core CRUD service, synthetic seed loader,
+meeting/action-item persistence, and first lifecycle tests.
 
 ### Slice B — Daily loop
 

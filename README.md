@@ -11,7 +11,7 @@ Jonathan AI PM is intended to support a simple daily operating loop:
 3. **Incremental delivery:** turn tasks into visible progress on deliverables.
 4. **Evening Close:** review completed and pending work, update projects, and measure effort.
 
-Phase 0 establishes the product definition, domain model, repository conventions, and a safe non-sensitive seed dataset. It does **not** implement live WhatsApp, calendar, Google Drive, or third-party API integrations.
+Phase 0 established the product definition and repository conventions. Phase 1 is now underway with a local relational datastore, tested domain services, migrations, and a minimal API boundary. Live WhatsApp, calendar, Google Drive, and third-party API integrations remain intentionally deferred.
 
 ## Repository map
 
@@ -21,8 +21,12 @@ Phase 0 establishes the product definition, domain model, repository conventions
 ├── docs/                   # Product and operating documentation
 │   ├── decisions/          # Architecture decision records
 │   └── backlog/            # Phase backlogs
+├── migrations/             # Versioned database migrations
 ├── schemas/                # Machine-readable domain contracts
+├── src/jonathan_ai_pm/     # Application, persistence, and domain services
+├── tests/                  # Automated domain and API checks
 ├── .env.example            # Safe configuration template
+├── pyproject.toml          # Runtime and development dependencies
 └── README.md
 ```
 
@@ -36,6 +40,7 @@ Phase 0 establishes the product definition, domain model, repository conventions
 - [Roadmap](docs/roadmap.md)
 - [Phase 1 backlog](docs/backlog/phase-1.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
+- [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
 ## Domain at a glance
 
@@ -55,18 +60,31 @@ The complete relationship and lifecycle rules are defined in [docs/data-model.md
 
 ## Getting started
 
-There is no runtime application in Phase 0. To prepare for future development:
+Install [uv](https://docs.astral.sh/uv/), then prepare the local application:
 
 ```bash
 cp .env.example .env
+uv sync --extra dev
+uv run alembic upgrade head
+uv run jonathan-ai-pm seed-demo
+uv run uvicorn jonathan_ai_pm.api:app --reload
 ```
 
-Keep `.env` local and never commit credentials or customer information. Seed data under `data/seed/` is intentionally fictional.
+The API health check is available at `http://127.0.0.1:8000/health`. Run quality checks with:
+
+```bash
+uv run ruff check .
+uv run pytest
+```
+
+Keep `.env` and the generated database local. Never commit credentials or customer information.
+Seed data under `data/seed/` is intentionally fictional.
 
 ## Current status
 
-- Phase 0: complete in repository structure and documentation.
-- Phase 1: defined and ready for implementation planning.
+- Phase 0: complete.
+- Phase 1 / Slice A: in progress; stack, initial migration, core persistence, meeting/action-item links, and first domain rules are implemented.
+- Phase 1 / Slice B: not started.
 - External integrations: documented for later phases; not implemented.
 
 ## Working agreements
