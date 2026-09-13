@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 EntityId = Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[a-z][a-z0-9_]+$")]
 Name = Annotated[str, Field(min_length=1, max_length=300)]
@@ -17,6 +17,8 @@ TaskStatus = Literal["inbox", "ready", "in_progress", "blocked", "done", "cancel
 TaskPriority = Literal["low", "medium", "high", "critical"]
 MeetingStatus = Literal["scheduled", "completed", "cancelled"]
 ActionItemStatus = Literal["captured", "accepted", "done", "dismissed"]
+CaptureStatus = Literal["inbox", "triaged"]
+CaptureDisposition = Literal["task", "action", "reference", "dismissed"]
 
 
 class StrictModel(BaseModel):
@@ -186,3 +188,53 @@ class ActionItemToTask(StrictModel):
     priority: TaskPriority = "medium"
     due_at: date | None = None
     deliverable_id: EntityId | None = None
+
+
+class CaptureCreate(StrictModel):
+    text: Annotated[str, Field(min_length=1, max_length=5000)]
+
+
+class CaptureRead(Timestamps):
+    id: EntityId
+    text: str
+    status: CaptureStatus
+    captured_at: datetime
+    disposition: CaptureDisposition | None = None
+    project_id: EntityId | None = None
+    task_id: EntityId | None = None
+    action_item_id: EntityId | None = None
+    disposition_note: str | None = None
+    triaged_at: datetime | None = None
+
+
+class CaptureTriage(StrictModel):
+    disposition: CaptureDisposition
+    project_id: EntityId | None = None
+    task_id: EntityId | None = None
+    action_item_id: EntityId | None = None
+    meeting_id: EntityId | None = None
+    deliverable_id: EntityId | None = None
+    owner: Name | None = None
+    priority: TaskPriority = "medium"
+    due_at: date | None = None
+    note: Annotated[str, Field(min_length=1)] | None = None
+
+    @model_validator(mode="after")
+    def validate_destination(self) -> Self:
+        if self.disposition == "task" and (not self.project_id or not self.task_id):
+            raise ValueError("Task triage requires project_id and task_id")
+        if self.disposition == "task" and (self.meeting_id or self.action_item_id or self.owner):
+            raise ValueError("Task triage cannot include action-item fields")
+        if self.disposition == "action" and (
+            not self.meeting_id or not self.action_item_id or not self.owner
+        ):
+            raise ValueError("Action triage requires meeting_id, action_item_id, and owner")
+        if self.disposition == "action" and self.task_id:
+            raise ValueError("Action triage cannot include task_id")
+        if self.disposition in {"reference", "dismissed"} and any(
+            (self.task_id, self.action_item_id, self.meeting_id, self.deliverable_id, self.owner)
+        ):
+            raise ValueError("Reference and dismissed triage cannot include work-item fields")
+        if self.disposition == "dismissed" and not self.note:
+            raise ValueError("Dismissed triage requires a note")
+        return self

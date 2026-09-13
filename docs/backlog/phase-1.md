@@ -11,8 +11,8 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | P1-01 | Must | Select the Phase 1 stack and record the decision | **Done** — ADR 0002 covers runtime, database, API, testing, migration, and local setup |
 | P1-02 | Must | Persist the core hierarchy | **Done** — CRUD, HTTP endpoints, filters, and relational constraints exist |
 | P1-03 | Must | Manage meetings and action items | **Done** — actions retain meeting source and create or link one task transactionally |
-| P1-04 | Must | Capture work into one inbox | Manual capture requires only text; project and type can be assigned during triage |
-| P1-05 | Must | Triage every capture | Item can become task/action/reference/dismissed; disposition is auditable |
+| P1-04 | Must | Capture work into one inbox | **Done** — manual capture requires only text; context is optional until triage |
+| P1-05 | Must | Triage every capture | **Done** — task/action/reference/dismissed dispositions retain timestamp, note, and output links |
 | P1-06 | Must | Generate a Morning Brief | Shows meetings, overdue/due-soon work, priorities, blockers, and deliverable opportunities |
 | P1-07 | Must | Record incremental work | User can start/update/complete tasks and add minutes plus evidence summary |
 | P1-08 | Must | Run Evening Close | User reconciles today's captures, work, deferrals, blockers, and project changes |
@@ -35,6 +35,9 @@ meeting/action-item persistence, and first lifecycle tests.
 ### Slice B — Daily loop
 
 P1-04 through P1-08 with a minimal interface.
+
+Current increment: P1-04 and P1-05 are complete through the HTTP API. Morning Brief, incremental
+work, and Evening Close remain next.
 
 ### Slice C — Measurement and resilience
 

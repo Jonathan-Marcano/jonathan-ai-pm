@@ -86,7 +86,8 @@ Seed data under `data/seed/` is intentionally fictional.
 
 - Phase 0: complete.
 - Phase 1 / Slice A: core CRUD, filters, migrations, meeting/action-item conversion, and guarded lifecycle transitions are implemented.
-- Phase 1 / Slice B: not started.
+- Phase 1 / Slice B: capture inbox and auditable triage are implemented; Morning Brief,
+  incremental work, and Evening Close remain.
 - External integrations: documented for later phases; not implemented.
 
 ## Working agreements

@@ -144,3 +144,111 @@ def test_action_item_becomes_one_task(api_client) -> None:
         ).status_code
         == 422
     )
+
+
+def test_quick_capture_requires_only_text(api_client) -> None:
+    response = api_client.post("/api/v1/captures", json={"text": "Prepare demo plan"})
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["id"].startswith("cap_")
+    assert payload["status"] == "inbox"
+    assert payload["disposition"] is None
+
+
+def test_capture_triage_creates_task_and_audit_fields(api_client) -> None:
+    create_core_hierarchy(api_client)
+    capture_id = api_client.post("/api/v1/captures", json={"text": "Prepare demo plan"}).json()[
+        "id"
+    ]
+    response = api_client.post(
+        f"/api/v1/captures/{capture_id}/triage",
+        json={
+            "disposition": "task",
+            "project_id": "prj_demo",
+            "task_id": "tsk_from_capture",
+            "priority": "high",
+            "due_at": "2026-09-18",
+            "note": "Confirmed during daily review",
+        },
+    )
+    assert response.status_code == 200
+    capture = response.json()
+    assert capture["status"] == "triaged"
+    assert capture["task_id"] == "tsk_from_capture"
+    assert capture["triaged_at"] is not None
+    assert api_client.get("/api/v1/tasks/tsk_from_capture").json()["status"] == "ready"
+    assert (
+        api_client.post(
+            f"/api/v1/captures/{capture_id}/triage",
+            json={
+                "disposition": "task",
+                "project_id": "prj_demo",
+                "task_id": "tsk_second",
+            },
+        ).status_code
+        == 422
+    )
+
+
+def test_capture_triage_creates_meeting_action(api_client) -> None:
+    create_core_hierarchy(api_client)
+    api_client.post(
+        "/api/v1/meetings",
+        json={
+            "id": "mtg_demo",
+            "project_id": "prj_demo",
+            "title": "Review",
+            "starts_at": "2026-09-15T13:00:00Z",
+        },
+    )
+    capture_id = api_client.post("/api/v1/captures", json={"text": "Confirm dependencies"}).json()[
+        "id"
+    ]
+    response = api_client.post(
+        f"/api/v1/captures/{capture_id}/triage",
+        json={
+            "disposition": "action",
+            "meeting_id": "mtg_demo",
+            "action_item_id": "act_from_capture",
+            "owner": "Demo Engineer",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["action_item_id"] == "act_from_capture"
+    action = api_client.get("/api/v1/action-items/act_from_capture").json()
+    assert action["meeting_id"] == "mtg_demo"
+    assert action["status"] == "captured"
+
+
+def test_capture_triage_reference_and_dismissal(api_client) -> None:
+    create_core_hierarchy(api_client)
+    reference_id = api_client.post("/api/v1/captures", json={"text": "Architecture note"}).json()[
+        "id"
+    ]
+    dismissed_id = api_client.post("/api/v1/captures", json={"text": "Duplicate reminder"}).json()[
+        "id"
+    ]
+
+    reference = api_client.post(
+        f"/api/v1/captures/{reference_id}/triage",
+        json={"disposition": "reference", "project_id": "prj_demo"},
+    )
+    dismissed = api_client.post(
+        f"/api/v1/captures/{dismissed_id}/triage",
+        json={"disposition": "dismissed", "note": "Duplicate"},
+    )
+    assert reference.json()["disposition"] == "reference"
+    assert dismissed.json()["disposition_note"] == "Duplicate"
+    inbox = api_client.get("/api/v1/captures?capture_status=inbox")
+    assert inbox.status_code == 200
+    assert inbox.json() == []
+
+
+def test_dismissed_capture_requires_reason(api_client) -> None:
+    capture_id = api_client.post("/api/v1/captures", json={"text": "Possible duplicate"}).json()[
+        "id"
+    ]
+    response = api_client.post(
+        f"/api/v1/captures/{capture_id}/triage", json={"disposition": "dismissed"}
+    )
+    assert response.status_code == 422

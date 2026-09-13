@@ -13,6 +13,7 @@
     "tasks",
     "meetings",
     "action_items",
+    "captures",
     "work_logs"
   ],
   "properties": {
@@ -24,6 +25,7 @@
     "tasks": { "type": "array", "items": { "$ref": "#/$defs/task" } },
     "meetings": { "type": "array", "items": { "$ref": "#/$defs/meeting" } },
     "action_items": { "type": "array", "items": { "$ref": "#/$defs/actionItem" } },
+    "captures": { "type": "array", "items": { "$ref": "#/$defs/capture" } },
     "work_logs": { "type": "array", "items": { "$ref": "#/$defs/workLog" } }
   },
   "$defs": {
@@ -116,6 +118,23 @@
         "title": { "type": "string", "minLength": 1 },
         "status": { "enum": ["captured", "accepted", "done", "dismissed"] },
         "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "status", "captured_at"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "text": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["inbox", "triaged"] },
+        "captured_at": { "$ref": "#/$defs/timestamp" },
+        "disposition": { "enum": ["task", "action", "reference", "dismissed"] },
+        "project_id": { "$ref": "#/$defs/id" },
+        "task_id": { "$ref": "#/$defs/id" },
+        "action_item_id": { "$ref": "#/$defs/id" },
+        "disposition_note": { "type": "string", "minLength": 1 },
+        "triaged_at": { "$ref": "#/$defs/timestamp" }
       }
     },
     "workLog": {

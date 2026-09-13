@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
@@ -7,9 +8,11 @@ from sqlalchemy.orm import Session
 from jonathan_ai_pm.models import (
     MODEL_BY_KIND,
     ActionItem,
+    Capture,
     Deliverable,
     Task,
     WorkLog,
+    utc_now,
 )
 
 
@@ -117,6 +120,87 @@ class DomainStore:
         self.session.commit()
         self.session.refresh(task)
         return task
+
+    def capture(self, text: str) -> Capture:
+        capture = Capture(id=f"cap_{uuid4().hex}", text=text, status="inbox")
+        self.session.add(capture)
+        self.session.commit()
+        self.session.refresh(capture)
+        return capture
+
+    def triage_capture(
+        self,
+        capture_id: str,
+        disposition: str,
+        *,
+        project_id: str | None = None,
+        task_id: str | None = None,
+        action_item_id: str | None = None,
+        meeting_id: str | None = None,
+        deliverable_id: str | None = None,
+        owner: str | None = None,
+        priority: str = "medium",
+        due_at: date | None = None,
+        note: str | None = None,
+    ) -> Capture:
+        capture = self._required("capture", capture_id)
+        if capture.status != "inbox":
+            raise DomainRuleError("Capture has already been triaged")
+
+        if disposition == "task":
+            if not project_id or not task_id:
+                raise DomainRuleError("Task triage requires project_id and task_id")
+            task = Task(
+                id=task_id,
+                project_id=project_id,
+                deliverable_id=deliverable_id,
+                title=capture.text,
+                status="ready",
+                priority=priority,
+                due_at=due_at,
+            )
+            self.session.add(task)
+            self._validate_links(task)
+            self.session.flush()
+            capture.project_id = project_id
+            capture.task_id = task.id
+
+        elif disposition == "action":
+            if not meeting_id or not action_item_id or not owner:
+                raise DomainRuleError(
+                    "Action triage requires meeting_id, action_item_id, and owner"
+                )
+            meeting = self._required("meeting", meeting_id)
+            if project_id and project_id != meeting.project_id:
+                raise DomainRuleError("Capture project must match the meeting project")
+            action = ActionItem(
+                id=action_item_id,
+                meeting_id=meeting_id,
+                deliverable_id=deliverable_id,
+                title=capture.text,
+                status="captured",
+                owner=owner,
+            )
+            self.session.add(action)
+            self._validate_links(action)
+            self.session.flush()
+            capture.project_id = meeting.project_id
+            capture.action_item_id = action.id
+
+        elif disposition in {"reference", "dismissed"}:
+            if project_id:
+                self._required("project", project_id)
+            capture.project_id = project_id
+        else:
+            raise DomainRuleError(f"Unknown capture disposition: {disposition}")
+
+        capture.status = "triaged"
+        capture.disposition = disposition
+        capture.disposition_note = note
+        capture.triaged_at = utc_now()
+        self.session.commit()
+        self.session.refresh(capture)
+        return capture
 
     @staticmethod
     def _apply_filters(statement: Select, model, filters: dict[str, Any]) -> Select:

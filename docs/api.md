@@ -14,6 +14,7 @@ at `/docs` while the application is running.
 | Tasks | Yes | `project_id`, `deliverable_id`, `status`, `priority`, dates | Yes | Yes | Yes |
 | Meetings | Yes | `project_id`, `status`, `starts_from`, `starts_to` | Yes | Yes | Yes |
 | Action items | Yes | `meeting_id`, `status` | Yes | Yes | Yes |
+| Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
 
 ## Protected transitions
 
@@ -22,6 +23,10 @@ at `/docs` while the application is running.
 - `POST /api/v1/action-items/{id}/task` creates one ready task in the meeting's project and links
   it to the source action item.
 - Cross-project task, deliverable, meeting, and action-item links are rejected.
+- `POST /api/v1/captures` requires only `text`.
+- `POST /api/v1/captures/{id}/triage` records one immutable disposition and optionally creates a
+  task or meeting action in the same transaction.
+- A dismissed capture requires a reason in `note`.
 
 ## Example
 

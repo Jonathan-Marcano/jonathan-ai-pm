@@ -14,6 +14,7 @@ ENTITY_ORDER = (
     ("tasks", "task"),
     ("meetings", "meeting"),
     ("action_items", "action_item"),
+    ("captures", "capture"),
     ("work_logs", "work_log"),
 )
 

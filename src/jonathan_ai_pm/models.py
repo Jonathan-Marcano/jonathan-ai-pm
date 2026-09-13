@@ -129,6 +129,29 @@ class WorkLog(TimestampMixin, Base):
     summary: Mapped[str] = mapped_column(Text)
 
 
+class Capture(TimestampMixin, Base):
+    __tablename__ = "captures"
+    __table_args__ = (
+        CheckConstraint("status IN ('inbox','triaged')"),
+        CheckConstraint(
+            "disposition IS NULL OR disposition IN ('task','action','reference','dismissed')"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="inbox")
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    disposition: Mapped[str | None] = mapped_column(String(20))
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"))
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("tasks.id", ondelete="SET NULL"))
+    action_item_id: Mapped[str | None] = mapped_column(
+        ForeignKey("action_items.id", ondelete="SET NULL")
+    )
+    disposition_note: Mapped[str | None] = mapped_column(Text)
+    triaged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 MODEL_BY_KIND = {
     "workspace": Workspace,
     "client": Client,
@@ -138,4 +161,5 @@ MODEL_BY_KIND = {
     "meeting": Meeting,
     "action_item": ActionItem,
     "work_log": WorkLog,
+    "capture": Capture,
 }
