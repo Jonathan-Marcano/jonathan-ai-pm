@@ -3,6 +3,9 @@
 The manual-first API is served under `/api/v1`. Interactive OpenAPI documentation is available
 at `/docs` while the application is running.
 
+`GET /api/v1/briefs/morning` generates the dated operational brief. Its selection and ranking
+rules are documented in [Morning Brief](morning-brief.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |

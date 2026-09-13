@@ -15,6 +15,10 @@ The brief should show:
 
 The user confirms the proposed focus before the plan becomes authoritative.
 
+Phase 1 ranks the focus list deterministically: open tasks must be `ready` or `in_progress`, then
+priority, due date, and stable ID determine the top three. The full selection rules are documented
+in [Morning Brief](morning-brief.md).
+
 ## 2. Capture during the day
 
 New work enters a single inbox with minimal fields: text, source, capture time, and optional project hint. The user can add it manually from the main interface. Future channels such as WhatsApp may feed the same capture boundary only after explicit authorization.

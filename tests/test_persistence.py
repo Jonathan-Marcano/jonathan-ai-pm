@@ -113,6 +113,23 @@ def test_task_completion_requires_evidence(session) -> None:
     assert store.complete_task("tsk_demo", completion_note="Reviewed locally").status == "done"
 
 
+def test_generic_updates_cannot_bypass_guarded_transitions(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    with pytest.raises(DomainRuleError, match="complete_task"):
+        store.update("task", "tsk_demo", status="done")
+    with pytest.raises(DomainRuleError, match="move_deliverable_to_review"):
+        store.update("deliverable", "del_demo", status="in_review")
+    with pytest.raises(DomainRuleError, match="complete_task"):
+        store.create(
+            "task",
+            id="tsk_precompleted",
+            project_id="prj_demo",
+            title="Precompleted task",
+            status="done",
+        )
+
+
 def test_deliverable_review_requires_criteria_and_evidence(session) -> None:
     store = DomainStore(session)
     build_hierarchy(store)

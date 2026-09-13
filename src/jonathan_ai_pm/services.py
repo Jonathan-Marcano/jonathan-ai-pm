@@ -1,6 +1,9 @@
-from datetime import date
+from __future__ import annotations
+
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
@@ -10,6 +13,8 @@ from jonathan_ai_pm.models import (
     ActionItem,
     Capture,
     Deliverable,
+    Meeting,
+    Project,
     Task,
     WorkLog,
     utc_now,
@@ -29,6 +34,10 @@ class DomainStore:
     def create(self, kind: str, **attributes: Any):
         model = self._model(kind)
         entity = model(**attributes)
+        if isinstance(entity, Task) and entity.status == "done":
+            raise DomainRuleError("Use complete_task to enforce completion evidence")
+        if isinstance(entity, Deliverable) and entity.status == "in_review":
+            raise DomainRuleError("Use move_deliverable_to_review to enforce review evidence")
         self.session.add(entity)
         self._validate_links(entity)
         self.session.commit()
@@ -46,6 +55,10 @@ class DomainStore:
 
     def update(self, kind: str, entity_id: str, **changes: Any):
         entity = self._required(kind, entity_id)
+        if isinstance(entity, Task) and changes.get("status") == "done":
+            raise DomainRuleError("Use complete_task to enforce completion evidence")
+        if isinstance(entity, Deliverable) and changes.get("status") == "in_review":
+            raise DomainRuleError("Use move_deliverable_to_review to enforce review evidence")
         for name, value in changes.items():
             if name in {"id", "created_at", "updated_at"} or not hasattr(entity, name):
                 raise DomainRuleError(f"Field cannot be updated: {name}")
@@ -127,6 +140,124 @@ class DomainStore:
         self.session.commit()
         self.session.refresh(capture)
         return capture
+
+    def morning_brief(
+        self,
+        timezone_name: str,
+        brief_date: date | None = None,
+        due_soon_days: int = 3,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        if not 0 <= due_soon_days <= 30:
+            raise DomainRuleError("due_soon_days must be between 0 and 30")
+        try:
+            local_timezone = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError as exc:
+            raise DomainRuleError(f"Unknown timezone: {timezone_name}") from exc
+
+        generated_at = now or datetime.now(UTC)
+        if generated_at.tzinfo is None:
+            generated_at = generated_at.replace(tzinfo=UTC)
+        else:
+            generated_at = generated_at.astimezone(UTC)
+        target_date = brief_date or generated_at.astimezone(local_timezone).date()
+        due_soon_through = target_date + timedelta(days=due_soon_days)
+
+        tasks = self.list("task")
+        open_tasks = [task for task in tasks if task.status not in {"done", "cancelled"}]
+        overdue_tasks = self._sort_tasks(
+            [task for task in open_tasks if task.due_at and task.due_at < target_date]
+        )
+        due_soon_tasks = self._sort_tasks(
+            [
+                task
+                for task in open_tasks
+                if task.due_at and target_date <= task.due_at <= due_soon_through
+            ]
+        )
+        executable = [task for task in open_tasks if task.status in {"ready", "in_progress"}]
+        focus_tasks = self._sort_tasks(executable)[:3]
+        blocked_tasks = self._sort_tasks([task for task in open_tasks if task.status == "blocked"])
+
+        meetings: list[Meeting] = [
+            meeting
+            for meeting in self.list("meeting", status="scheduled")
+            if self._as_utc(meeting.starts_at).astimezone(local_timezone).date() == target_date
+        ]
+        meetings.sort(key=lambda meeting: self._as_utc(meeting.starts_at))
+
+        deliverables = self.list("deliverable")
+        blocked_deliverables = sorted(
+            [item for item in deliverables if item.status == "blocked"],
+            key=lambda item: (item.due_at, item.id),
+        )
+        in_progress_deliverable_ids = {
+            task.deliverable_id
+            for task in open_tasks
+            if task.status == "in_progress" and task.deliverable_id
+        }
+        deliverable_opportunities = sorted(
+            [
+                item
+                for item in deliverables
+                if item.status in {"planned", "in_progress"}
+                and item.id not in in_progress_deliverable_ids
+            ],
+            key=lambda item: (item.due_at, item.id),
+        )[:5]
+        at_risk_projects: list[Project] = sorted(
+            [
+                project
+                for project in self.list("project")
+                if project.health in {"at_risk", "off_track"}
+                and project.status not in {"completed", "cancelled"}
+            ],
+            key=lambda project: (project.health != "off_track", project.id),
+        )
+
+        counts = {
+            "meetings": len(meetings),
+            "overdue_tasks": len(overdue_tasks),
+            "due_soon_tasks": len(due_soon_tasks),
+            "focus_tasks": len(focus_tasks),
+            "blocked_tasks": len(blocked_tasks),
+            "blocked_deliverables": len(blocked_deliverables),
+            "deliverable_opportunities": len(deliverable_opportunities),
+            "at_risk_projects": len(at_risk_projects),
+        }
+        return {
+            "brief_date": target_date,
+            "timezone": timezone_name,
+            "due_soon_through": due_soon_through,
+            "generated_at": generated_at,
+            "counts": counts,
+            "meetings": meetings,
+            "overdue_tasks": overdue_tasks,
+            "due_soon_tasks": due_soon_tasks,
+            "focus_tasks": focus_tasks,
+            "blocked_tasks": blocked_tasks,
+            "blocked_deliverables": blocked_deliverables,
+            "deliverable_opportunities": deliverable_opportunities,
+            "at_risk_projects": at_risk_projects,
+        }
+
+    @staticmethod
+    def _as_utc(value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+    @staticmethod
+    def _sort_tasks(tasks: list[Task]) -> list[Task]:
+        priority_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        status_rank = {"in_progress": 0, "ready": 1, "blocked": 2, "inbox": 3}
+        return sorted(
+            tasks,
+            key=lambda task: (
+                priority_rank[task.priority],
+                task.due_at or date.max,
+                status_rank.get(task.status, 9),
+                task.id,
+            ),
+        )
 
     def triage_capture(
         self,

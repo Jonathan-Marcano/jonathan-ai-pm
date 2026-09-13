@@ -238,3 +238,30 @@ class CaptureTriage(StrictModel):
         if self.disposition == "dismissed" and not self.note:
             raise ValueError("Dismissed triage requires a note")
         return self
+
+
+class MorningBriefCounts(StrictModel):
+    meetings: int
+    overdue_tasks: int
+    due_soon_tasks: int
+    focus_tasks: int
+    blocked_tasks: int
+    blocked_deliverables: int
+    deliverable_opportunities: int
+    at_risk_projects: int
+
+
+class MorningBrief(ResponseModel):
+    brief_date: date
+    timezone: str
+    due_soon_through: date
+    generated_at: datetime
+    counts: MorningBriefCounts
+    meetings: list[MeetingRead]
+    overdue_tasks: list[TaskRead]
+    due_soon_tasks: list[TaskRead]
+    focus_tasks: list[TaskRead]
+    blocked_tasks: list[TaskRead]
+    blocked_deliverables: list[DeliverableRead]
+    deliverable_opportunities: list[DeliverableRead]
+    at_risk_projects: list[ProjectRead]

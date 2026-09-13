@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from jonathan_ai_pm import __version__
+from jonathan_ai_pm.config import get_settings
 from jonathan_ai_pm.db import get_session
 from jonathan_ai_pm.schemas import (
     ActionItemCreate,
@@ -30,6 +31,7 @@ from jonathan_ai_pm.schemas import (
     MeetingRead,
     MeetingStatus,
     MeetingUpdate,
+    MorningBrief,
     ProjectCreate,
     ProjectHealth,
     ProjectRead,
@@ -55,6 +57,22 @@ DbSession = Annotated[Session, Depends(get_session)]
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
+
+
+@app.get("/api/v1/briefs/morning", response_model=MorningBrief, tags=["briefs"])
+def morning_brief(
+    session: DbSession,
+    brief_date: Annotated[date | None, Query(alias="date")] = None,
+    due_soon_days: Annotated[int, Query(ge=0, le=30)] = 3,
+):
+    try:
+        return _store(session).morning_brief(
+            get_settings().app_timezone,
+            brief_date=brief_date,
+            due_soon_days=due_soon_days,
+        )
+    except DomainRuleError as exc:
+        raise _domain_http_error(exc) from exc
 
 
 def _store(session: Session) -> DomainStore:
