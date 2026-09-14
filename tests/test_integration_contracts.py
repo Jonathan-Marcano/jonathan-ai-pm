@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -12,7 +12,7 @@ from jonathan_ai_pm.integrations import (
 
 
 def test_calendar_window_normalizes_to_utc() -> None:
-    offset = UTC + timedelta(0)
+    offset = timezone(-timedelta(hours=3))
     window = CalendarWindow(
         starts_at=datetime(2026, 9, 15, 9, 0, tzinfo=offset),
         ends_at=datetime(2026, 9, 15, 10, 0, tzinfo=offset),
