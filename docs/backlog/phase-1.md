@@ -16,7 +16,7 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | P1-06 | Must | Generate a Morning Brief | **Done** — dated local view covers meetings, deadlines, top-three focus, blockers, opportunities, and project risk |
 | P1-07 | Must | Record incremental work | **Done** — guarded start/resume, append-only minutes and evidence history, and evidence-backed completion are available through the API |
 | P1-08 | Must | Run Evening Close | **Done** — a dated, timezone-aware reconciliation covers completed work, minutes, captures, actions, unfinished tasks, blockers, touched deliverables/projects, and tomorrow's first action |
-| P1-09 | Must | Validate domain rules | **In progress** — first persistence, evidence, and lifecycle checks are automated |
+| P1-09 | Must | Validate domain rules | **Done** — the rule matrix covers relationships, lifecycle guards, evidence, immutability, timezones, transactions, and HTTP errors; CI runs on every push and pull request |
 | P1-10 | Should | Summarize workload and progress | Views aggregate tasks and logged time by workspace, client, project, and deliverable |
 | P1-11 | Should | Import/export a portable snapshot | JSON export and validated import support backup and development fixtures |
 | P1-12 | Should | Add basic audit history | Creation, status, assignment, and due-date changes retain actor and timestamp |
@@ -29,15 +29,15 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 
 P1-01, P1-02, P1-03, P1-09, and migrations.
 
-Current increment: stack decision, initial migration, core CRUD service, synthetic seed loader,
-meeting/action-item persistence, and first lifecycle tests.
+Current increment: stack decision, migrations, core CRUD, meeting/action-item persistence, guarded
+domain rules, rollback coverage, and continuous validation are complete.
 
 ### Slice B — Daily loop
 
 P1-04 through P1-08 with a minimal interface.
 
 Current increment: P1-04 through P1-08 are complete through the HTTP API. The manual daily loop is
-now complete; expanded validation continues in P1-09.
+now complete; workload and progress summaries continue in P1-10.
 
 ### Slice C — Measurement and resilience
 

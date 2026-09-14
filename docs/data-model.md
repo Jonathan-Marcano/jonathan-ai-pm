@@ -67,6 +67,9 @@ Project `health` is one of `unknown`, `on_track`, `at_risk`, or `off_track`; it 
 8. Evening Close reviews daily outcomes and every older capture still in the inbox; corrections
    update the source records rather than creating a second copy of operational state.
 9. Project health is explicitly confirmed by the user even when the system suggests a value.
+10. Captures are immutable after creation except through triage, and work logs are append-only.
+11. Accepted action items require a linked task; dismissed action items cannot retain one.
+12. Operational timestamps supplied for meetings and work logs must include a timezone.
 
 ## Identifiers and time
 

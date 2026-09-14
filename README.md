@@ -43,6 +43,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
 - [Evening Close](docs/evening-close.md)
+- [Domain validation](docs/domain-validation.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
@@ -88,7 +89,7 @@ Seed data under `data/seed/` is intentionally fictional.
 ## Current status
 
 - Phase 0: complete.
-- Phase 1 / Slice A: core CRUD, filters, migrations, meeting/action-item conversion, and guarded lifecycle transitions are implemented.
+- Phase 1 / Slice A: core CRUD, migrations, relationships, lifecycle rules, and automated domain validation are complete.
 - Phase 1 / Slice B: the manual daily loop from capture and Morning Brief through incremental work
   and Evening Close is implemented.
 - External integrations: documented for later phases; not implemented.

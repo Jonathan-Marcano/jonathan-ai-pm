@@ -40,6 +40,7 @@ class DomainStore:
             raise DomainRuleError("Use move_deliverable_to_review to enforce review evidence")
         self.session.add(entity)
         self._validate_links(entity)
+        self._validate_entity(entity)
         self.session.commit()
         self.session.refresh(entity)
         return entity
@@ -55,6 +56,10 @@ class DomainStore:
 
     def update(self, kind: str, entity_id: str, **changes: Any):
         entity = self._required(kind, entity_id)
+        if isinstance(entity, Capture):
+            raise DomainRuleError("Captures are immutable; use triage_capture")
+        if isinstance(entity, WorkLog):
+            raise DomainRuleError("Work logs are append-only")
         if isinstance(entity, Task) and changes.get("status") == "done":
             raise DomainRuleError("Use complete_task to enforce completion evidence")
         if isinstance(entity, Task) and changes.get("status") == "in_progress":
@@ -66,6 +71,7 @@ class DomainStore:
                 raise DomainRuleError(f"Field cannot be updated: {name}")
             setattr(entity, name, value)
         self._validate_links(entity)
+        self._validate_entity(entity)
         self.session.commit()
         self.session.refresh(entity)
         return entity
@@ -77,12 +83,13 @@ class DomainStore:
 
     def complete_task(self, task_id: str, completion_note: str | None = None) -> Task:
         task = self._required("task", task_id)
+        evidence_note = completion_note.strip() if completion_note else None
         has_work_log = self.session.scalar(
             select(WorkLog.id).where(WorkLog.task_id == task_id).limit(1)
         )
-        if not completion_note and not has_work_log:
+        if not evidence_note and not has_work_log:
             raise DomainRuleError("A completed task requires a completion note or work log")
-        task.completion_note = completion_note or task.completion_note
+        task.completion_note = evidence_note or task.completion_note
         task.status = "done"
         self.session.commit()
         self.session.refresh(task)
@@ -125,10 +132,14 @@ class DomainStore:
         if minutes <= 0:
             raise DomainRuleError("Work-log minutes must be greater than zero")
 
+        session_started_at = started_at or utc_now()
+        if session_started_at.tzinfo is None or session_started_at.utcoffset() is None:
+            raise DomainRuleError("Work-log started_at must include a timezone")
+
         work_log = WorkLog(
             id=f"wlg_{uuid4().hex}",
             task_id=task.id,
-            started_at=started_at or utc_now(),
+            started_at=session_started_at.astimezone(UTC),
             minutes=minutes,
             summary=evidence_summary,
         )
@@ -148,10 +159,14 @@ class DomainStore:
 
     def move_deliverable_to_review(self, deliverable_id: str) -> Deliverable:
         deliverable = self._required("deliverable", deliverable_id)
-        if not deliverable.acceptance_criteria or not deliverable.evidence_url:
+        acceptance_criteria = (deliverable.acceptance_criteria or "").strip()
+        evidence_url = (deliverable.evidence_url or "").strip()
+        if not acceptance_criteria or not evidence_url:
             raise DomainRuleError(
                 "A deliverable in review requires acceptance criteria and an evidence URL"
             )
+        deliverable.acceptance_criteria = acceptance_criteria
+        deliverable.evidence_url = evidence_url
         deliverable.status = "in_review"
         self.session.commit()
         self.session.refresh(deliverable)
@@ -166,6 +181,8 @@ class DomainStore:
         deliverable_id: str | None = None,
     ) -> Task:
         action = self._required("action_item", action_item_id)
+        if action.status != "captured":
+            raise DomainRuleError("Only a captured action item can create a task")
         if action.task_id:
             raise DomainRuleError(f"Action item already links task: {action.task_id}")
 
@@ -195,7 +212,10 @@ class DomainStore:
         return task
 
     def capture(self, text: str) -> Capture:
-        capture = Capture(id=f"cap_{uuid4().hex}", text=text, status="inbox")
+        normalized_text = text.strip()
+        if not normalized_text:
+            raise DomainRuleError("A capture requires non-empty text")
+        capture = Capture(id=f"cap_{uuid4().hex}", text=normalized_text, status="inbox")
         self.session.add(capture)
         self.session.commit()
         self.session.refresh(capture)
@@ -527,6 +547,8 @@ class DomainStore:
             capture.action_item_id = action.id
 
         elif disposition in {"reference", "dismissed"}:
+            if disposition == "dismissed" and not (note or "").strip():
+                raise DomainRuleError("Dismissed triage requires a note")
             if project_id:
                 self._required("project", project_id)
             capture.project_id = project_id
@@ -535,11 +557,24 @@ class DomainStore:
 
         capture.status = "triaged"
         capture.disposition = disposition
-        capture.disposition_note = note
+        capture.disposition_note = note.strip() if note else None
         capture.triaged_at = utc_now()
         self.session.commit()
         self.session.refresh(capture)
         return capture
+
+    @staticmethod
+    def _validate_entity(entity) -> None:
+        if isinstance(entity, Meeting):
+            if entity.starts_at.tzinfo is None or entity.starts_at.utcoffset() is None:
+                raise DomainRuleError("Meeting starts_at must include a timezone")
+            entity.starts_at = entity.starts_at.astimezone(UTC)
+
+        if isinstance(entity, ActionItem):
+            if entity.status == "accepted" and not entity.task_id:
+                raise DomainRuleError("An accepted action item requires a linked task")
+            if entity.status == "dismissed" and entity.task_id:
+                raise DomainRuleError("A dismissed action item cannot retain a linked task")
 
     @staticmethod
     def _apply_filters(statement: Select, model, filters: dict[str, Any]) -> Select:

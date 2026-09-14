@@ -52,8 +52,9 @@ curl -X POST http://127.0.0.1:8000/api/v1/workspaces \
 curl 'http://127.0.0.1:8000/api/v1/tasks?status=ready&priority=high'
 ```
 
-Constraint conflicts return HTTP 409, missing records return HTTP 404, and rejected lifecycle
-transitions return HTTP 422.
+Constraint conflicts return HTTP 409, missing records return HTTP 404, and rejected domain rules
+return HTTP 422. The same rules are enforced below the HTTP layer so service and future ingestion
+channels cannot bypass them. See [Domain validation](domain-validation.md).
 
 The full P1-07 lifecycle and safe evidence guidance are documented in
 [Incremental work](incremental-work.md).
