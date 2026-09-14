@@ -9,6 +9,9 @@ rules are documented in [Morning Brief](morning-brief.md).
 `GET /api/v1/briefs/evening` generates the read-only daily reconciliation. Its sections and
 completion loop are documented in [Evening Close](evening-close.md).
 
+`GET /api/v1/reports/progress` aggregates workload, completion, deliverable state, and logged
+minutes at every hierarchy level. See [Workload and progress summary](progress-summary.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |

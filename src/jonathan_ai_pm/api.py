@@ -33,6 +33,7 @@ from jonathan_ai_pm.schemas import (
     MeetingStatus,
     MeetingUpdate,
     MorningBrief,
+    ProgressSummary,
     ProjectCreate,
     ProjectHealth,
     ProjectRead,
@@ -87,6 +88,24 @@ def evening_close(
         return _store(session).evening_close(
             get_settings().app_timezone,
             close_date=close_date,
+        )
+    except DomainRuleError as exc:
+        raise _domain_http_error(exc) from exc
+
+
+@app.get("/api/v1/reports/progress", response_model=ProgressSummary, tags=["reports"])
+def progress_summary(
+    session: DbSession,
+    as_of: date | None = None,
+    work_from: date | None = None,
+    work_to: date | None = None,
+):
+    try:
+        return _store(session).progress_summary(
+            get_settings().app_timezone,
+            as_of=as_of,
+            work_from=work_from,
+            work_to=work_to,
         )
     except DomainRuleError as exc:
         raise _domain_http_error(exc) from exc

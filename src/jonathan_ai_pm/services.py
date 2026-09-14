@@ -446,6 +446,187 @@ class DomainStore:
             "tomorrow_first_action": tomorrow_first_action,
         }
 
+    def progress_summary(
+        self,
+        timezone_name: str,
+        as_of: date | None = None,
+        work_from: date | None = None,
+        work_to: date | None = None,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        local_timezone, target_date, generated_at = self._daily_context(
+            timezone_name, as_of, now
+        )
+        if work_from and work_to and work_from > work_to:
+            raise DomainRuleError("work_from cannot be after work_to")
+
+        workspaces = self.list("workspace")
+        clients = self.list("client")
+        projects = self.list("project")
+        deliverables = self.list("deliverable")
+        tasks = self.list("task")
+        tasks_by_id = {task.id: task for task in tasks}
+        work_logs = [
+            work_log
+            for work_log in self.list("work_log")
+            if (not work_from or self._local_date(work_log.started_at, local_timezone) >= work_from)
+            and (not work_to or self._local_date(work_log.started_at, local_timezone) <= work_to)
+        ]
+
+        def row(
+            level: str,
+            entity_id: str,
+            parent_id: str | None,
+            name: str,
+            row_tasks: list[Task],
+            row_deliverables: list[Deliverable],
+        ) -> dict[str, Any]:
+            task_ids = {task.id for task in row_tasks}
+            row_logs = [work_log for work_log in work_logs if work_log.task_id in task_ids]
+            return {
+                "level": level,
+                "id": entity_id,
+                "parent_id": parent_id,
+                "name": name,
+                "metrics": self._progress_metrics(
+                    row_tasks, row_deliverables, row_logs, target_date
+                ),
+            }
+
+        workspace_rows = []
+        for workspace in workspaces:
+            client_ids = {
+                client.id for client in clients if client.workspace_id == workspace.id
+            }
+            project_ids = {
+                project.id for project in projects if project.client_id in client_ids
+            }
+            workspace_rows.append(
+                row(
+                    "workspace",
+                    workspace.id,
+                    None,
+                    workspace.name,
+                    [task for task in tasks if task.project_id in project_ids],
+                    [
+                        deliverable
+                        for deliverable in deliverables
+                        if deliverable.project_id in project_ids
+                    ],
+                )
+            )
+
+        client_rows = []
+        for client in clients:
+            project_ids = {
+                project.id for project in projects if project.client_id == client.id
+            }
+            client_rows.append(
+                row(
+                    "client",
+                    client.id,
+                    client.workspace_id,
+                    client.name,
+                    [task for task in tasks if task.project_id in project_ids],
+                    [
+                        deliverable
+                        for deliverable in deliverables
+                        if deliverable.project_id in project_ids
+                    ],
+                )
+            )
+
+        project_rows = [
+            row(
+                "project",
+                project.id,
+                project.client_id,
+                project.name,
+                [task for task in tasks if task.project_id == project.id],
+                [
+                    deliverable
+                    for deliverable in deliverables
+                    if deliverable.project_id == project.id
+                ],
+            )
+            for project in projects
+        ]
+        deliverable_rows = [
+            row(
+                "deliverable",
+                deliverable.id,
+                deliverable.project_id,
+                deliverable.title,
+                [task for task in tasks if task.deliverable_id == deliverable.id],
+                [deliverable],
+            )
+            for deliverable in deliverables
+        ]
+        return {
+            "as_of": target_date,
+            "work_from": work_from,
+            "work_to": work_to,
+            "timezone": timezone_name,
+            "generated_at": generated_at,
+            "totals": self._progress_metrics(tasks, deliverables, work_logs, target_date),
+            "workspaces": workspace_rows,
+            "clients": client_rows,
+            "projects": project_rows,
+            "deliverables": deliverable_rows,
+        }
+
+    @staticmethod
+    def _progress_metrics(
+        tasks: list[Task],
+        deliverables: list[Deliverable],
+        work_logs: list[WorkLog],
+        as_of: date,
+    ) -> dict[str, Any]:
+        task_statuses = ("inbox", "ready", "in_progress", "blocked", "done", "cancelled")
+        deliverable_statuses = (
+            "planned",
+            "in_progress",
+            "in_review",
+            "accepted",
+            "blocked",
+            "cancelled",
+        )
+        task_counts = {status: 0 for status in task_statuses}
+        for task in tasks:
+            task_counts[task.status] += 1
+
+        eligible_tasks = [task for task in tasks if task.status != "cancelled"]
+        open_tasks = [
+            task for task in eligible_tasks if task.status != "done"
+        ]
+        overdue_tasks = [
+            task for task in open_tasks if task.due_at is not None and task.due_at < as_of
+        ]
+        completed_tasks = task_counts["done"]
+        completion_percent = (
+            round(completed_tasks / len(eligible_tasks) * 100, 1) if eligible_tasks else 0.0
+        )
+        task_summary = {
+            "total": len(tasks),
+            "open": len(open_tasks),
+            "overdue": len(overdue_tasks),
+            "completion_percent": completion_percent,
+            **task_counts,
+        }
+
+        deliverable_counts = {status: 0 for status in deliverable_statuses}
+        for deliverable in deliverables:
+            deliverable_counts[deliverable.status] += 1
+        deliverable_summary = {
+            "total": len(deliverables),
+            **deliverable_counts,
+        }
+        return {
+            "tasks": task_summary,
+            "deliverables": deliverable_summary,
+            "logged_minutes": sum(work_log.minutes for work_log in work_logs),
+        }
+
     @staticmethod
     def _daily_context(
         timezone_name: str,

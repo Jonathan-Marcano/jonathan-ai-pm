@@ -17,7 +17,7 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | P1-07 | Must | Record incremental work | **Done** — guarded start/resume, append-only minutes and evidence history, and evidence-backed completion are available through the API |
 | P1-08 | Must | Run Evening Close | **Done** — a dated, timezone-aware reconciliation covers completed work, minutes, captures, actions, unfinished tasks, blockers, touched deliverables/projects, and tomorrow's first action |
 | P1-09 | Must | Validate domain rules | **Done** — the rule matrix covers relationships, lifecycle guards, evidence, immutability, timezones, transactions, and HTTP errors; CI runs on every push and pull request |
-| P1-10 | Should | Summarize workload and progress | Views aggregate tasks and logged time by workspace, client, project, and deliverable |
+| P1-10 | Should | Summarize workload and progress | **Done** — one timezone-aware report aggregates task states, overdue work, completion, deliverable states, and filtered work-log minutes at every hierarchy level |
 | P1-11 | Should | Import/export a portable snapshot | JSON export and validated import support backup and development fixtures |
 | P1-12 | Should | Add basic audit history | Creation, status, assignment, and due-date changes retain actor and timestamp |
 | P1-13 | Should | Protect local data | Secrets excluded, sensitive logs redacted, backup and deletion behavior documented |
@@ -42,6 +42,9 @@ now complete; workload and progress summaries continue in P1-10.
 ### Slice C — Measurement and resilience
 
 P1-10 through P1-13, automated tests, backups, and operational documentation.
+
+Current increment: P1-10 is complete with dashboard-ready rollups for every hierarchy level.
+Portable snapshots in P1-11 are next.
 
 ## Definition of done
 

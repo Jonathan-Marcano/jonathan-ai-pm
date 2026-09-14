@@ -309,3 +309,56 @@ class EveningClose(ResponseModel):
     touched_deliverables: list[DeliverableRead]
     projects_to_review: list[ProjectRead]
     tomorrow_first_action: TaskRead | None
+
+
+ProgressLevel = Literal["workspace", "client", "project", "deliverable"]
+
+
+class TaskProgressCounts(StrictModel):
+    total: int
+    open: int
+    overdue: int
+    completion_percent: float
+    inbox: int
+    ready: int
+    in_progress: int
+    blocked: int
+    done: int
+    cancelled: int
+
+
+class DeliverableProgressCounts(StrictModel):
+    total: int
+    planned: int
+    in_progress: int
+    in_review: int
+    accepted: int
+    blocked: int
+    cancelled: int
+
+
+class ProgressMetrics(StrictModel):
+    tasks: TaskProgressCounts
+    deliverables: DeliverableProgressCounts
+    logged_minutes: int
+
+
+class ProgressRow(StrictModel):
+    level: ProgressLevel
+    id: EntityId
+    parent_id: EntityId | None = None
+    name: str
+    metrics: ProgressMetrics
+
+
+class ProgressSummary(StrictModel):
+    as_of: date
+    work_from: date | None
+    work_to: date | None
+    timezone: str
+    generated_at: datetime
+    totals: ProgressMetrics
+    workspaces: list[ProgressRow]
+    clients: list[ProgressRow]
+    projects: list[ProgressRow]
+    deliverables: list[ProgressRow]
