@@ -52,6 +52,11 @@ from jonathan_ai_pm.schemas import (
     TaskRead,
     TaskStatus,
     TaskUpdate,
+    TranslatableEntityKind,
+    TranslationCreate,
+    TranslationField,
+    TranslationRead,
+    TranslationUpdate,
     WorkLogCreate,
     WorkLogRead,
     WorkspaceCreate,
@@ -617,3 +622,57 @@ def triage_capture(entity_id: EntityId, payload: CaptureTriage, session: DbSessi
     except IntegrityError as exc:
         session.rollback()
         raise HTTPException(status_code=409, detail="Record or relationship conflict") from exc
+
+
+@app.post(
+    "/api/v1/translations",
+    response_model=TranslationRead,
+    status_code=201,
+    tags=["translations"],
+)
+def create_translation(payload: TranslationCreate, session: DbSession):
+    return _create(session, "translation", payload)
+
+
+@app.get("/api/v1/translations", response_model=list[TranslationRead], tags=["translations"])
+def list_translations(
+    session: DbSession,
+    entity_kind: TranslatableEntityKind | None = None,
+    entity_id: EntityId | None = None,
+    field_name: TranslationField | None = None,
+    language: str | None = None,
+):
+    return _store(session).list(
+        "translation",
+        entity_kind=entity_kind,
+        entity_id=entity_id,
+        field_name=field_name,
+        language=language,
+    )
+
+
+@app.get(
+    "/api/v1/translations/{entity_id}",
+    response_model=TranslationRead,
+    tags=["translations"],
+)
+def get_translation(entity_id: EntityId, session: DbSession):
+    return _get(session, "translation", entity_id)
+
+
+@app.patch(
+    "/api/v1/translations/{entity_id}",
+    response_model=TranslationRead,
+    tags=["translations"],
+)
+def update_translation(
+    entity_id: EntityId,
+    payload: TranslationUpdate,
+    session: DbSession,
+):
+    return _update(session, "translation", entity_id, payload)
+
+
+@app.delete("/api/v1/translations/{entity_id}", status_code=204, tags=["translations"])
+def delete_translation(entity_id: EntityId, session: DbSession):
+    return _delete(session, "translation", entity_id)
