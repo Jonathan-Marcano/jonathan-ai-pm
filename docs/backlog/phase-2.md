@@ -11,7 +11,7 @@ and never create external changes.
 | ID | Priority | Story | Acceptance summary |
 |---|---:|---|---|
 | P2-01 | Must | Establish integration contracts and sync policy | **Done** — provider-neutral, read-only calendar and document contracts enforce stable source keys, timezone-aware UTC values, minimal metadata, and explicit no-write capabilities |
-| P2-02 | Must | Persist external identities and synchronization runs | Meetings and artifacts retain provider IDs, sync timestamps, outcome counts, and auditable errors without storing credentials |
+| P2-02 | Must | Persist external identities and synchronization runs | **Done** — meetings and deliverables retain stable provider identities while sync runs store bounded windows, outcome counts, lifecycle state, and redacted errors without credentials |
 | P2-03 | Must | Synchronize Microsoft 365 calendars read-only | Configured work calendars import bounded event windows with least-privilege Microsoft Graph permissions |
 | P2-04 | Must | Reconcile calendar events idempotently | Repeated syncs update one meeting, avoid duplicates, and treat external cancellations or removals according to documented rules |
 | P2-05 | Must | Associate imported meetings with projects | Unmatched events enter a review queue; user-confirmed mappings can be reused without guessing from confidential text |
@@ -30,7 +30,7 @@ and never create external changes.
 P2-01 through P2-05: contracts, persistence, Microsoft 365 read-only import, deduplication, and
 project association.
 
-Current increment: P2-01 is complete. P2-02 is next.
+Current increment: P2-01 and P2-02 are complete. P2-03 is next.
 
 ### Slice B — Shared document context
 

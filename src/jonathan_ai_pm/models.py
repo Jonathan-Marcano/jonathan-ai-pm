@@ -200,6 +200,77 @@ class AuditEvent(Base):
     changes: Mapped[dict] = mapped_column(JSON)
 
 
+class ExternalIdentity(TimestampMixin, Base):
+    __tablename__ = "external_identities"
+    __table_args__ = (
+        CheckConstraint("entity_kind IN ('meeting','deliverable')"),
+        UniqueConstraint(
+            "source_system",
+            "external_scope",
+            "external_id",
+            name="uq_external_identity_source_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    entity_kind: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str] = mapped_column(String(80), index=True)
+    source_system: Mapped[str] = mapped_column(String(80), index=True)
+    external_scope: Mapped[str] = mapped_column(String(240), default="")
+    external_id: Mapped[str] = mapped_column(String(500))
+    external_version: Mapped[str | None] = mapped_column(String(500))
+    web_url: Mapped[str | None] = mapped_column(String(1000))
+    external_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class SyncRun(Base):
+    __tablename__ = "sync_runs"
+    __table_args__ = (
+        CheckConstraint("resource_kind IN ('calendar','document')"),
+        CheckConstraint("status IN ('running','succeeded','partial','failed')"),
+        CheckConstraint(
+            "seen_count >= 0 AND created_count >= 0 AND updated_count >= 0 "
+            "AND unchanged_count >= 0 AND skipped_count >= 0 AND error_count >= 0"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    source_system: Mapped[str] = mapped_column(String(80), index=True)
+    resource_kind: Mapped[str] = mapped_column(String(20), index=True)
+    external_scope: Mapped[str | None] = mapped_column(String(240))
+    status: Mapped[str] = mapped_column(String(20), default="running", index=True)
+    window_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    window_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    seen_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_count: Mapped[int] = mapped_column(Integer, default=0)
+    unchanged_count: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SyncRunError(Base):
+    __tablename__ = "sync_run_errors"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    sync_run_id: Mapped[str] = mapped_column(
+        ForeignKey("sync_runs.id", ondelete="CASCADE"), index=True
+    )
+    external_identity_id: Mapped[str | None] = mapped_column(
+        ForeignKey("external_identities.id", ondelete="SET NULL"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(100))
+    message: Mapped[str] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )
+
+
 MODEL_BY_KIND = {
     "workspace": Workspace,
     "client": Client,

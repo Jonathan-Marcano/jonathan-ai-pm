@@ -39,7 +39,10 @@ Ports/adapters
 
 - Domain logic must not depend directly on a vendor API.
 - Integration code must use adapters behind stable application interfaces.
-- External records retain `source_system` and `external_id` for idempotent synchronization.
+- External identities are stored separately and retain `source_system`, provider scope,
+  `external_id`, version metadata, and `last_synced_at` for idempotent synchronization.
+- Every synchronization has a durable run record with bounded windows, outcome totals, and
+  separately queryable redacted errors; credentials and provider payload bodies are excluded.
 - A link to a Drive artifact is preferred over copying sensitive document content into the operational database.
 - Automated extraction creates a proposed record; user confirmation changes it to an accepted commitment.
 - All timestamps are stored in UTC and rendered using `APP_TIMEZONE`.

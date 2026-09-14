@@ -41,6 +41,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Phase 1 backlog](docs/backlog/phase-1.md)
 - [Phase 2 backlog](docs/backlog/phase-2.md)
 - [Phase 2 integration contracts](docs/phase-2-integration-contracts.md)
+- [Phase 2 integration state](docs/phase-2-integration-state.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
@@ -103,8 +104,8 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
   protection, and manual translations are implemented.
 - Phase 1: complete.
-- Phase 2: in progress; P2-01 integration contracts and read-only boundary are complete.
-- Live external connections: not enabled. P2-02 persistence is next.
+- Phase 2: in progress; P2-01 contracts and P2-02 integration-state persistence are complete.
+- Live external connections: not enabled. P2-03 Microsoft 365 calendar import is next.
 
 ## Working agreements
 

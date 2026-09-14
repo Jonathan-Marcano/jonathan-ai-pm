@@ -10,6 +10,7 @@ from jonathan_ai_pm.integrations.contracts import (
     ReadOnlyCalendarAdapter,
     ReadOnlyDocumentAdapter,
 )
+from jonathan_ai_pm.integrations.persistence import IntegrationStateError, IntegrationStateStore
 
 __all__ = [
     "READ_ONLY_CAPABILITIES",
@@ -20,4 +21,6 @@ __all__ = [
     "IntegrationContractError",
     "ReadOnlyCalendarAdapter",
     "ReadOnlyDocumentAdapter",
+    "IntegrationStateError",
+    "IntegrationStateStore",
 ]

@@ -11,6 +11,9 @@ Action Item 0..1 ── 1 Deliverable
 Task 1 ── * Work Log
 Capture 1 ── 0..1 Task / Action Item / Project reference
 Project / Deliverable / Task / Meeting / Action Item / Capture 1 ── * Translation
+Meeting / Deliverable 1 ── * External Identity
+Sync Run 1 ── * Sync Run Error
+External Identity 0..1 ── * Sync Run Error
 ```
 
 An action item may create a new task or link to an existing task. It may also point to the deliverable it advances. It must not remain open without one of these dispositions after triage.
@@ -30,6 +33,9 @@ An action item may create a new task or link to an existing task. It may also po
 | Capture | Frictionless raw input awaiting triage | `id`, `text`, `status`, `captured_at` |
 | Translation | Optional manual display translation that preserves its source | `id`, `entity_kind`, `entity_id`, `field_name`, `language`, `translated_text` |
 | Audit Event | Immutable record of a committed domain change | `id`, `entity_kind`, `entity_id`, `action`, `actor`, `occurred_at`, `changes` |
+| External Identity | Stable mapping from one provider resource to a meeting or deliverable | `id`, `entity_kind`, `entity_id`, `source_system`, `external_scope`, `external_id`, `last_synced_at` |
+| Sync Run | Auditable lifecycle and outcome totals for one bounded provider synchronization | `id`, `source_system`, `resource_kind`, `status`, `started_at`, outcome counts |
+| Sync Run Error | Redacted failure evidence associated with a synchronization | `id`, `sync_run_id`, `code`, `message`, `occurred_at` |
 
 ## Key references
 
@@ -40,7 +46,11 @@ An action item may create a new task or link to an existing task. It may also po
 - `deliverable.drive_url` is optional and links the shared artifact without duplicating its contents.
 - `capture.task_id` or `capture.action_item_id` records the object created during triage.
 - `capture.disposition`, `triaged_at`, and `disposition_note` preserve the triage decision.
-- All externally synchronized entities may carry `source_system`, `external_id`, and `last_synced_at`.
+- External identity is separate from operational records and is unique by `source_system`,
+  `external_scope`, and `external_id`. The scope is a calendar ID for events and empty for Drive
+  files.
+- Sync runs retain time windows and aggregate seen, created, updated, unchanged, skipped, and error
+  counts. Individual error messages are redacted before persistence.
 - A translation targets only the canonical display field: project `name`; deliverable, task,
   meeting, or action-item `title`; or capture `text`.
 - The original display value is never replaced. A target field can have one translation per
