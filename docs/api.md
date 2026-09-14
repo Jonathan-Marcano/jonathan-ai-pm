@@ -17,6 +17,10 @@ minutes at every hierarchy level. See [Workload and progress summary](progress-s
 `GET /api/v1/audit-events` exposes immutable change history. See
 [Snapshots and audit history](snapshots-and-audit.md).
 
+Manual translations are managed through `/api/v1/translations`. Each translation targets one
+supported display field while the source record remains unchanged. See
+[Manual translations](translations.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |
@@ -30,6 +34,7 @@ minutes at every hierarchy level. See [Workload and progress summary](progress-s
 | Meetings | Yes | `project_id`, `status`, `starts_from`, `starts_to` | Yes | Yes | Yes |
 | Action items | Yes | `meeting_id`, `status` | Yes | Yes | Yes |
 | Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
+| Translations | Yes | `entity_kind`, `entity_id`, `field_name`, `language` | Yes | Text only | Yes |
 | Audit events | Automatic | `entity_kind`, `entity_id`, `actor` | Through list | Immutable | Preserved |
 
 ## Protected transitions

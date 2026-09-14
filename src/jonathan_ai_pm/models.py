@@ -1,6 +1,16 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -152,6 +162,29 @@ class Capture(TimestampMixin, Base):
     triaged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Translation(TimestampMixin, Base):
+    __tablename__ = "translations"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_kind IN ('project','deliverable','task','meeting','action_item','capture')"
+        ),
+        UniqueConstraint(
+            "entity_kind",
+            "entity_id",
+            "field_name",
+            "language",
+            name="uq_translation_target_field_language",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    entity_kind: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str] = mapped_column(String(80), index=True)
+    field_name: Mapped[str] = mapped_column(String(40))
+    language: Mapped[str] = mapped_column(String(20), index=True)
+    translated_text: Mapped[str] = mapped_column(Text)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     __table_args__ = (CheckConstraint("action IN ('create','update','delete')"),)
@@ -177,4 +210,5 @@ MODEL_BY_KIND = {
     "action_item": ActionItem,
     "work_log": WorkLog,
     "capture": Capture,
+    "translation": Translation,
 }

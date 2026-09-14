@@ -230,3 +230,9 @@ data/private/
 # OS files
 .DS_Store
 Thumbs.db
+
+
+# Portable snapshots and local backups may contain confidential data
+backups/
+*.snapshot.json
+*.backup.json

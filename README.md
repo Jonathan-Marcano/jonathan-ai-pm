@@ -46,6 +46,8 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Domain validation](docs/domain-validation.md)
 - [Workload and progress summary](docs/progress-summary.md)
 - [Snapshots and audit history](docs/snapshots-and-audit.md)
+- [Local data protection](docs/local-data-protection.md)
+- [Manual translations](docs/translations.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
@@ -74,6 +76,7 @@ cp .env.example .env
 uv sync --extra dev
 uv run alembic upgrade head
 uv run jonathan-ai-pm seed-demo
+uv run jonathan-ai-pm backup
 uv run uvicorn jonathan_ai_pm.api:app --reload
 ```
 
@@ -94,8 +97,9 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice A: core CRUD, migrations, relationships, lifecycle rules, and automated domain validation are complete.
 - Phase 1 / Slice B: the manual daily loop from capture and Morning Brief through incremental work
   and Evening Close is implemented.
-- Phase 1 / Slice C: workload summaries, portable snapshots, and audit history are implemented;
-  local-data protection remains.
+- Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
+  protection, and manual translations are implemented.
+- Phase 1: complete.
 - External integrations: documented for later phases; not implemented.
 
 ## Working agreements

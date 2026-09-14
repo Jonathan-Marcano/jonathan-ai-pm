@@ -17,6 +17,7 @@ from jonathan_ai_pm.models import (
     Meeting,
     Project,
     Task,
+    Translation,
     WorkLog,
     utc_now,
 )
@@ -79,6 +80,17 @@ class DomainStore:
 
     def delete(self, kind: str, entity_id: str) -> None:
         entity = self._required(kind, entity_id)
+        if not isinstance(entity, Translation):
+            translation_id = self.session.scalar(
+                select(Translation.id)
+                .where(
+                    Translation.entity_kind == kind,
+                    Translation.entity_id == entity_id,
+                )
+                .limit(1)
+            )
+            if translation_id:
+                raise DomainRuleError("Delete record translations before deleting the source")
         self.session.delete(entity)
         self.session.commit()
 
@@ -746,6 +758,12 @@ class DomainStore:
 
     @staticmethod
     def _validate_entity(entity) -> None:
+        if isinstance(entity, Translation):
+            entity.language = entity.language.strip()
+            entity.translated_text = entity.translated_text.strip()
+            if not entity.translated_text:
+                raise DomainRuleError("A translation requires non-empty text")
+
         if isinstance(entity, Meeting):
             if entity.starts_at.tzinfo is None or entity.starts_at.utcoffset() is None:
                 raise DomainRuleError("Meeting starts_at must include a timezone")
@@ -788,6 +806,21 @@ class DomainStore:
         return entity
 
     def _validate_links(self, entity) -> None:
+        if isinstance(entity, Translation):
+            allowed_fields = {
+                "project": "name",
+                "deliverable": "title",
+                "task": "title",
+                "meeting": "title",
+                "action_item": "title",
+                "capture": "text",
+            }
+            if entity.entity_kind not in allowed_fields:
+                raise DomainRuleError("Entity kind does not support translations")
+            self._required(entity.entity_kind, entity.entity_id)
+            if entity.field_name != allowed_fields[entity.entity_kind]:
+                raise DomainRuleError("Translation field does not match the source entity")
+
         if isinstance(entity, Task) and entity.deliverable_id:
             deliverable = self._required("deliverable", entity.deliverable_id)
             if deliverable.project_id != entity.project_id:

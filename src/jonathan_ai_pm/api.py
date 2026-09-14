@@ -200,7 +200,7 @@ def _delete(session: Session, kind: str, entity_id: str) -> Response:
     try:
         _store(session).delete(kind, entity_id)
     except DomainRuleError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise _domain_http_error(exc) from exc
     except IntegrityError as exc:
         session.rollback()
         raise HTTPException(status_code=409, detail="Record is still referenced") from exc

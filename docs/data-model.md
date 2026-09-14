@@ -10,6 +10,7 @@ Action Item 0..1 ── 1 Task
 Action Item 0..1 ── 1 Deliverable
 Task 1 ── * Work Log
 Capture 1 ── 0..1 Task / Action Item / Project reference
+Project / Deliverable / Task / Meeting / Action Item / Capture 1 ── * Translation
 ```
 
 An action item may create a new task or link to an existing task. It may also point to the deliverable it advances. It must not remain open without one of these dispositions after triage.
@@ -27,6 +28,8 @@ An action item may create a new task or link to an existing task. It may also po
 | Action Item | Commitment or follow-up captured from a meeting | `id`, `meeting_id`, `title`, `status`, `owner` |
 | Work Log | Measured effort and progress evidence | `id`, `task_id`, `started_at`, `minutes`, `summary` |
 | Capture | Frictionless raw input awaiting triage | `id`, `text`, `status`, `captured_at` |
+| Translation | Optional manual display translation that preserves its source | `id`, `entity_kind`, `entity_id`, `field_name`, `language`, `translated_text` |
+| Audit Event | Immutable record of a committed domain change | `id`, `entity_kind`, `entity_id`, `action`, `actor`, `occurred_at`, `changes` |
 
 ## Key references
 
@@ -38,6 +41,10 @@ An action item may create a new task or link to an existing task. It may also po
 - `capture.task_id` or `capture.action_item_id` records the object created during triage.
 - `capture.disposition`, `triaged_at`, and `disposition_note` preserve the triage decision.
 - All externally synchronized entities may carry `source_system`, `external_id`, and `last_synced_at`.
+- A translation targets only the canonical display field: project `name`; deliverable, task,
+  meeting, or action-item `title`; or capture `text`.
+- The original display value is never replaced. A target field can have one translation per
+  language, using a BCP 47-style language code such as `en` or `pt-BR`.
 
 ## Status vocabularies
 

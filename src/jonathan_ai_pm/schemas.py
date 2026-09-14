@@ -19,6 +19,14 @@ MeetingStatus = Literal["scheduled", "completed", "cancelled"]
 ActionItemStatus = Literal["captured", "accepted", "done", "dismissed"]
 CaptureStatus = Literal["inbox", "triaged"]
 CaptureDisposition = Literal["task", "action", "reference", "dismissed"]
+TranslatableEntityKind = Literal[
+    "project", "deliverable", "task", "meeting", "action_item", "capture"
+]
+TranslationField = Literal["name", "title", "text"]
+LanguageCode = Annotated[
+    str,
+    Field(min_length=2, max_length=20, pattern=r"^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"),
+]
 EntityKind = Literal[
     "workspace",
     "client",
@@ -29,8 +37,10 @@ EntityKind = Literal[
     "action_item",
     "work_log",
     "capture",
+    "translation",
 ]
 AuditAction = Literal["create", "update", "delete"]
+SnapshotVersion = Literal["1.0", "1.1"]
 
 
 class StrictModel(BaseModel):
@@ -266,6 +276,23 @@ class CaptureTriage(StrictModel):
         return self
 
 
+class TranslationCreate(StrictModel):
+    id: EntityId
+    entity_kind: TranslatableEntityKind
+    entity_id: EntityId
+    field_name: TranslationField
+    language: LanguageCode
+    translated_text: Annotated[str, Field(min_length=1, max_length=10000)]
+
+
+class TranslationUpdate(StrictModel):
+    translated_text: Annotated[str, Field(min_length=1, max_length=10000)]
+
+
+class TranslationRead(Timestamps, TranslationCreate):
+    pass
+
+
 class MorningBriefCounts(StrictModel):
     meetings: int
     overdue_tasks: int
@@ -396,6 +423,7 @@ class SnapshotEntities(StrictModel):
     action_items: list[ActionItemRead]
     work_logs: list[WorkLogRead]
     captures: list[CaptureRead]
+    translations: list[TranslationRead] = Field(default_factory=list)
     audit_events: list[AuditEventRead]
 
     @model_validator(mode="after")
@@ -410,6 +438,7 @@ class SnapshotEntities(StrictModel):
             self.action_items,
             self.work_logs,
             self.captures,
+            self.translations,
             self.audit_events,
         )
         for records in collections:
@@ -493,11 +522,43 @@ class SnapshotEntities(StrictModel):
             if capture.status == "triaged" and not (capture.disposition and capture.triaged_at):
                 raise ValueError("Snapshot triaged capture requires disposition and timestamp")
 
+        targets = {
+            "project": projects,
+            "deliverable": deliverables,
+            "task": tasks,
+            "meeting": meetings,
+            "action_item": actions,
+            "capture": {record.id: record for record in self.captures},
+        }
+        expected_fields = {
+            "project": "name",
+            "deliverable": "title",
+            "task": "title",
+            "meeting": "title",
+            "action_item": "title",
+            "capture": "text",
+        }
+        translation_keys = set()
+        for translation in self.translations:
+            if translation.entity_id not in targets[translation.entity_kind]:
+                raise ValueError("Snapshot translation references an unknown entity")
+            if translation.field_name != expected_fields[translation.entity_kind]:
+                raise ValueError("Snapshot translation uses an invalid display field")
+            key = (
+                translation.entity_kind,
+                translation.entity_id,
+                translation.field_name,
+                translation.language,
+            )
+            if key in translation_keys:
+                raise ValueError("Snapshot contains a duplicate translation")
+            translation_keys.add(key)
+
         return self
 
 
 class SnapshotDocument(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: SnapshotVersion
     exported_at: datetime
     entities: SnapshotEntities
 
@@ -512,9 +573,10 @@ class SnapshotCounts(StrictModel):
     action_items: int
     work_logs: int
     captures: int
+    translations: int = 0
     audit_events: int
 
 
 class SnapshotImportResult(StrictModel):
-    schema_version: Literal["1.0"]
+    schema_version: SnapshotVersion
     imported: SnapshotCounts

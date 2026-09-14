@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from jonathan_ai_pm.config import get_settings
+from jonathan_ai_pm.security import prepare_private_file
 
 
 def build_engine(database_url: str | None = None) -> Engine:
     url = database_url or get_settings().database_url
     if url.startswith("sqlite:///") and url != "sqlite:///:memory:":
-        Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
+        prepare_private_file(Path(url.removeprefix("sqlite:///")))
 
     engine_options = {}
     if url.startswith("sqlite"):

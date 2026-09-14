@@ -13,6 +13,8 @@ Status: complete when repository and Drive publication are verified.
 
 ## Phase 1 — Manual-first MVP
 
+Status: complete.
+
 - Implement persistence and domain validation.
 - Provide manual CRUD for the core hierarchy.
 - Implement inbox capture and action-item triage.

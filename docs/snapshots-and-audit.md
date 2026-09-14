@@ -6,8 +6,8 @@ P1-11 and P1-12 provide a safe local backup boundary and traceable domain change
 
 `GET /api/v1/snapshots/export` returns one JSON document with:
 
-- `schema_version: "1.0"` and an export timestamp;
-- every workspace, client, project, deliverable, task, meeting, action item, work log, and capture;
+- `schema_version: "1.1"` and an export timestamp;
+- every workspace, client, project, deliverable, task, meeting, action item, work log, capture, and manual translation;
 - the immutable audit history;
 - original record IDs and creation/update timestamps.
 
@@ -17,7 +17,8 @@ relationships. Import is transactional and only accepts an empty datastore. It n
 overwrites local records.
 
 Snapshots may contain confidential work data. Store them outside the repository and do not use
-production snapshots as fixtures.
+production snapshots as fixtures. Import accepts legacy `1.0` snapshots with no translations;
+new exports use `1.1`.
 
 ## Audit history
 
