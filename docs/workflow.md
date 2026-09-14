@@ -37,6 +37,11 @@ Large documents are decomposed into small tasks such as gathering inputs, drafti
 
 Progress is measured by acceptance criteria completed, task flow, and focused time—not by document percentage alone.
 
+The implemented manual flow starts or resumes a task, appends one work log per focused session,
+and completes the task only after evidence exists. Starting work activates a planned project and
+moves a linked planned deliverable to `in_progress`; review and acceptance remain explicit. See
+[Incremental work](incremental-work.md) for endpoints and lifecycle rules.
+
 ## 4. Evening Close
 
 The close reviews:

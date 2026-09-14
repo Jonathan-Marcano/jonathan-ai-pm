@@ -41,6 +41,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Phase 1 backlog](docs/backlog/phase-1.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
+- [Incremental work](docs/incremental-work.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
@@ -87,8 +88,8 @@ Seed data under `data/seed/` is intentionally fictional.
 
 - Phase 0: complete.
 - Phase 1 / Slice A: core CRUD, filters, migrations, meeting/action-item conversion, and guarded lifecycle transitions are implemented.
-- Phase 1 / Slice B: capture, triage, and Morning Brief are implemented; incremental work and
-  Evening Close remain.
+- Phase 1 / Slice B: capture, triage, Morning Brief, and incremental work are implemented;
+  Evening Close remains.
 - External integrations: documented for later phases; not implemented.
 
 ## Working agreements

@@ -15,6 +15,7 @@ rules are documented in [Morning Brief](morning-brief.md).
 | Projects | Yes | `client_id`, `status`, `health` | Yes | Yes | Yes |
 | Deliverables | Yes | `project_id`, `status`, `due_from`, `due_to` | Yes | Yes | Yes |
 | Tasks | Yes | `project_id`, `deliverable_id`, `status`, `priority`, dates | Yes | Yes | Yes |
+| Task work logs | Through task | Chronological by task | Yes | Append only | Preserved |
 | Meetings | Yes | `project_id`, `status`, `starts_from`, `starts_to` | Yes | Yes | Yes |
 | Action items | Yes | `meeting_id`, `status` | Yes | Yes | Yes |
 | Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
@@ -22,6 +23,11 @@ rules are documented in [Morning Brief](morning-brief.md).
 ## Protected transitions
 
 - `POST /api/v1/tasks/{id}/complete` requires a completion note or an existing work log.
+- `POST /api/v1/tasks/{id}/start` starts a `ready` task or resumes a `blocked` task. It also marks
+  its planned project active and its linked planned deliverable in progress.
+- `POST /api/v1/tasks/{id}/work-logs` accepts positive `minutes`, a non-empty evidence `summary`,
+  and an optional `started_at`. The task must be in progress.
+- `GET /api/v1/tasks/{id}/work-logs` returns that task's evidence history chronologically.
 - `POST /api/v1/deliverables/{id}/review` requires acceptance criteria and an evidence URL.
 - `POST /api/v1/action-items/{id}/task` creates one ready task in the meeting's project and links
   it to the source action item.
@@ -45,3 +51,6 @@ curl 'http://127.0.0.1:8000/api/v1/tasks?status=ready&priority=high'
 
 Constraint conflicts return HTTP 409, missing records return HTTP 404, and rejected lifecycle
 transitions return HTTP 422.
+
+The full P1-07 lifecycle and safe evidence guidance are documented in
+[Incremental work](incremental-work.md).

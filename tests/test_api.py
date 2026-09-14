@@ -107,6 +107,70 @@ def test_guarded_transitions(api_client) -> None:
     assert reviewed.json()["status"] == "in_review"
 
 
+def test_incremental_work_flow(api_client) -> None:
+    create_core_hierarchy(api_client)
+    api_client.post(
+        "/api/v1/deliverables",
+        json={
+            "id": "del_demo",
+            "project_id": "prj_demo",
+            "title": "Demo plan",
+            "due_at": "2026-09-18",
+        },
+    )
+    api_client.post(
+        "/api/v1/tasks",
+        json={
+            "id": "tsk_demo",
+            "project_id": "prj_demo",
+            "deliverable_id": "del_demo",
+            "title": "Write plan",
+            "status": "ready",
+        },
+    )
+
+    assert (
+        api_client.patch("/api/v1/tasks/tsk_demo", json={"status": "in_progress"}).status_code
+        == 422
+    )
+    started = api_client.post("/api/v1/tasks/tsk_demo/start")
+    assert started.status_code == 200
+    assert started.json()["status"] == "in_progress"
+
+    logged = api_client.post(
+        "/api/v1/tasks/tsk_demo/work-logs",
+        json={
+            "started_at": "2026-09-14T14:00:00Z",
+            "minutes": 30,
+            "summary": "Drafted and locally reviewed the plan section.",
+        },
+    )
+    assert logged.status_code == 201
+    assert logged.json()["task_id"] == "tsk_demo"
+    assert logged.json()["minutes"] == 30
+    assert logged.json()["id"].startswith("wlg_")
+
+    history = api_client.get("/api/v1/tasks/tsk_demo/work-logs")
+    assert history.status_code == 200
+    assert [item["id"] for item in history.json()] == [logged.json()["id"]]
+    assert api_client.post("/api/v1/tasks/tsk_demo/complete", json={}).status_code == 200
+    assert api_client.get("/api/v1/projects/prj_demo").json()["status"] == "active"
+    assert api_client.get("/api/v1/deliverables/del_demo").json()["status"] == "in_progress"
+
+
+def test_work_log_rejects_task_that_has_not_started(api_client) -> None:
+    create_core_hierarchy(api_client)
+    api_client.post(
+        "/api/v1/tasks",
+        json={"id": "tsk_demo", "project_id": "prj_demo", "title": "Write plan"},
+    )
+    response = api_client.post(
+        "/api/v1/tasks/tsk_demo/work-logs",
+        json={"minutes": 10, "summary": "Drafted notes."},
+    )
+    assert response.status_code == 422
+
+
 def test_action_item_becomes_one_task(api_client) -> None:
     create_core_hierarchy(api_client)
     api_client.post(

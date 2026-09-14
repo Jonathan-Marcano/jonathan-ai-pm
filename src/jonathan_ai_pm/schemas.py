@@ -141,6 +141,20 @@ class TaskComplete(StrictModel):
     completion_note: Annotated[str, Field(min_length=1)] | None = None
 
 
+class WorkLogCreate(StrictModel):
+    started_at: datetime | None = None
+    minutes: Annotated[int, Field(ge=1)]
+    summary: Annotated[str, Field(min_length=1, max_length=5000)]
+
+
+class WorkLogRead(Timestamps):
+    id: EntityId
+    task_id: EntityId
+    started_at: datetime
+    minutes: int
+    summary: str
+
+
 class MeetingCreate(StrictModel):
     id: EntityId
     project_id: EntityId

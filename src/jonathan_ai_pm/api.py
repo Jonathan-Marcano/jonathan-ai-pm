@@ -44,6 +44,8 @@ from jonathan_ai_pm.schemas import (
     TaskRead,
     TaskStatus,
     TaskUpdate,
+    WorkLogCreate,
+    WorkLogRead,
     WorkspaceCreate,
     WorkspaceRead,
     WorkspaceUpdate,
@@ -317,7 +319,52 @@ def get_task(entity_id: str, session: DbSession):
 def update_task(entity_id: str, payload: TaskUpdate, session: DbSession):
     if payload.status == "done":
         raise HTTPException(status_code=422, detail="Use the task completion endpoint")
+    if payload.status == "in_progress":
+        raise HTTPException(status_code=422, detail="Use the task start endpoint")
     return _update(session, "task", entity_id, payload)
+
+
+@app.post("/api/v1/tasks/{entity_id}/start", response_model=TaskRead, tags=["tasks"])
+def start_task(entity_id: str, session: DbSession):
+    try:
+        return _store(session).start_task(entity_id)
+    except DomainRuleError as exc:
+        session.rollback()
+        raise _domain_http_error(exc) from exc
+
+
+@app.post(
+    "/api/v1/tasks/{entity_id}/work-logs",
+    response_model=WorkLogRead,
+    status_code=201,
+    tags=["tasks"],
+)
+def add_task_work_log(entity_id: str, payload: WorkLogCreate, session: DbSession):
+    try:
+        return _store(session).add_work_log(
+            entity_id,
+            minutes=payload.minutes,
+            summary=payload.summary,
+            started_at=payload.started_at,
+        )
+    except DomainRuleError as exc:
+        session.rollback()
+        raise _domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Work-log conflict") from exc
+
+
+@app.get(
+    "/api/v1/tasks/{entity_id}/work-logs",
+    response_model=list[WorkLogRead],
+    tags=["tasks"],
+)
+def list_task_work_logs(entity_id: str, session: DbSession):
+    try:
+        return _store(session).list_task_work_logs(entity_id)
+    except DomainRuleError as exc:
+        raise _domain_http_error(exc) from exc
 
 
 @app.post("/api/v1/tasks/{entity_id}/complete", response_model=TaskRead, tags=["tasks"])

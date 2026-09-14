@@ -113,6 +113,50 @@ def test_task_completion_requires_evidence(session) -> None:
     assert store.complete_task("tsk_demo", completion_note="Reviewed locally").status == "done"
 
 
+def test_incremental_work_starts_task_and_tracks_evidence(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    store.update("task", "tsk_demo", status="ready")
+
+    task = store.start_task("tsk_demo")
+    assert task.status == "in_progress"
+    assert store.get("project", "prj_demo").status == "active"
+    assert store.get("deliverable", "del_demo").status == "in_progress"
+
+    first = store.add_work_log(
+        "tsk_demo",
+        minutes=25,
+        summary="  Drafted the validation section.  ",
+        started_at=datetime(2026, 9, 14, 14, 0, tzinfo=UTC),
+    )
+    second = store.add_work_log(
+        "tsk_demo",
+        minutes=15,
+        summary="Reviewed the draft.",
+        started_at=datetime(2026, 9, 14, 15, 0, tzinfo=UTC),
+    )
+    assert first.summary == "Drafted the validation section."
+    assert [log.id for log in store.list_task_work_logs("tsk_demo")] == [first.id, second.id]
+    assert store.complete_task("tsk_demo").status == "done"
+
+
+def test_work_log_requires_started_task(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    with pytest.raises(DomainRuleError, match="in-progress"):
+        store.add_work_log("tsk_demo", minutes=10, summary="Drafted notes")
+
+
+def test_task_start_uses_guarded_lifecycle(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    with pytest.raises(DomainRuleError, match="ready or blocked"):
+        store.start_task("tsk_demo")
+    store.update("task", "tsk_demo", status="ready")
+    assert store.start_task("tsk_demo").status == "in_progress"
+    assert store.start_task("tsk_demo").status == "in_progress"
+
+
 def test_generic_updates_cannot_bypass_guarded_transitions(session) -> None:
     store = DomainStore(session)
     build_hierarchy(store)
@@ -120,6 +164,8 @@ def test_generic_updates_cannot_bypass_guarded_transitions(session) -> None:
         store.update("task", "tsk_demo", status="done")
     with pytest.raises(DomainRuleError, match="move_deliverable_to_review"):
         store.update("deliverable", "del_demo", status="in_review")
+    with pytest.raises(DomainRuleError, match="start_task"):
+        store.update("task", "tsk_demo", status="in_progress")
     with pytest.raises(DomainRuleError, match="complete_task"):
         store.create(
             "task",

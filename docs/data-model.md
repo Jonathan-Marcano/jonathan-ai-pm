@@ -57,11 +57,15 @@ Project `health` is one of `unknown`, `on_track`, `at_risk`, or `off_track`; it 
 
 1. Raw input begins as a capture requiring only text and stays in the inbox until triaged.
 2. An accepted action item links to exactly one task; informational notes are dismissed with a reason.
-3. A task can be marked `done` only when its completion note or work log explains the result.
-4. A deliverable moves to `in_review` only when its acceptance criteria are addressed and an artifact or evidence link exists.
-5. A capture is triaged once; its original text, timestamp, disposition, output link, and note remain recorded.
-6. Evening Close reviews all items captured that day and records the disposition of unfinished work.
-7. Project health is explicitly confirmed by the user even when the system suggests a value.
+3. A task starts from `ready` or resumes from `blocked`; work logs can be added only while it is
+   `in_progress`.
+4. Starting work activates a planned project and moves a linked planned deliverable to
+   `in_progress`.
+5. A task can be marked `done` only when its completion note or work log explains the result.
+6. A deliverable moves to `in_review` only when its acceptance criteria are addressed and an artifact or evidence link exists.
+7. A capture is triaged once; its original text, timestamp, disposition, output link, and note remain recorded.
+8. Evening Close reviews all items captured that day and records the disposition of unfinished work.
+9. Project health is explicitly confirmed by the user even when the system suggests a value.
 
 ## Identifiers and time
 

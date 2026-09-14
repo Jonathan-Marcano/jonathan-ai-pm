@@ -57,6 +57,8 @@ class DomainStore:
         entity = self._required(kind, entity_id)
         if isinstance(entity, Task) and changes.get("status") == "done":
             raise DomainRuleError("Use complete_task to enforce completion evidence")
+        if isinstance(entity, Task) and changes.get("status") == "in_progress":
+            raise DomainRuleError("Use start_task to enforce the work lifecycle")
         if isinstance(entity, Deliverable) and changes.get("status") == "in_review":
             raise DomainRuleError("Use move_deliverable_to_review to enforce review evidence")
         for name, value in changes.items():
@@ -85,6 +87,64 @@ class DomainStore:
         self.session.commit()
         self.session.refresh(task)
         return task
+
+    def start_task(self, task_id: str) -> Task:
+        task = self._required("task", task_id)
+        if task.status == "in_progress":
+            return task
+        if task.status not in {"ready", "blocked"}:
+            raise DomainRuleError("A task can start only from ready or blocked status")
+
+        task.status = "in_progress"
+        project = self._required("project", task.project_id)
+        if project.status == "planned":
+            project.status = "active"
+        if task.deliverable_id:
+            deliverable = self._required("deliverable", task.deliverable_id)
+            if deliverable.status == "planned":
+                deliverable.status = "in_progress"
+
+        self.session.commit()
+        self.session.refresh(task)
+        return task
+
+    def add_work_log(
+        self,
+        task_id: str,
+        *,
+        minutes: int,
+        summary: str,
+        started_at: datetime | None = None,
+    ) -> WorkLog:
+        task = self._required("task", task_id)
+        if task.status != "in_progress":
+            raise DomainRuleError("Work can be logged only for an in-progress task")
+        evidence_summary = summary.strip()
+        if not evidence_summary:
+            raise DomainRuleError("A work log requires an evidence summary")
+        if minutes <= 0:
+            raise DomainRuleError("Work-log minutes must be greater than zero")
+
+        work_log = WorkLog(
+            id=f"wlg_{uuid4().hex}",
+            task_id=task.id,
+            started_at=started_at or utc_now(),
+            minutes=minutes,
+            summary=evidence_summary,
+        )
+        self.session.add(work_log)
+        self.session.commit()
+        self.session.refresh(work_log)
+        return work_log
+
+    def list_task_work_logs(self, task_id: str) -> list[WorkLog]:
+        self._required("task", task_id)
+        statement = (
+            select(WorkLog)
+            .where(WorkLog.task_id == task_id)
+            .order_by(WorkLog.started_at, WorkLog.id)
+        )
+        return list(self.session.scalars(statement))
 
     def move_deliverable_to_review(self, deliverable_id: str) -> Deliverable:
         deliverable = self._required("deliverable", deliverable_id)
