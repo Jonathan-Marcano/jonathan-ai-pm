@@ -11,6 +11,9 @@ SENSITIVE_KEY_PATTERN = re.compile(
     r"[\"']?\s*[:=]\s*)(?:\"[^\"]*\"|'[^']*'|[^,;\n]+)"
 )
 BEARER_PATTERN = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+SENSITIVE_NAME_PATTERN = re.compile(
+    r"(?i)authorization|cookie|password|passwd|secret|token|api[_-]?key"
+)
 REDACTED = "[REDACTED]"
 
 
@@ -23,7 +26,7 @@ def redact_value(value: Any) -> Any:
     if isinstance(value, dict):
         return {
             key: REDACTED
-            if re.search(r"(?i)authorization|cookie|password|passwd|secret|token|api[_-]?key", str(key))
+            if SENSITIVE_NAME_PATTERN.search(str(key))
             else redact_value(item)
             for key, item in value.items()
         }
