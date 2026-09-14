@@ -484,7 +484,10 @@ class SnapshotEntities(StrictModel):
             if capture.action_item_id and capture.action_item_id not in actions:
                 raise ValueError("Snapshot capture references an unknown action item")
             if capture.status == "inbox" and (
-                capture.disposition or capture.triaged_at or capture.task_id or capture.action_item_id
+                capture.disposition
+                or capture.triaged_at
+                or capture.task_id
+                or capture.action_item_id
             ):
                 raise ValueError("Snapshot inbox capture cannot contain triage output")
             if capture.status == "triaged" and not (capture.disposition and capture.triaged_at):

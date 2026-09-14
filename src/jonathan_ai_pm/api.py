@@ -6,8 +6,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from jonathan_ai_pm import __version__
+from jonathan_ai_pm.audit import list_audit_events
 from jonathan_ai_pm.config import get_settings
 from jonathan_ai_pm.db import get_session
+from jonathan_ai_pm.portability import export_snapshot, import_snapshot
 from jonathan_ai_pm.schemas import (
     ActionItemCreate,
     ActionItemRead,
@@ -56,8 +58,6 @@ from jonathan_ai_pm.schemas import (
     WorkspaceRead,
     WorkspaceUpdate,
 )
-from jonathan_ai_pm.audit import list_audit_events
-from jonathan_ai_pm.portability import export_snapshot, import_snapshot
 from jonathan_ai_pm.services import DomainRuleError, DomainStore
 
 app = FastAPI(title="Jonathan AI PM", version=__version__)

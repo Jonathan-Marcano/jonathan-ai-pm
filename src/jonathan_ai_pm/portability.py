@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from jonathan_ai_pm.models import AuditEvent, MODEL_BY_KIND, utc_now
+from jonathan_ai_pm.models import MODEL_BY_KIND, AuditEvent, utc_now
 from jonathan_ai_pm.schemas import SnapshotDocument
 from jonathan_ai_pm.services import DomainRuleError
 
@@ -24,7 +24,9 @@ COLLECTIONS = (
 
 def export_snapshot(session: Session) -> dict[str, Any]:
     entities = {
-        collection: list(session.scalars(select(MODEL_BY_KIND[kind]).order_by(MODEL_BY_KIND[kind].id)))
+        collection: list(
+            session.scalars(select(MODEL_BY_KIND[kind]).order_by(MODEL_BY_KIND[kind].id))
+        )
         for kind, collection in COLLECTIONS
     }
     entities["audit_events"] = list(

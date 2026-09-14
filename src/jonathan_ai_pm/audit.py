@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy import event, inspect, select
 from sqlalchemy.orm import Session
 
-from jonathan_ai_pm.models import AuditEvent, MODEL_BY_KIND, utc_now
+from jonathan_ai_pm.models import MODEL_BY_KIND, AuditEvent, utc_now
 
 ENTITY_KIND_BY_MODEL = {model: kind for kind, model in MODEL_BY_KIND.items()}
 IGNORED_CHANGE_FIELDS = {"created_at", "updated_at"}
