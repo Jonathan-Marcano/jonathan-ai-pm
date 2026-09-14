@@ -63,8 +63,10 @@ from jonathan_ai_pm.schemas import (
     WorkspaceRead,
     WorkspaceUpdate,
 )
+from jonathan_ai_pm.security import install_log_redaction
 from jonathan_ai_pm.services import DomainRuleError, DomainStore
 
+install_log_redaction()
 app = FastAPI(title="Jonathan AI PM", version=__version__)
 RawDbSession = Annotated[Session, Depends(get_session)]
 
