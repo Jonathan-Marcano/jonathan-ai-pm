@@ -18,8 +18,8 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | P1-08 | Must | Run Evening Close | **Done** — a dated, timezone-aware reconciliation covers completed work, minutes, captures, actions, unfinished tasks, blockers, touched deliverables/projects, and tomorrow's first action |
 | P1-09 | Must | Validate domain rules | **Done** — the rule matrix covers relationships, lifecycle guards, evidence, immutability, timezones, transactions, and HTTP errors; CI runs on every push and pull request |
 | P1-10 | Should | Summarize workload and progress | **Done** — one timezone-aware report aggregates task states, overdue work, completion, deliverable states, and filtered work-log minutes at every hierarchy level |
-| P1-11 | Should | Import/export a portable snapshot | JSON export and validated import support backup and development fixtures |
-| P1-12 | Should | Add basic audit history | Creation, status, assignment, and due-date changes retain actor and timestamp |
+| P1-11 | Should | Import/export a portable snapshot | **Done** — versioned JSON export and graph-validated, atomic empty-store import preserve every entity and audit event |
+| P1-12 | Should | Add basic audit history | **Done** — immutable events retain actor, timestamp, action, entity, and field-level before/after values in the originating transaction |
 | P1-13 | Should | Protect local data | Secrets excluded, sensitive logs redacted, backup and deletion behavior documented |
 | P1-14 | Could | Support multilingual display fields | Original text is retained and optional translated text can be stored manually |
 
@@ -43,8 +43,8 @@ now complete; workload and progress summaries continue in P1-10.
 
 P1-10 through P1-13, automated tests, backups, and operational documentation.
 
-Current increment: P1-10 is complete with dashboard-ready rollups for every hierarchy level.
-Portable snapshots in P1-11 are next.
+Current increment: P1-10 through P1-12 are complete with dashboard-ready rollups, portable
+snapshots, and transactional audit history. Local-data protection in P1-13 is next.
 
 ## Definition of done
 

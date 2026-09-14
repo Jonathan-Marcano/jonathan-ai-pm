@@ -45,6 +45,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Evening Close](docs/evening-close.md)
 - [Domain validation](docs/domain-validation.md)
 - [Workload and progress summary](docs/progress-summary.md)
+- [Snapshots and audit history](docs/snapshots-and-audit.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 
@@ -93,8 +94,8 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice A: core CRUD, migrations, relationships, lifecycle rules, and automated domain validation are complete.
 - Phase 1 / Slice B: the manual daily loop from capture and Morning Brief through incremental work
   and Evening Close is implemented.
-- Phase 1 / Slice C: workload and progress summaries are implemented; snapshot portability,
-  audit history, and local-data protection remain.
+- Phase 1 / Slice C: workload summaries, portable snapshots, and audit history are implemented;
+  local-data protection remains.
 - External integrations: documented for later phases; not implemented.
 
 ## Working agreements

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from jonathan_ai_pm.schemas import (
     ActionItemStatus,
     ActionItemToTask,
     ActionItemUpdate,
+    AuditEventRead,
     CaptureCreate,
     CaptureDisposition,
     CaptureRead,
@@ -27,6 +28,7 @@ from jonathan_ai_pm.schemas import (
     DeliverableStatus,
     DeliverableUpdate,
     EntityId,
+    EntityKind,
     EveningClose,
     MeetingCreate,
     MeetingRead,
@@ -40,6 +42,8 @@ from jonathan_ai_pm.schemas import (
     ProjectStatus,
     ProjectUpdate,
     RecordStatus,
+    SnapshotDocument,
+    SnapshotImportResult,
     TaskComplete,
     TaskCreate,
     TaskPriority,
@@ -52,10 +56,21 @@ from jonathan_ai_pm.schemas import (
     WorkspaceRead,
     WorkspaceUpdate,
 )
+from jonathan_ai_pm.audit import list_audit_events
+from jonathan_ai_pm.portability import export_snapshot, import_snapshot
 from jonathan_ai_pm.services import DomainRuleError, DomainStore
 
 app = FastAPI(title="Jonathan AI PM", version=__version__)
-DbSession = Annotated[Session, Depends(get_session)]
+RawDbSession = Annotated[Session, Depends(get_session)]
+
+
+def request_session(request: Request, session: RawDbSession) -> Session:
+    actor = (request.headers.get("X-Actor") or "local-user").strip()
+    session.info["actor"] = actor[:200] or "local-user"
+    return session
+
+
+DbSession = Annotated[Session, Depends(request_session)]
 
 
 @app.get("/health", tags=["system"])
@@ -109,6 +124,43 @@ def progress_summary(
         )
     except DomainRuleError as exc:
         raise _domain_http_error(exc) from exc
+
+
+@app.get("/api/v1/audit-events", response_model=list[AuditEventRead], tags=["audit"])
+def get_audit_events(
+    session: DbSession,
+    entity_kind: EntityKind | None = None,
+    entity_id: EntityId | None = None,
+    actor: Annotated[str | None, Query(max_length=200)] = None,
+):
+    return list_audit_events(
+        session,
+        entity_kind=entity_kind,
+        entity_id=entity_id,
+        actor=actor,
+    )
+
+
+@app.get("/api/v1/snapshots/export", response_model=SnapshotDocument, tags=["snapshots"])
+def export_portable_snapshot(session: DbSession):
+    return export_snapshot(session)
+
+
+@app.post(
+    "/api/v1/snapshots/import",
+    response_model=SnapshotImportResult,
+    status_code=201,
+    tags=["snapshots"],
+)
+def import_portable_snapshot(payload: SnapshotDocument, session: DbSession):
+    try:
+        return import_snapshot(session, payload)
+    except DomainRuleError as exc:
+        session.rollback()
+        raise _domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Snapshot relationship conflict") from exc
 
 
 def _store(session: Session) -> DomainStore:

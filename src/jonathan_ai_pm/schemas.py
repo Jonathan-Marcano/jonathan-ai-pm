@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -19,6 +19,18 @@ MeetingStatus = Literal["scheduled", "completed", "cancelled"]
 ActionItemStatus = Literal["captured", "accepted", "done", "dismissed"]
 CaptureStatus = Literal["inbox", "triaged"]
 CaptureDisposition = Literal["task", "action", "reference", "dismissed"]
+EntityKind = Literal[
+    "workspace",
+    "client",
+    "project",
+    "deliverable",
+    "task",
+    "meeting",
+    "action_item",
+    "work_log",
+    "capture",
+]
+AuditAction = Literal["create", "update", "delete"]
 
 
 class StrictModel(BaseModel):
@@ -362,3 +374,144 @@ class ProgressSummary(StrictModel):
     clients: list[ProgressRow]
     projects: list[ProgressRow]
     deliverables: list[ProgressRow]
+
+
+class AuditEventRead(ResponseModel):
+    id: EntityId
+    entity_kind: EntityKind
+    entity_id: EntityId
+    action: AuditAction
+    actor: Annotated[str, Field(min_length=1, max_length=200)]
+    occurred_at: datetime
+    changes: dict[str, Any]
+
+
+class SnapshotEntities(StrictModel):
+    workspaces: list[WorkspaceRead]
+    clients: list[ClientRead]
+    projects: list[ProjectRead]
+    deliverables: list[DeliverableRead]
+    tasks: list[TaskRead]
+    meetings: list[MeetingRead]
+    action_items: list[ActionItemRead]
+    work_logs: list[WorkLogRead]
+    captures: list[CaptureRead]
+    audit_events: list[AuditEventRead]
+
+    @model_validator(mode="after")
+    def validate_graph(self) -> Self:
+        collections = (
+            self.workspaces,
+            self.clients,
+            self.projects,
+            self.deliverables,
+            self.tasks,
+            self.meetings,
+            self.action_items,
+            self.work_logs,
+            self.captures,
+            self.audit_events,
+        )
+        for records in collections:
+            record_ids = [record.id for record in records]
+            if len(record_ids) != len(set(record_ids)):
+                raise ValueError("Snapshot collections cannot contain duplicate IDs")
+
+        workspace_ids = {record.id for record in self.workspaces}
+        clients = {record.id: record for record in self.clients}
+        projects = {record.id: record for record in self.projects}
+        deliverables = {record.id: record for record in self.deliverables}
+        tasks = {record.id: record for record in self.tasks}
+        meetings = {record.id: record for record in self.meetings}
+        actions = {record.id: record for record in self.action_items}
+
+        if any(record.workspace_id not in workspace_ids for record in self.clients):
+            raise ValueError("Snapshot client references an unknown workspace")
+        if any(record.client_id not in clients for record in self.projects):
+            raise ValueError("Snapshot project references an unknown client")
+        if any(record.project_id not in projects for record in self.deliverables):
+            raise ValueError("Snapshot deliverable references an unknown project")
+
+        for task in self.tasks:
+            if task.project_id not in projects:
+                raise ValueError("Snapshot task references an unknown project")
+            if task.deliverable_id:
+                deliverable = deliverables.get(task.deliverable_id)
+                if not deliverable or deliverable.project_id != task.project_id:
+                    raise ValueError("Snapshot task and deliverable must share a project")
+
+        for meeting in self.meetings:
+            if meeting.project_id not in projects:
+                raise ValueError("Snapshot meeting references an unknown project")
+
+        for action in self.action_items:
+            meeting = meetings.get(action.meeting_id)
+            if not meeting:
+                raise ValueError("Snapshot action item references an unknown meeting")
+            if action.task_id:
+                task = tasks.get(action.task_id)
+                if not task or task.project_id != meeting.project_id:
+                    raise ValueError("Snapshot action item and task must share a project")
+            if action.deliverable_id:
+                deliverable = deliverables.get(action.deliverable_id)
+                if not deliverable or deliverable.project_id != meeting.project_id:
+                    raise ValueError("Snapshot action item and deliverable must share a project")
+            if action.status == "accepted" and not action.task_id:
+                raise ValueError("Snapshot accepted action item requires a task")
+            if action.status == "dismissed" and action.task_id:
+                raise ValueError("Snapshot dismissed action item cannot retain a task")
+
+        if any(record.task_id not in tasks for record in self.work_logs):
+            raise ValueError("Snapshot work log references an unknown task")
+        logged_task_ids = {record.task_id for record in self.work_logs}
+        if any(
+            task.status == "done" and not (task.completion_note or task.id in logged_task_ids)
+            for task in self.tasks
+        ):
+            raise ValueError("Snapshot completed task requires completion evidence")
+        if any(
+            item.status in {"in_review", "accepted"}
+            and not (item.acceptance_criteria and item.evidence_url)
+            for item in self.deliverables
+        ):
+            raise ValueError("Snapshot reviewed deliverable requires acceptance evidence")
+
+        for capture in self.captures:
+            if capture.project_id and capture.project_id not in projects:
+                raise ValueError("Snapshot capture references an unknown project")
+            if capture.task_id and capture.task_id not in tasks:
+                raise ValueError("Snapshot capture references an unknown task")
+            if capture.action_item_id and capture.action_item_id not in actions:
+                raise ValueError("Snapshot capture references an unknown action item")
+            if capture.status == "inbox" and (
+                capture.disposition or capture.triaged_at or capture.task_id or capture.action_item_id
+            ):
+                raise ValueError("Snapshot inbox capture cannot contain triage output")
+            if capture.status == "triaged" and not (capture.disposition and capture.triaged_at):
+                raise ValueError("Snapshot triaged capture requires disposition and timestamp")
+
+        return self
+
+
+class SnapshotDocument(StrictModel):
+    schema_version: Literal["1.0"]
+    exported_at: datetime
+    entities: SnapshotEntities
+
+
+class SnapshotCounts(StrictModel):
+    workspaces: int
+    clients: int
+    projects: int
+    deliverables: int
+    tasks: int
+    meetings: int
+    action_items: int
+    work_logs: int
+    captures: int
+    audit_events: int
+
+
+class SnapshotImportResult(StrictModel):
+    schema_version: Literal["1.0"]
+    imported: SnapshotCounts

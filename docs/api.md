@@ -12,6 +12,11 @@ completion loop are documented in [Evening Close](evening-close.md).
 `GET /api/v1/reports/progress` aggregates workload, completion, deliverable state, and logged
 minutes at every hierarchy level. See [Workload and progress summary](progress-summary.md).
 
+`GET /api/v1/snapshots/export` returns a versioned portable JSON snapshot. `POST
+/api/v1/snapshots/import` validates and restores that document only into an empty datastore.
+`GET /api/v1/audit-events` exposes immutable change history. See
+[Snapshots and audit history](snapshots-and-audit.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |
@@ -25,6 +30,7 @@ minutes at every hierarchy level. See [Workload and progress summary](progress-s
 | Meetings | Yes | `project_id`, `status`, `starts_from`, `starts_to` | Yes | Yes | Yes |
 | Action items | Yes | `meeting_id`, `status` | Yes | Yes | Yes |
 | Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
+| Audit events | Automatic | `entity_kind`, `entity_id`, `actor` | Through list | Immutable | Preserved |
 
 ## Protected transitions
 

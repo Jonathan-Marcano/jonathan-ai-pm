@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
+import jonathan_ai_pm.audit  # noqa: F401
 from jonathan_ai_pm.models import (
     MODEL_BY_KIND,
     ActionItem,

@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -150,6 +150,21 @@ class Capture(TimestampMixin, Base):
     )
     disposition_note: Mapped[str | None] = mapped_column(Text)
     triaged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = (CheckConstraint("action IN ('create','update','delete')"),)
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    entity_kind: Mapped[str] = mapped_column(String(40), index=True)
+    entity_id: Mapped[str] = mapped_column(String(80), index=True)
+    action: Mapped[str] = mapped_column(String(20))
+    actor: Mapped[str] = mapped_column(String(200), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, index=True
+    )
+    changes: Mapped[dict] = mapped_column(JSON)
 
 
 MODEL_BY_KIND = {
