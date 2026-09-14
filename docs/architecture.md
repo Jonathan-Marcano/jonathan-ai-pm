@@ -13,9 +13,9 @@ Application services
         |
 Domain model
   Workspaces/Jobs | Clients | Projects | Deliverables | Tasks
-  Meetings | Action Items | Work Logs
+  Meetings | Action Items | Work Logs | Translations
         |
-Ports/adapters (future)
+Ports/adapters
   Local DB | Google Drive | Calendars | WhatsApp | LLM provider
 ```
 
@@ -30,8 +30,8 @@ Ports/adapters (future)
 | Briefing service | Generate Morning Brief from internal records | 1 |
 | Close service | Reconcile the day and update statuses/work logs | 1 |
 | Metrics service | Aggregate effort, throughput, aging, and risk | 1 |
-| Google Drive adapter | Link shared working documents and deliverables | Later |
-| Calendar adapters | Import meetings and scheduling context | Later |
+| Google Drive adapter | Link shared working documents and deliverables | 2 |
+| Calendar adapters | Import meetings and scheduling context | 2 |
 | WhatsApp adapter | Capture explicitly forwarded or authorized messages | Later |
 | LLM adapter | Summarize, classify, translate, and propose actions | Later |
 

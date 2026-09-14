@@ -11,7 +11,7 @@ Jonathan AI PM is intended to support a simple daily operating loop:
 3. **Incremental delivery:** turn tasks into visible progress on deliverables.
 4. **Evening Close:** review completed and pending work, update projects, and measure effort.
 
-Phase 0 established the product definition and repository conventions. Phase 1 is now underway with a local relational datastore, tested domain services, migrations, and a minimal API boundary. Live WhatsApp, calendar, Google Drive, and third-party API integrations remain intentionally deferred.
+Phase 0 established the product definition and repository conventions. Phase 1 delivered the tested manual-first application. Phase 2 is underway with provider-neutral, read-only calendar and document contracts; no live provider connection is enabled yet. WhatsApp and AI integrations remain deferred.
 
 ## Repository map
 
@@ -39,6 +39,8 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Daily workflow](docs/workflow.md)
 - [Roadmap](docs/roadmap.md)
 - [Phase 1 backlog](docs/backlog/phase-1.md)
+- [Phase 2 backlog](docs/backlog/phase-2.md)
+- [Phase 2 integration contracts](docs/phase-2-integration-contracts.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
@@ -50,6 +52,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 i
 - [Manual translations](docs/translations.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
+- [Phase 2 integration boundary](docs/decisions/0003-phase-2-integrations.md)
 
 ## Domain at a glance
 
@@ -100,7 +103,8 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
   protection, and manual translations are implemented.
 - Phase 1: complete.
-- External integrations: documented for later phases; not implemented.
+- Phase 2: in progress; P2-01 integration contracts and read-only boundary are complete.
+- Live external connections: not enabled. P2-02 persistence is next.
 
 ## Working agreements
 
