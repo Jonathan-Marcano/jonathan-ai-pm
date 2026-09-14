@@ -64,7 +64,8 @@ Project `health` is one of `unknown`, `on_track`, `at_risk`, or `off_track`; it 
 5. A task can be marked `done` only when its completion note or work log explains the result.
 6. A deliverable moves to `in_review` only when its acceptance criteria are addressed and an artifact or evidence link exists.
 7. A capture is triaged once; its original text, timestamp, disposition, output link, and note remain recorded.
-8. Evening Close reviews all items captured that day and records the disposition of unfinished work.
+8. Evening Close reviews daily outcomes and every older capture still in the inbox; corrections
+   update the source records rather than creating a second copy of operational state.
 9. Project health is explicitly confirmed by the user even when the system suggests a value.
 
 ## Identifiers and time

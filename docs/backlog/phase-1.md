@@ -15,7 +15,7 @@ Deliver a usable single-user workflow from manual capture to Morning Brief and E
 | P1-05 | Must | Triage every capture | **Done** — task/action/reference/dismissed dispositions retain timestamp, note, and output links |
 | P1-06 | Must | Generate a Morning Brief | **Done** — dated local view covers meetings, deadlines, top-three focus, blockers, opportunities, and project risk |
 | P1-07 | Must | Record incremental work | **Done** — guarded start/resume, append-only minutes and evidence history, and evidence-backed completion are available through the API |
-| P1-08 | Must | Run Evening Close | User reconciles today's captures, work, deferrals, blockers, and project changes |
+| P1-08 | Must | Run Evening Close | **Done** — a dated, timezone-aware reconciliation covers completed work, minutes, captures, actions, unfinished tasks, blockers, touched deliverables/projects, and tomorrow's first action |
 | P1-09 | Must | Validate domain rules | **In progress** — first persistence, evidence, and lifecycle checks are automated |
 | P1-10 | Should | Summarize workload and progress | Views aggregate tasks and logged time by workspace, client, project, and deliverable |
 | P1-11 | Should | Import/export a portable snapshot | JSON export and validated import support backup and development fixtures |
@@ -36,8 +36,8 @@ meeting/action-item persistence, and first lifecycle tests.
 
 P1-04 through P1-08 with a minimal interface.
 
-Current increment: P1-04 through P1-07 are complete through the HTTP API. Evening Close remains
-next.
+Current increment: P1-04 through P1-08 are complete through the HTTP API. The manual daily loop is
+now complete; expanded validation continues in P1-09.
 
 ### Slice C — Measurement and resilience
 

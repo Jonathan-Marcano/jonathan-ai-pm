@@ -210,17 +210,9 @@ class DomainStore:
     ) -> dict[str, Any]:
         if not 0 <= due_soon_days <= 30:
             raise DomainRuleError("due_soon_days must be between 0 and 30")
-        try:
-            local_timezone = ZoneInfo(timezone_name)
-        except ZoneInfoNotFoundError as exc:
-            raise DomainRuleError(f"Unknown timezone: {timezone_name}") from exc
-
-        generated_at = now or datetime.now(UTC)
-        if generated_at.tzinfo is None:
-            generated_at = generated_at.replace(tzinfo=UTC)
-        else:
-            generated_at = generated_at.astimezone(UTC)
-        target_date = brief_date or generated_at.astimezone(local_timezone).date()
+        local_timezone, target_date, generated_at = self._daily_context(
+            timezone_name, brief_date, now
+        )
         due_soon_through = target_date + timedelta(days=due_soon_days)
 
         tasks = self.list("task")
@@ -300,6 +292,162 @@ class DomainStore:
             "deliverable_opportunities": deliverable_opportunities,
             "at_risk_projects": at_risk_projects,
         }
+
+    def evening_close(
+        self,
+        timezone_name: str,
+        close_date: date | None = None,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        local_timezone, target_date, generated_at = self._daily_context(
+            timezone_name, close_date, now
+        )
+        tasks: list[Task] = self.list("task")
+        tasks_by_id = {task.id: task for task in tasks}
+
+        completed_tasks = self._sort_tasks(
+            [
+                task
+                for task in tasks
+                if task.status == "done"
+                and self._local_date(task.updated_at, local_timezone) == target_date
+            ]
+        )
+        work_logs: list[WorkLog] = sorted(
+            [
+                work_log
+                for work_log in self.list("work_log")
+                if self._local_date(work_log.started_at, local_timezone) == target_date
+            ],
+            key=lambda work_log: (self._as_utc(work_log.started_at), work_log.id),
+        )
+        logged_minutes = sum(work_log.minutes for work_log in work_logs)
+
+        captures: list[Capture] = self.list("capture")
+        untriaged_captures = sorted(
+            [
+                capture
+                for capture in captures
+                if capture.status == "inbox"
+                and self._local_date(capture.captured_at, local_timezone) <= target_date
+            ],
+            key=lambda capture: (self._as_utc(capture.captured_at), capture.id),
+        )
+        triaged_captures = sorted(
+            [
+                capture
+                for capture in captures
+                if capture.status == "triaged"
+                and capture.triaged_at
+                and self._local_date(capture.triaged_at, local_timezone) == target_date
+            ],
+            key=lambda capture: (self._as_utc(capture.triaged_at), capture.id),
+        )
+        open_action_items: list[ActionItem] = self.list("action_item")
+        open_action_items = [
+            action for action in open_action_items if action.status in {"captured", "accepted"}
+        ]
+
+        unfinished_tasks = self._sort_tasks(
+            [
+                task
+                for task in tasks
+                if task.status not in {"done", "cancelled"}
+                and (
+                    task.status in {"inbox", "in_progress", "blocked"}
+                    or (task.due_at is not None and task.due_at <= target_date)
+                )
+            ]
+        )
+        blocked_tasks = self._sort_tasks(
+            [task for task in tasks if task.status == "blocked"]
+        )
+
+        touched_task_ids = {task.id for task in completed_tasks}
+        touched_task_ids.update(work_log.task_id for work_log in work_logs)
+        touched_tasks = [tasks_by_id[task_id] for task_id in touched_task_ids]
+        touched_deliverable_ids = {
+            task.deliverable_id for task in touched_tasks if task.deliverable_id
+        }
+        touched_deliverables = sorted(
+            [
+                deliverable
+                for deliverable in self.list("deliverable")
+                if deliverable.id in touched_deliverable_ids
+            ],
+            key=lambda deliverable: (deliverable.due_at, deliverable.id),
+        )
+
+        touched_project_ids = {task.project_id for task in touched_tasks}
+        projects: list[Project] = self.list("project")
+        projects_to_review = sorted(
+            [
+                project
+                for project in projects
+                if project.id in touched_project_ids
+                or (
+                    project.health in {"at_risk", "off_track"}
+                    and project.status not in {"completed", "cancelled"}
+                )
+            ],
+            key=lambda project: (project.health != "off_track", project.id),
+        )
+
+        executable_tasks = [
+            task for task in tasks if task.status in {"ready", "in_progress"}
+        ]
+        tomorrow_first_action = next(iter(self._sort_tasks(executable_tasks)), None)
+        counts = {
+            "completed_tasks": len(completed_tasks),
+            "work_logs": len(work_logs),
+            "logged_minutes": logged_minutes,
+            "untriaged_captures": len(untriaged_captures),
+            "triaged_captures": len(triaged_captures),
+            "open_action_items": len(open_action_items),
+            "unfinished_tasks": len(unfinished_tasks),
+            "blocked_tasks": len(blocked_tasks),
+            "touched_deliverables": len(touched_deliverables),
+            "projects_to_review": len(projects_to_review),
+        }
+        return {
+            "close_date": target_date,
+            "timezone": timezone_name,
+            "generated_at": generated_at,
+            "counts": counts,
+            "completed_tasks": completed_tasks,
+            "work_logs": work_logs,
+            "untriaged_captures": untriaged_captures,
+            "triaged_captures": triaged_captures,
+            "open_action_items": open_action_items,
+            "unfinished_tasks": unfinished_tasks,
+            "blocked_tasks": blocked_tasks,
+            "touched_deliverables": touched_deliverables,
+            "projects_to_review": projects_to_review,
+            "tomorrow_first_action": tomorrow_first_action,
+        }
+
+    @staticmethod
+    def _daily_context(
+        timezone_name: str,
+        target_date: date | None,
+        now: datetime | None,
+    ) -> tuple[ZoneInfo, date, datetime]:
+        try:
+            local_timezone = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError as exc:
+            raise DomainRuleError(f"Unknown timezone: {timezone_name}") from exc
+
+        generated_at = now or datetime.now(UTC)
+        if generated_at.tzinfo is None:
+            generated_at = generated_at.replace(tzinfo=UTC)
+        else:
+            generated_at = generated_at.astimezone(UTC)
+        resolved_date = target_date or generated_at.astimezone(local_timezone).date()
+        return local_timezone, resolved_date, generated_at
+
+    @classmethod
+    def _local_date(cls, value: datetime, timezone: ZoneInfo) -> date:
+        return cls._as_utc(value).astimezone(timezone).date()
 
     @staticmethod
     def _as_utc(value: datetime) -> datetime:

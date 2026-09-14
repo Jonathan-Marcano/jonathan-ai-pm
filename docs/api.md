@@ -6,6 +6,9 @@ at `/docs` while the application is running.
 `GET /api/v1/briefs/morning` generates the dated operational brief. Its selection and ranking
 rules are documented in [Morning Brief](morning-brief.md).
 
+`GET /api/v1/briefs/evening` generates the read-only daily reconciliation. Its sections and
+completion loop are documented in [Evening Close](evening-close.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |

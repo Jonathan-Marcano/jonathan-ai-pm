@@ -279,3 +279,33 @@ class MorningBrief(ResponseModel):
     blocked_deliverables: list[DeliverableRead]
     deliverable_opportunities: list[DeliverableRead]
     at_risk_projects: list[ProjectRead]
+
+
+class EveningCloseCounts(StrictModel):
+    completed_tasks: int
+    work_logs: int
+    logged_minutes: int
+    untriaged_captures: int
+    triaged_captures: int
+    open_action_items: int
+    unfinished_tasks: int
+    blocked_tasks: int
+    touched_deliverables: int
+    projects_to_review: int
+
+
+class EveningClose(ResponseModel):
+    close_date: date
+    timezone: str
+    generated_at: datetime
+    counts: EveningCloseCounts
+    completed_tasks: list[TaskRead]
+    work_logs: list[WorkLogRead]
+    untriaged_captures: list[CaptureRead]
+    triaged_captures: list[CaptureRead]
+    open_action_items: list[ActionItemRead]
+    unfinished_tasks: list[TaskRead]
+    blocked_tasks: list[TaskRead]
+    touched_deliverables: list[DeliverableRead]
+    projects_to_review: list[ProjectRead]
+    tomorrow_first_action: TaskRead | None

@@ -44,7 +44,7 @@ moves a linked planned deliverable to `in_progress`; review and acceptance remai
 
 ## 4. Evening Close
 
-The close reviews:
+The implemented close reviews:
 
 1. tasks completed and evidence produced;
 2. time logged versus planned;
@@ -54,6 +54,10 @@ The close reviews:
 6. tomorrow's likely first action.
 
 The result is a dated summary with completed outcomes, open loops, blockers, and project updates.
+It also proposes tomorrow's first action using the same deterministic ranking as Morning Brief.
+The user updates the underlying records with the existing API and reruns the close until each open
+loop has an explicit disposition. See [Evening Close](evening-close.md) for the selection rules and
+current limitations.
 
 ## 5. Weekly review
 

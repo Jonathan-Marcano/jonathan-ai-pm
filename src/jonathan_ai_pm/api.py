@@ -27,6 +27,7 @@ from jonathan_ai_pm.schemas import (
     DeliverableStatus,
     DeliverableUpdate,
     EntityId,
+    EveningClose,
     MeetingCreate,
     MeetingRead,
     MeetingStatus,
@@ -72,6 +73,20 @@ def morning_brief(
             get_settings().app_timezone,
             brief_date=brief_date,
             due_soon_days=due_soon_days,
+        )
+    except DomainRuleError as exc:
+        raise _domain_http_error(exc) from exc
+
+
+@app.get("/api/v1/briefs/evening", response_model=EveningClose, tags=["briefs"])
+def evening_close(
+    session: DbSession,
+    close_date: Annotated[date | None, Query(alias="date")] = None,
+):
+    try:
+        return _store(session).evening_close(
+            get_settings().app_timezone,
+            close_date=close_date,
         )
     except DomainRuleError as exc:
         raise _domain_http_error(exc) from exc
