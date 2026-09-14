@@ -465,7 +465,6 @@ class DomainStore:
         projects = self.list("project")
         deliverables = self.list("deliverable")
         tasks = self.list("task")
-        tasks_by_id = {task.id: task for task in tasks}
         work_logs = [
             work_log
             for work_log in self.list("work_log")
