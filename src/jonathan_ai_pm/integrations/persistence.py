@@ -233,9 +233,40 @@ class IntegrationStateStore:
     def list_errors(self, run_id: str) -> list[SyncRunError]:
         if self.session.get(SyncRun, run_id) is None:
             raise IntegrationStateError(f"Synchronization run not found: {run_id}")
-        statement = select(SyncRunError).where(SyncRunError.sync_run_id == run_id).order_by(
-            SyncRunError.occurred_at, SyncRunError.id
+        statement = (
+            select(SyncRunError)
+            .where(SyncRunError.sync_run_id == run_id)
+            .order_by(SyncRunError.occurred_at, SyncRunError.id)
         )
+        return list(self.session.scalars(statement))
+
+    def get_run(self, run_id: str) -> SyncRun | None:
+        return self.session.get(SyncRun, _required_text(run_id, "run_id"))
+
+    def list_runs(
+        self,
+        *,
+        source_system: str | None = None,
+        external_scope: str | None = None,
+        status: str | None = None,
+        limit: int = 50,
+    ) -> list[SyncRun]:
+        if isinstance(limit, bool) or not 1 <= limit <= 200:
+            raise IntegrationStateError("limit must be between 1 and 200")
+        statement = select(SyncRun)
+        if source_system is not None:
+            statement = statement.where(
+                SyncRun.source_system == _required_text(source_system, "source_system").lower()
+            )
+        if external_scope is not None:
+            statement = statement.where(
+                SyncRun.external_scope == _required_text(external_scope, "external_scope")
+            )
+        if status is not None:
+            if status not in {"running", "succeeded", "partial", "failed"}:
+                raise IntegrationStateError(f"Invalid synchronization status: {status}")
+            statement = statement.where(SyncRun.status == status)
+        statement = statement.order_by(SyncRun.started_at.desc(), SyncRun.id.desc()).limit(limit)
         return list(self.session.scalars(statement))
 
     def _running(self, run_id: str) -> SyncRun:

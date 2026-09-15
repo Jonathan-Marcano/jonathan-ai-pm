@@ -45,7 +45,9 @@ before commit. Provider credentials and raw response payloads have no columns in
 
 ## Current boundary
 
-P2-11 provides local retention and disconnection operations for this state. It still does not
-store OAuth credentials, copy Drive document bodies, expose synchronization endpoints, or delete
-operational meetings and tasks. See
-[Integration security, retention, and disconnection](integration-security-retention.md).
+P2-11 provides local retention and disconnection operations for this state. P2-12 exposes
+protected status, run history, errors, retry, and calendar-review operations through HTTP. It
+still does not store OAuth credentials, copy Drive document bodies, schedule synchronization, or
+delete operational meetings and tasks. See
+[Integration security, retention, and disconnection](integration-security-retention.md) and
+[Integration operations](integration-operations.md).

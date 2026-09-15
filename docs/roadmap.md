@@ -27,12 +27,21 @@ No external messaging or calendar write actions are required for Phase 1.
 
 ## Phase 2 — Calendar and shared-document context
 
-Status: in progress; P2-01 through P2-05 and P2-09 through P2-11 complete.
+Status: core scope complete; P2-01 through P2-05 and P2-09 through P2-12 complete. Optional Google
+Calendar and advanced Drive synchronization are deferred.
 
 - Read-only calendar synchronization with deduplication.
 - Optional manual links to externally managed documents; advanced Drive synchronization deferred.
 - Meeting preparation and post-meeting review flows.
 - Permission, retention, and audit controls.
+- Protected manual synchronization, status, retry, and association-review operations.
+
+## Phase 2.5 — Usable local interface
+
+- Responsive web/PWA screens for the complete daily loop.
+- Single-user application authentication and protected sessions.
+- Integration status and review operations without curl or direct OpenAPI use.
+- Safe local-network access with documented origin and transport boundaries.
 
 ## Phase 3 — Assisted capture and AI
 

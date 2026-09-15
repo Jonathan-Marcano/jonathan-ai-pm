@@ -42,6 +42,8 @@ EntityKind = Literal[
 ]
 AuditAction = Literal["create", "update", "delete"]
 SnapshotVersion = Literal["1.0", "1.1"]
+SyncRunStatus = Literal["running", "succeeded", "partial", "failed"]
+CalendarReviewStatus = Literal["pending", "resolved", "dismissed"]
 
 
 class StrictModel(BaseModel):
@@ -247,6 +249,95 @@ class MeetingReviewQueue(ResponseModel):
     generated_at: datetime
     meeting_count: int
     meetings: list[MeetingReviewQueueItem]
+
+
+class CalendarSyncRequest(StrictModel):
+    source_system: Annotated[str, Field(min_length=1, max_length=80)]
+    external_scope: Annotated[str, Field(min_length=1, max_length=240)]
+    starts_at: datetime
+    ends_at: datetime
+
+
+class CalendarSyncResult(ResponseModel):
+    run_id: EntityId
+    status: SyncRunStatus
+    seen_count: int
+    created_count: int
+    updated_count: int
+    unchanged_count: int
+    skipped_count: int
+    error_count: int
+    missing_identity_ids: list[EntityId]
+    queued_review_ids: list[EntityId]
+    retry_of_run_id: EntityId | None = None
+
+
+class SyncRunRead(ResponseModel):
+    id: EntityId
+    source_system: str
+    resource_kind: Literal["calendar", "document"]
+    external_scope: str | None
+    status: SyncRunStatus
+    window_starts_at: datetime | None
+    window_ends_at: datetime | None
+    started_at: datetime
+    completed_at: datetime | None
+    seen_count: int
+    created_count: int
+    updated_count: int
+    unchanged_count: int
+    skipped_count: int
+    error_count: int
+    retryable: bool
+
+
+class SyncRunErrorRead(ResponseModel):
+    id: EntityId
+    sync_run_id: EntityId
+    external_identity_id: EntityId | None
+    code: str
+    message: str
+    occurred_at: datetime
+
+
+class CalendarImportReviewRead(Timestamps):
+    id: EntityId
+    source_system: str
+    external_scope: str
+    external_id: str
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    event_status: Literal["confirmed", "cancelled"]
+    web_url: Annotated[str, Field(max_length=1000, pattern=r"^https?://")] | None
+    external_modified_at: datetime | None
+    status: CalendarReviewStatus
+    first_seen_at: datetime
+    last_seen_at: datetime
+    resolution_project_id: EntityId | None
+    resolved_by: str | None
+    resolved_at: datetime | None
+
+
+class CalendarReviewConfirm(StrictModel):
+    project_id: EntityId
+
+
+class IntegrationConnectionRead(ResponseModel):
+    source_system: str
+    external_scope: str
+    enabled: bool
+    adapter_available: bool
+    read_only: bool
+    ready: bool
+    permissions: list[str]
+    last_run: SyncRunRead | None
+
+
+class IntegrationStatusRead(ResponseModel):
+    operations_enabled: bool
+    max_sync_window_days: int
+    connections: list[IntegrationConnectionRead]
 
 
 class ActionItemCreate(StrictModel):

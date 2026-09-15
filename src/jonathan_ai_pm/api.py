@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from hmac import compare_digest
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -7,8 +8,21 @@ from sqlalchemy.orm import Session
 
 from jonathan_ai_pm import __version__
 from jonathan_ai_pm.audit import list_audit_events
-from jonathan_ai_pm.config import get_settings
+from jonathan_ai_pm.config import Settings, get_settings
 from jonathan_ai_pm.db import get_session
+from jonathan_ai_pm.integrations import (
+    CalendarAdapterRegistry,
+    CalendarAssociationError,
+    CalendarAssociationService,
+    CalendarOperationError,
+    CalendarSyncCoordinator,
+    IntegrationSecurityError,
+    IntegrationStateError,
+    IntegrationStateStore,
+    normalize_permissions,
+    require_read_only_capabilities,
+)
+from jonathan_ai_pm.models import CalendarImportReview, SyncRun
 from jonathan_ai_pm.portability import export_snapshot, import_snapshot
 from jonathan_ai_pm.schemas import (
     ActionItemCreate,
@@ -17,6 +31,10 @@ from jonathan_ai_pm.schemas import (
     ActionItemToTask,
     ActionItemUpdate,
     AuditEventRead,
+    CalendarImportReviewRead,
+    CalendarReviewConfirm,
+    CalendarSyncRequest,
+    CalendarSyncResult,
     CaptureCreate,
     CaptureDisposition,
     CaptureRead,
@@ -32,6 +50,8 @@ from jonathan_ai_pm.schemas import (
     EntityId,
     EntityKind,
     EveningClose,
+    IntegrationConnectionRead,
+    IntegrationStatusRead,
     MeetingCreate,
     MeetingPreparation,
     MeetingRead,
@@ -50,6 +70,9 @@ from jonathan_ai_pm.schemas import (
     RecordStatus,
     SnapshotDocument,
     SnapshotImportResult,
+    SyncRunErrorRead,
+    SyncRunRead,
+    SyncRunStatus,
     TaskComplete,
     TaskCreate,
     TaskPriority,
@@ -73,6 +96,38 @@ from jonathan_ai_pm.services import DomainRuleError, DomainStore
 install_log_redaction()
 app = FastAPI(title="Jonathan AI PM", version=__version__)
 RawDbSession = Annotated[Session, Depends(get_session)]
+calendar_adapter_registry = CalendarAdapterRegistry()
+
+
+def get_integration_settings() -> Settings:
+    return get_settings()
+
+
+def get_calendar_adapter_registry() -> CalendarAdapterRegistry:
+    return calendar_adapter_registry
+
+
+IntegrationSettings = Annotated[Settings, Depends(get_integration_settings)]
+CalendarRegistry = Annotated[CalendarAdapterRegistry, Depends(get_calendar_adapter_registry)]
+
+
+def authorize_integration_operations(
+    request: Request,
+    settings: IntegrationSettings,
+) -> None:
+    if not settings.integration_operations_enabled:
+        raise HTTPException(status_code=503, detail="Integration operations are disabled")
+    expected = (
+        settings.integration_operation_key.get_secret_value()
+        if settings.integration_operation_key
+        else ""
+    )
+    supplied = request.headers.get("X-Integration-Key", "")
+    if not expected or not compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="Invalid integration operation key")
+
+
+IntegrationAccess = Annotated[None, Depends(authorize_integration_operations)]
 
 
 def request_session(request: Request, session: RawDbSession) -> Session:
@@ -190,6 +245,245 @@ def get_audit_events(
     )
 
 
+@app.get(
+    "/api/v1/integrations/status",
+    response_model=IntegrationStatusRead,
+    tags=["integrations"],
+)
+def integration_status(
+    _access: IntegrationAccess,
+    session: DbSession,
+    settings: IntegrationSettings,
+    registry: CalendarRegistry,
+):
+    configured = {
+        ("microsoft-365", scope)
+        for scope in _configured_calendar_scopes(settings.microsoft_calendar_ids)
+    }
+    configured.update(
+        (binding.source_system, binding.external_scope) for binding in registry.list_bindings()
+    )
+    state = IntegrationStateStore(session)
+    connections: list[IntegrationConnectionRead] = []
+    for source_system, external_scope in sorted(configured):
+        binding = registry.get(source_system, external_scope)
+        read_only = False
+        if binding is not None:
+            try:
+                require_read_only_capabilities(binding.adapter.capabilities)
+                read_only = True
+            except IntegrationSecurityError:
+                pass
+        enabled = (
+            settings.microsoft_calendar_enabled
+            if source_system == "microsoft-365"
+            else binding is not None
+        )
+        permissions = (
+            list(normalize_permissions(settings.microsoft_graph_scopes))
+            if source_system == "microsoft-365"
+            else []
+        )
+        recent_runs = state.list_runs(
+            source_system=source_system,
+            external_scope=external_scope,
+            limit=1,
+        )
+        connections.append(
+            IntegrationConnectionRead(
+                source_system=source_system,
+                external_scope=external_scope,
+                enabled=enabled,
+                adapter_available=binding is not None,
+                read_only=read_only,
+                ready=(
+                    settings.integration_operations_enabled
+                    and enabled
+                    and binding is not None
+                    and read_only
+                ),
+                permissions=permissions,
+                last_run=_sync_run_read(recent_runs[0]) if recent_runs else None,
+            )
+        )
+    return IntegrationStatusRead(
+        operations_enabled=settings.integration_operations_enabled,
+        max_sync_window_days=settings.integration_max_sync_window_days,
+        connections=connections,
+    )
+
+
+@app.post(
+    "/api/v1/integrations/calendar/sync",
+    response_model=CalendarSyncResult,
+    tags=["integrations"],
+)
+def synchronize_calendar(
+    payload: CalendarSyncRequest,
+    _access: IntegrationAccess,
+    session: DbSession,
+    settings: IntegrationSettings,
+    registry: CalendarRegistry,
+):
+    _require_connection_enabled(payload.source_system, settings)
+    coordinator = CalendarSyncCoordinator(
+        session,
+        registry,
+        max_window_days=settings.integration_max_sync_window_days,
+    )
+    try:
+        result = coordinator.synchronize(**payload.model_dump())
+    except (CalendarOperationError, IntegrationSecurityError) as exc:
+        session.rollback()
+        raise _calendar_operation_http_error(exc) from exc
+    return _sync_result(result)
+
+
+@app.get(
+    "/api/v1/integrations/sync-runs",
+    response_model=list[SyncRunRead],
+    tags=["integrations"],
+)
+def list_sync_runs(
+    _access: IntegrationAccess,
+    session: DbSession,
+    source_system: Annotated[str | None, Query(max_length=80)] = None,
+    external_scope: Annotated[str | None, Query(max_length=240)] = None,
+    run_status: Annotated[SyncRunStatus | None, Query(alias="status")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+):
+    try:
+        runs = IntegrationStateStore(session).list_runs(
+            source_system=source_system,
+            external_scope=external_scope,
+            status=run_status,
+            limit=limit,
+        )
+    except IntegrationStateError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return [_sync_run_read(run) for run in runs]
+
+
+@app.get(
+    "/api/v1/integrations/sync-runs/{run_id}",
+    response_model=SyncRunRead,
+    tags=["integrations"],
+)
+def get_sync_run(run_id: EntityId, _access: IntegrationAccess, session: DbSession):
+    run = IntegrationStateStore(session).get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Synchronization run not found")
+    return _sync_run_read(run)
+
+
+@app.get(
+    "/api/v1/integrations/sync-runs/{run_id}/errors",
+    response_model=list[SyncRunErrorRead],
+    tags=["integrations"],
+)
+def list_sync_run_errors(
+    run_id: EntityId,
+    _access: IntegrationAccess,
+    session: DbSession,
+):
+    try:
+        return IntegrationStateStore(session).list_errors(run_id)
+    except IntegrationStateError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/v1/integrations/sync-runs/{run_id}/retry",
+    response_model=CalendarSyncResult,
+    tags=["integrations"],
+)
+def retry_sync_run(
+    run_id: EntityId,
+    _access: IntegrationAccess,
+    session: DbSession,
+    settings: IntegrationSettings,
+    registry: CalendarRegistry,
+):
+    original = IntegrationStateStore(session).get_run(run_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="Synchronization run not found")
+    _require_connection_enabled(original.source_system, settings)
+    coordinator = CalendarSyncCoordinator(
+        session,
+        registry,
+        max_window_days=settings.integration_max_sync_window_days,
+    )
+    try:
+        result = coordinator.retry(run_id)
+    except (CalendarOperationError, IntegrationSecurityError) as exc:
+        session.rollback()
+        raise _calendar_operation_http_error(exc) from exc
+    return _sync_result(result, retry_of_run_id=run_id)
+
+
+@app.get(
+    "/api/v1/integrations/calendar/reviews",
+    response_model=list[CalendarImportReviewRead],
+    tags=["integrations"],
+)
+def list_calendar_reviews(
+    _access: IntegrationAccess,
+    session: DbSession,
+    source_system: Annotated[str | None, Query(max_length=80)] = None,
+    external_scope: Annotated[str | None, Query(max_length=240)] = None,
+):
+    try:
+        return CalendarAssociationService(session).list_pending(
+            source_system=source_system,
+            external_scope=external_scope,
+        )
+    except CalendarAssociationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/v1/integrations/calendar/reviews/{review_id}/confirm",
+    response_model=CalendarImportReviewRead,
+    tags=["integrations"],
+)
+def confirm_calendar_review(
+    review_id: EntityId,
+    payload: CalendarReviewConfirm,
+    _access: IntegrationAccess,
+    session: DbSession,
+):
+    try:
+        CalendarAssociationService(session).confirm(
+            review_id,
+            project_id=payload.project_id,
+            actor=str(session.info.get("actor", "local-user")),
+        )
+    except CalendarAssociationError as exc:
+        session.rollback()
+        raise _calendar_association_http_error(exc) from exc
+    return session.get(CalendarImportReview, review_id)
+
+
+@app.post(
+    "/api/v1/integrations/calendar/reviews/{review_id}/dismiss",
+    response_model=CalendarImportReviewRead,
+    tags=["integrations"],
+)
+def dismiss_calendar_review(
+    review_id: EntityId,
+    _access: IntegrationAccess,
+    session: DbSession,
+):
+    try:
+        return CalendarAssociationService(session).dismiss(
+            review_id,
+            actor=str(session.info.get("actor", "local-user")),
+        )
+    except CalendarAssociationError as exc:
+        session.rollback()
+        raise _calendar_association_http_error(exc) from exc
+
+
 @app.get("/api/v1/snapshots/export", response_model=SnapshotDocument, tags=["snapshots"])
 def export_portable_snapshot(session: DbSession):
     return export_snapshot(session)
@@ -210,6 +504,63 @@ def import_portable_snapshot(payload: SnapshotDocument, session: DbSession):
     except IntegrityError as exc:
         session.rollback()
         raise HTTPException(status_code=409, detail="Snapshot relationship conflict") from exc
+
+
+def _configured_calendar_scopes(value: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(scope.strip() for scope in value.split(",") if scope.strip()))
+
+
+def _require_connection_enabled(source_system: str, settings: Settings) -> None:
+    if source_system.strip().lower() == "microsoft-365" and not settings.microsoft_calendar_enabled:
+        raise HTTPException(status_code=409, detail="Microsoft 365 calendar is disabled")
+
+
+def _sync_run_read(run: SyncRun) -> SyncRunRead:
+    retryable = (
+        run.resource_kind == "calendar"
+        and run.status in {"failed", "partial"}
+        and bool(run.external_scope and run.window_starts_at and run.window_ends_at)
+    )
+    return SyncRunRead.model_validate(
+        {
+            **{column.name: getattr(run, column.name) for column in SyncRun.__table__.columns},
+            "retryable": retryable,
+        }
+    )
+
+
+def _sync_result(result, *, retry_of_run_id: str | None = None) -> CalendarSyncResult:
+    return CalendarSyncResult(
+        run_id=result.run_id,
+        status=result.status,
+        seen_count=result.seen_count,
+        created_count=result.created_count,
+        updated_count=result.updated_count,
+        unchanged_count=result.unchanged_count,
+        skipped_count=result.skipped_count,
+        error_count=result.error_count,
+        missing_identity_ids=list(result.missing_identity_ids),
+        queued_review_ids=list(result.queued_review_ids),
+        retry_of_run_id=retry_of_run_id,
+    )
+
+
+def _calendar_operation_http_error(
+    exc: CalendarOperationError | IntegrationSecurityError,
+) -> HTTPException:
+    if isinstance(exc, CalendarOperationError) and exc.run_id:
+        return HTTPException(
+            status_code=502,
+            detail={"message": str(exc), "run_id": exc.run_id},
+        )
+    message = str(exc)
+    code = 404 if "not found" in message.lower() else 409
+    return HTTPException(status_code=code, detail=message)
+
+
+def _calendar_association_http_error(exc: CalendarAssociationError) -> HTTPException:
+    code = 404 if "not found" in str(exc).lower() else 422
+    return HTTPException(status_code=code, detail=str(exc))
 
 
 def _store(session: Session) -> DomainStore:

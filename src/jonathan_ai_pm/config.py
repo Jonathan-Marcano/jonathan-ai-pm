@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from jonathan_ai_pm.integrations.security import validate_microsoft_graph_permissions
@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     microsoft_graph_timeout_seconds: float = 15.0
     integration_sync_history_retention_days: int = Field(default=90, ge=1, le=3650)
     integration_resolved_review_retention_days: int = Field(default=30, ge=1, le=3650)
+    integration_operations_enabled: bool = False
+    integration_operation_key: SecretStr | None = None
+    integration_max_sync_window_days: int = Field(default=31, ge=1, le=366)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -27,6 +30,17 @@ class Settings(BaseSettings):
             self.microsoft_graph_scopes,
             require_calendar_read=self.microsoft_calendar_enabled,
         )
+        if self.integration_operations_enabled:
+            key = (
+                self.integration_operation_key.get_secret_value()
+                if self.integration_operation_key
+                else ""
+            )
+            if len(key) < 32:
+                raise ValueError(
+                    "INTEGRATION_OPERATION_KEY must contain at least 32 characters "
+                    "when operations are enabled"
+                )
         return self
 
 

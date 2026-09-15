@@ -62,8 +62,10 @@ The foreign-key relationship clears any retained error-to-identity link when an 
 removed. Provider-side consent or tokens must also be revoked using the provider's own controls;
 Jonathan AI PM cannot revoke credentials it does not store.
 
-Both maintenance commands require `--confirm`. No HTTP endpoint performs these operations in
-P2-11; authenticated status and operation endpoints belong to P2-12 and the Phase 2.5 interface.
+Both maintenance commands require `--confirm`. P2-12 adds separately key-protected status, sync,
+retry, and association-review endpoints, but retention and disconnection remain deliberate local
+CLI operations. See [Integration operations](integration-operations.md). General application
+authentication still belongs to the Phase 2.5 interface.
 
 ## Erasure boundary
 

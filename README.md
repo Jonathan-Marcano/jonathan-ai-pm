@@ -11,7 +11,7 @@ Jonathan AI PM is intended to support a simple daily operating loop:
 3. **Incremental delivery:** turn tasks into visible progress on deliverables.
 4. **Evening Close:** review completed and pending work, update projects, and measure effort.
 
-Phase 0 established the product definition and repository conventions. Phase 1 delivered the tested manual-first application. Phase 2 is underway with provider-neutral, read-only calendar and document contracts; no live provider connection is enabled yet. WhatsApp and AI integrations remain deferred.
+Phase 0 established the product definition and repository conventions. Phase 1 delivered the tested manual-first application. The core Phase 2 calendar context is complete, including protected manual operations; no live provider connection or OAuth flow is enabled yet. WhatsApp and AI integrations remain deferred.
 
 ## Repository map
 
@@ -48,6 +48,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Meeting preparation](docs/meeting-preparation.md)
 - [Post-meeting review](docs/post-meeting-review.md)
 - [Integration security, retention, and disconnection](docs/integration-security-retention.md)
+- [Integration operations](docs/integration-operations.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
@@ -110,10 +111,11 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
   protection, and manual translations are implemented.
 - Phase 1: complete.
-- Phase 2: in progress; P2-01 through P2-05 and P2-09 through P2-11 are complete.
+- Phase 2 core: complete; P2-01 through P2-05 and P2-09 through P2-12 are complete.
 - Microsoft 365 calendar: read-only adapter complete; tenant authorization is not configured.
 - Advanced Google Drive synchronization is deferred; existing manual deliverable links remain.
-- P2-12 synchronization status and manual-operation endpoints are next.
+- Optional Google Calendar support (P2-08) is deferred until it is needed.
+- Phase 2.5 responsive interface and application authentication are next.
 
 ## Working agreements
 

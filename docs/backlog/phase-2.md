@@ -17,11 +17,11 @@ and never create external changes.
 | P2-05 | Must | Associate imported meetings with projects | **Done** — unmatched events enter an idempotent review queue; explicit user decisions create scoped, reusable mappings without content-based guessing |
 | P2-06 | Could | Link Google Drive artifacts | **Deferred** — deliverables already support optional manual `drive_url` references; advanced Drive identity is not required for the PM workflow |
 | P2-07 | Could | Refresh Drive metadata | **Deferred with P2-06** — automatic file metadata refresh is unnecessary while documents remain managed separately |
-| P2-08 | Should | Support Google Calendar read-only | Personal calendar events use the same contracts, boundaries, and deduplication rules |
+| P2-08 | Should | Support Google Calendar read-only | **Deferred** — Microsoft 365 is the current primary calendar; the provider-neutral contract permits a later adapter without blocking the usable MVP |
 | P2-09 | Should | Prepare meetings | **Done** — a deterministic dated view combines every scheduled meeting with its client, project health, open actions, project tasks, deadlines, blockers, and optional manual artifact links |
 | P2-10 | Should | Review completed meetings | **Done** — a catch-up queue lists past unreviewed meetings; one explicit, audited transaction closes the meeting as either `actions_captured` or `no_follow_up` and optionally creates validated action items while preserving its source reference |
 | P2-11 | Must | Enforce integration permissions and retention | **Done** — startup, adapter, and reconciliation checks reject unapproved or write-enabled permissions; configurable retention removes only expired completed history and resolved reviews; explicit disconnection removes provider links while preserving operational records and anonymizing retained run scopes |
-| P2-12 | Should | Expose synchronization status | Manual sync and status endpoints report bounded, auditable outcomes and safe retry information |
+| P2-12 | Should | Expose synchronization status | **Done** — key-protected endpoints expose connection readiness, bounded manual sync, filtered run history, redacted errors, exact-context retries, and explicit review confirmation or dismissal without storing credentials |
 
 ## Delivery slices
 
@@ -42,8 +42,8 @@ the existing optional `drive_url` field is sufficient for manual references.
 P2-08 through P2-12: optional Google Calendar, meeting preparation/review, permission controls,
 and synchronization visibility.
 
-P2-09 through P2-11 are complete. P2-12 synchronization status and manual operation is next;
-optional P2-08 remains non-blocking.
+P2-09 through P2-12 are complete. Optional P2-08 is deferred and non-blocking, so the core Phase 2
+scope is closed. Phase 2.5 adds the responsive daily-use interface and application authentication.
 
 ## Definition of done
 

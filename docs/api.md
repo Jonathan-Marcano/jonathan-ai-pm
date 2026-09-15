@@ -30,6 +30,10 @@ Manual translations are managed through `/api/v1/translations`. Each translation
 supported display field while the source record remains unchanged. See
 [Manual translations](translations.md).
 
+Protected integration operations are available under `/api/v1/integrations` when explicitly
+enabled. They cover connection status, bounded manual calendar synchronization, run/error history,
+safe retries, and explicit association review. See [Integration operations](integration-operations.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |

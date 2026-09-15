@@ -114,6 +114,12 @@ def test_settings_reject_write_scope_and_invalid_retention() -> None:
         )
     with pytest.raises(ValidationError, match="greater than or equal to 1"):
         Settings(_env_file=None, integration_sync_history_retention_days=0)
+    with pytest.raises(ValidationError, match="at least 32 characters"):
+        Settings(
+            _env_file=None,
+            integration_operations_enabled=True,
+            integration_operation_key="too-short",
+        )
 
 
 def test_microsoft_adapter_config_rejects_write_permission() -> None:
