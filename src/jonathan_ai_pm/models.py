@@ -102,13 +102,29 @@ class Task(TimestampMixin, Base):
 
 class Meeting(TimestampMixin, Base):
     __tablename__ = "meetings"
-    __table_args__ = (CheckConstraint("status IN ('scheduled','completed','cancelled')"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('scheduled','completed','cancelled')"),
+        CheckConstraint(
+            "review_decision IS NULL OR review_decision IN ('actions_captured','no_follow_up')"
+        ),
+        CheckConstraint(
+            "(review_decision IS NULL AND review_summary IS NULL "
+            "AND reviewed_by IS NULL AND reviewed_at IS NULL) OR "
+            "(review_decision IS NOT NULL AND review_summary IS NOT NULL "
+            "AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL)",
+            name="ck_meeting_review_complete",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="RESTRICT"))
     title: Mapped[str] = mapped_column(String(300))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(20), default="scheduled")
+    review_decision: Mapped[str | None] = mapped_column(String(30))
+    review_summary: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(200))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class ActionItem(TimestampMixin, Base):

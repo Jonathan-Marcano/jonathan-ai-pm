@@ -2,7 +2,8 @@
 
 ## 1. Morning Brief
 
-Inputs in Phase 1 are internal records and manual meeting entries. Calendar synchronization is deferred.
+Inputs include internal records, manual meetings, and meetings reconciled through the read-only
+calendar boundary. Live account authorization remains a separate deployment decision.
 
 The brief should show:
 
@@ -58,6 +59,11 @@ It also proposes tomorrow's first action using the same deterministic ranking as
 The user updates the underlying records with the existing API and reruns the close until each open
 loop has an explicit disposition. See [Evening Close](evening-close.md) for the selection rules and
 current limitations.
+
+Before or during Evening Close, the post-meeting review queue surfaces every past meeting that has
+not received an explicit outcome. The user records a short result and either captures one or more
+actions or confirms that no follow-up is required. The meeting, decision, actor, timestamp, and
+new actions are committed together. See [Post-meeting review](post-meeting-review.md).
 
 ## 5. Weekly review
 

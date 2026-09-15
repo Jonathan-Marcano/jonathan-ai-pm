@@ -13,7 +13,9 @@ from jonathan_ai_pm.models import (
     MODEL_BY_KIND,
     ActionItem,
     Capture,
+    Client,
     Deliverable,
+    ExternalIdentity,
     Meeting,
     Project,
     Task,
@@ -466,6 +468,130 @@ class DomainStore:
             "meeting_count": len(preparations),
             "meetings": preparations,
         }
+
+    def meeting_review_queue(
+        self,
+        timezone_name: str,
+        review_through: date | None = None,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        local_timezone, target_date, generated_at = self._daily_context(
+            timezone_name, review_through, now
+        )
+        projects_by_id = {project.id: project for project in self.list("project")}
+        clients_by_id = {client.id: client for client in self.list("client")}
+        references_by_meeting: dict[str, ExternalIdentity] = {}
+        for identity in self.session.scalars(
+            select(ExternalIdentity)
+            .where(ExternalIdentity.entity_kind == "meeting")
+            .order_by(ExternalIdentity.entity_id, ExternalIdentity.id)
+        ):
+            references_by_meeting.setdefault(identity.entity_id, identity)
+
+        meetings = sorted(
+            [
+                meeting
+                for meeting in self.list("meeting")
+                if meeting.status != "cancelled"
+                and meeting.reviewed_at is None
+                and self._as_utc(meeting.starts_at) <= generated_at
+                and self._local_date(meeting.starts_at, local_timezone) <= target_date
+            ],
+            key=lambda meeting: (self._as_utc(meeting.starts_at), meeting.id),
+        )
+        pending = []
+        for meeting in meetings:
+            project = projects_by_id.get(meeting.project_id)
+            if project is None:
+                raise DomainRuleError(f"Meeting project not found: {meeting.project_id}")
+            client: Client | None = clients_by_id.get(project.client_id)
+            if client is None:
+                raise DomainRuleError(f"Project client not found: {project.client_id}")
+            identity = references_by_meeting.get(meeting.id)
+            pending.append(
+                {
+                    "meeting": meeting,
+                    "client": client,
+                    "project": project,
+                    "source_reference": (
+                        {"source_system": identity.source_system, "web_url": identity.web_url}
+                        if identity
+                        else None
+                    ),
+                }
+            )
+        return {
+            "review_through": target_date,
+            "timezone": timezone_name,
+            "generated_at": generated_at,
+            "meeting_count": len(pending),
+            "meetings": pending,
+        }
+
+    def review_meeting(
+        self,
+        meeting_id: str,
+        *,
+        decision: str,
+        summary: str,
+        actions: list[dict[str, Any]],
+        reviewed_at: datetime | None = None,
+    ) -> dict[str, Any]:
+        meeting = self._required("meeting", meeting_id)
+        review_time = reviewed_at or utc_now()
+        if review_time.tzinfo is None or review_time.utcoffset() is None:
+            raise DomainRuleError("Meeting reviewed_at must include a timezone")
+        review_time = review_time.astimezone(UTC)
+        review_summary = summary.strip()
+        if not review_summary:
+            raise DomainRuleError("Meeting review requires a summary")
+        if meeting.status == "cancelled":
+            raise DomainRuleError("A cancelled meeting cannot be reviewed")
+        if self._as_utc(meeting.starts_at) > review_time:
+            raise DomainRuleError("A future meeting cannot be reviewed")
+        if meeting.reviewed_at is not None:
+            raise DomainRuleError("Meeting review is already closed")
+        if decision not in {"actions_captured", "no_follow_up"}:
+            raise DomainRuleError(f"Unknown meeting review decision: {decision}")
+        if decision == "actions_captured" and not actions:
+            raise DomainRuleError("actions_captured requires at least one action")
+        if decision == "no_follow_up" and actions:
+            raise DomainRuleError("no_follow_up cannot include actions")
+        action_ids = [str(action.get("id") or "") for action in actions]
+        if len(action_ids) != len(set(action_ids)):
+            raise DomainRuleError("Meeting review action IDs must be unique")
+
+        created_actions = []
+        for action_data in actions:
+            title = str(action_data.get("title") or "").strip()
+            owner = str(action_data.get("owner") or "").strip()
+            if not title or not owner or not action_data.get("id"):
+                raise DomainRuleError("Meeting review actions require id, title, and owner")
+            action = ActionItem(
+                id=action_data["id"],
+                meeting_id=meeting.id,
+                deliverable_id=action_data.get("deliverable_id"),
+                title=title,
+                status="captured",
+                owner=owner,
+            )
+            self._validate_links(action)
+            self._validate_entity(action)
+            created_actions.append(action)
+
+        self.session.add_all(created_actions)
+
+        actor = str(self.session.info.get("actor") or "local-user").strip()[:200]
+        meeting.status = "completed"
+        meeting.review_decision = decision
+        meeting.review_summary = review_summary
+        meeting.reviewed_by = actor or "local-user"
+        meeting.reviewed_at = review_time
+        self.session.commit()
+        self.session.refresh(meeting)
+        for action in created_actions:
+            self.session.refresh(action)
+        return {"meeting": meeting, "created_actions": created_actions}
 
     def evening_close(
         self,

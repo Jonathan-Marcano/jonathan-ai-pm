@@ -103,7 +103,11 @@
         "project_id": { "$ref": "#/$defs/id" },
         "title": { "type": "string", "minLength": 1 },
         "starts_at": { "$ref": "#/$defs/timestamp" },
-        "status": { "enum": ["scheduled", "completed", "cancelled"] }
+        "status": { "enum": ["scheduled", "completed", "cancelled"] },
+        "review_decision": { "enum": ["actions_captured", "no_follow_up"] },
+        "review_summary": { "type": "string", "minLength": 1 },
+        "reviewed_by": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "$ref": "#/$defs/timestamp" }
       }
     },
     "actionItem": {

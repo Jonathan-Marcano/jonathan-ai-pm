@@ -27,7 +27,7 @@ An action item may create a new task or link to an existing task. It may also po
 | Project | Time-bounded outcome for a client | `id`, `client_id`, `name`, `status`, `health` |
 | Deliverable | Concrete output with acceptance criteria | `id`, `project_id`, `title`, `status`, `due_at` |
 | Task | Executable unit of work | `id`, `project_id`, `title`, `status`, `priority` |
-| Meeting | Scheduled or completed discussion | `id`, `project_id`, `title`, `starts_at`, `status` |
+| Meeting | Scheduled or completed discussion with an optional explicit review outcome | `id`, `project_id`, `title`, `starts_at`, `status` |
 | Action Item | Commitment or follow-up captured from a meeting | `id`, `meeting_id`, `title`, `status`, `owner` |
 | Work Log | Measured effort and progress evidence | `id`, `task_id`, `started_at`, `minutes`, `summary` |
 | Capture | Frictionless raw input awaiting triage | `id`, `text`, `status`, `captured_at` |
@@ -56,6 +56,8 @@ An action item may create a new task or link to an existing task. It may also po
   or `dismissed`.
 - `calendar_project_mapping` stores an explicit, attributable project decision for the same scoped
   source key. It is reusable by later reconciliations and cannot silently move an imported meeting.
+- A reviewed meeting stores `review_decision`, `review_summary`, `reviewed_by`, and `reviewed_at`
+  as one complete state. Partial review state is rejected.
 - Sync runs retain time windows and aggregate seen, created, updated, unchanged, skipped, and error
   counts. Individual error messages are redacted before persistence.
 - A translation targets only the canonical display field: project `name`; deliverable, task,
@@ -94,6 +96,8 @@ Project `health` is one of `unknown`, `on_track`, `at_risk`, or `off_track`; it 
 10. Captures are immutable after creation except through triage, and work logs are append-only.
 11. Accepted action items require a linked task; dismissed action items cannot retain one.
 12. Operational timestamps supplied for meetings and work logs must include a timezone.
+13. A past, non-cancelled meeting is reviewed once as `actions_captured` or `no_follow_up`; any
+    new actions and the meeting closure commit atomically.
 
 ## Identifiers and time
 

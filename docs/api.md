@@ -10,6 +10,11 @@ rules are documented in [Morning Brief](morning-brief.md).
 accepts optional `date` and `due_soon_days` parameters. See
 [Meeting preparation](meeting-preparation.md).
 
+`GET /api/v1/briefs/meeting-reviews` lists past meetings whose manual review is still open. It
+accepts an optional `date` catch-up boundary. `POST /api/v1/meetings/{id}/review` records one
+explicit decision and may create validated action items in the same transaction. See
+[Post-meeting review](post-meeting-review.md).
+
 `GET /api/v1/briefs/evening` generates the read-only daily reconciliation. Its sections and
 completion loop are documented in [Evening Close](evening-close.md).
 
@@ -52,6 +57,8 @@ supported display field while the source record remains unchanged. See
 - `POST /api/v1/deliverables/{id}/review` requires acceptance criteria and an evidence URL.
 - `POST /api/v1/action-items/{id}/task` creates one ready task in the meeting's project and links
   it to the source action item.
+- `POST /api/v1/meetings/{id}/review` closes one past, non-cancelled meeting exactly once. The
+  decision is `actions_captured` with one or more actions, or `no_follow_up` with none.
 - Cross-project task, deliverable, meeting, and action-item links are rejected.
 - `POST /api/v1/captures` requires only `text`.
 - `POST /api/v1/captures/{id}/triage` records one immutable disposition and optionally creates a

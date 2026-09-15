@@ -16,6 +16,7 @@ DeliverableStatus = Literal[
 TaskStatus = Literal["inbox", "ready", "in_progress", "blocked", "done", "cancelled"]
 TaskPriority = Literal["low", "medium", "high", "critical"]
 MeetingStatus = Literal["scheduled", "completed", "cancelled"]
+MeetingReviewDecision = Literal["actions_captured", "no_follow_up"]
 ActionItemStatus = Literal["captured", "accepted", "done", "dismissed"]
 CaptureStatus = Literal["inbox", "triaged"]
 CaptureDisposition = Literal["task", "action", "reference", "dismissed"]
@@ -193,7 +194,59 @@ class MeetingUpdate(StrictModel):
 
 
 class MeetingRead(Timestamps, MeetingCreate):
-    pass
+    review_decision: MeetingReviewDecision | None = None
+    review_summary: str | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_review_state(self) -> Self:
+        values = (
+            self.review_decision,
+            self.review_summary,
+            self.reviewed_by,
+            self.reviewed_at,
+        )
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError("Meeting review state must be complete")
+        return self
+
+
+class MeetingReviewActionCreate(StrictModel):
+    id: EntityId
+    title: Name
+    owner: Name
+    deliverable_id: EntityId | None = None
+
+
+class MeetingReviewCreate(StrictModel):
+    decision: MeetingReviewDecision
+    summary: Annotated[str, Field(min_length=1, max_length=10000)]
+    actions: Annotated[list[MeetingReviewActionCreate], Field(max_length=50)] = Field(
+        default_factory=list
+    )
+
+
+class MeetingSourceReference(ResponseModel):
+    source_system: Annotated[str, Field(min_length=1, max_length=80)]
+    web_url: Annotated[str, Field(max_length=1000, pattern=r"^https?://")] | None = None
+
+
+class MeetingReviewQueueItem(ResponseModel):
+    meeting: MeetingRead
+    client: ClientRead
+    project: ProjectRead
+    source_reference: MeetingSourceReference | None = None
+
+
+class MeetingReviewQueue(ResponseModel):
+    review_through: date
+    timezone: str
+    generated_at: datetime
+    meeting_count: int
+    meetings: list[MeetingReviewQueueItem]
 
 
 class ActionItemCreate(StrictModel):
@@ -217,6 +270,11 @@ class ActionItemUpdate(StrictModel):
 
 class ActionItemRead(Timestamps, ActionItemCreate):
     pass
+
+
+class MeetingReviewResult(ResponseModel):
+    meeting: MeetingRead
+    created_actions: list[ActionItemRead]
 
 
 class ActionItemToTask(StrictModel):

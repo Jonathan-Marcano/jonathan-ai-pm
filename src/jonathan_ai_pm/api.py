@@ -35,6 +35,9 @@ from jonathan_ai_pm.schemas import (
     MeetingCreate,
     MeetingPreparation,
     MeetingRead,
+    MeetingReviewCreate,
+    MeetingReviewQueue,
+    MeetingReviewResult,
     MeetingStatus,
     MeetingUpdate,
     MorningBrief,
@@ -131,6 +134,24 @@ def meeting_preparation(
             get_settings().app_timezone,
             preparation_date=preparation_date,
             due_soon_days=due_soon_days,
+        )
+    except DomainRuleError as exc:
+        raise _domain_http_error(exc) from exc
+
+
+@app.get(
+    "/api/v1/briefs/meeting-reviews",
+    response_model=MeetingReviewQueue,
+    tags=["briefs"],
+)
+def meeting_review_queue(
+    session: DbSession,
+    review_through: Annotated[date | None, Query(alias="date")] = None,
+):
+    try:
+        return _store(session).meeting_review_queue(
+            get_settings().app_timezone,
+            review_through=review_through,
         )
     except DomainRuleError as exc:
         raise _domain_http_error(exc) from exc
@@ -525,6 +546,27 @@ def get_meeting(entity_id: str, session: DbSession):
 @app.patch("/api/v1/meetings/{entity_id}", response_model=MeetingRead, tags=["meetings"])
 def update_meeting(entity_id: str, payload: MeetingUpdate, session: DbSession):
     return _update(session, "meeting", entity_id, payload)
+
+
+@app.post(
+    "/api/v1/meetings/{entity_id}/review",
+    response_model=MeetingReviewResult,
+    tags=["meetings"],
+)
+def review_meeting(entity_id: str, payload: MeetingReviewCreate, session: DbSession):
+    try:
+        return _store(session).review_meeting(
+            entity_id,
+            decision=payload.decision,
+            summary=payload.summary,
+            actions=[action.model_dump() for action in payload.actions],
+        )
+    except DomainRuleError as exc:
+        session.rollback()
+        raise _domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Meeting review conflict") from exc
 
 
 @app.delete("/api/v1/meetings/{entity_id}", status_code=204, tags=["meetings"])
