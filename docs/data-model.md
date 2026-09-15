@@ -51,6 +51,11 @@ An action item may create a new task or link to an existing task. It may also po
   files.
 - `external_identity.missing_since` records the first successful window in which a linked calendar
   event was not returned. It clears when the event reappears and never deletes the meeting.
+- `calendar_import_review` stores the minimum event snapshot required for a human decision and is
+  unique by provider, calendar scope, and external event ID. Its lifecycle is `pending`, `resolved`,
+  or `dismissed`.
+- `calendar_project_mapping` stores an explicit, attributable project decision for the same scoped
+  source key. It is reusable by later reconciliations and cannot silently move an imported meeting.
 - Sync runs retain time windows and aggregate seen, created, updated, unchanged, skipped, and error
   counts. Individual error messages are redacted before persistence.
 - A translation targets only the canonical display field: project `name`; deliverable, task,

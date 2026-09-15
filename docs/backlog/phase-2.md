@@ -14,7 +14,7 @@ and never create external changes.
 | P2-02 | Must | Persist external identities and synchronization runs | **Done** — meetings and deliverables retain stable provider identities while sync runs store bounded windows, outcome counts, lifecycle state, and redacted errors without credentials |
 | P2-03 | Must | Synchronize Microsoft 365 calendars read-only | **Done** — the Microsoft Graph `calendarView` adapter retrieves bounded UTC windows with delegated `Calendars.ReadBasic`, safe pagination, multiple calendar scopes, and no write operation |
 | P2-04 | Must | Reconcile calendar events idempotently | **Done** — repeated windows update one meeting, duplicate provider items are skipped, explicit cancellations are applied, and missing events are flagged without deleting operational records |
-| P2-05 | Must | Associate imported meetings with projects | Unmatched events enter a review queue; user-confirmed mappings can be reused without guessing from confidential text |
+| P2-05 | Must | Associate imported meetings with projects | **Done** — unmatched events enter an idempotent review queue; explicit user decisions create scoped, reusable mappings without content-based guessing |
 | P2-06 | Must | Link Google Drive artifacts | Deliverables retain Drive file identity and link metadata without copying document bodies |
 | P2-07 | Must | Refresh Drive metadata | Name, URL, MIME type, version marker, and modification time refresh idempotently and preserve the external file |
 | P2-08 | Should | Support Google Calendar read-only | Personal calendar events use the same contracts, boundaries, and deduplication rules |
@@ -30,7 +30,7 @@ and never create external changes.
 P2-01 through P2-05: contracts, persistence, Microsoft 365 read-only import, deduplication, and
 project association.
 
-Current increment: P2-01 through P2-04 are complete. P2-05 is next.
+P2-01 through P2-05 are complete. Slice A is closed; P2-06 is next.
 
 ### Slice B — Shared document context
 

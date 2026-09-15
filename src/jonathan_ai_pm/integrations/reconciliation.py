@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import jonathan_ai_pm.audit  # noqa: F401
+from jonathan_ai_pm.integrations.associations import CalendarAssociationService
 from jonathan_ai_pm.integrations.contracts import CalendarWindow, ExternalCalendarEvent
 from jonathan_ai_pm.integrations.persistence import IntegrationStateStore
 from jonathan_ai_pm.models import ExternalIdentity, Meeting, Project, utc_now
@@ -30,6 +31,7 @@ class CalendarReconciliationResult:
     skipped_count: int
     error_count: int
     missing_identity_ids: tuple[str, ...]
+    queued_review_ids: tuple[str, ...]
 
 
 class CalendarReconciler:
@@ -38,6 +40,7 @@ class CalendarReconciler:
     def __init__(self, session: Session):
         self.session = session
         self.state = IntegrationStateStore(session)
+        self.associations = CalendarAssociationService(session)
 
     def reconcile(
         self,
@@ -75,20 +78,25 @@ class CalendarReconciler:
             "unchanged": 0,
             "skipped": duplicate_count,
         }
+        queued_review_ids: list[str] = []
         seen_source_keys: set[tuple[str, str, str]] = set()
         for event in unique_events.values():
             if event.source_system == source_system and event.calendar_id == external_scope:
                 seen_source_keys.add(event.source_key)
             try:
-                outcome = self._reconcile_event(
+                explicit_project_id = project_ids.get(event.external_id)
+                mapped_project_id = self.associations.project_id_for(event.source_key)
+                outcome, review_id = self._reconcile_event(
                     event,
                     window=window,
                     source_system=source_system,
                     external_scope=external_scope,
-                    project_id=project_ids.get(event.external_id),
+                    project_id=explicit_project_id or mapped_project_id,
                     synced_at=synced_at,
                 )
                 counts[outcome] += 1
+                if review_id is not None:
+                    queued_review_ids.append(review_id)
             except (CalendarReconciliationError, SQLAlchemyError) as exc:
                 self.session.rollback()
                 counts["skipped"] += 1
@@ -130,6 +138,7 @@ class CalendarReconciler:
             skipped_count=completed.skipped_count,
             error_count=completed.error_count,
             missing_identity_ids=missing_identity_ids,
+            queued_review_ids=tuple(queued_review_ids),
         )
 
     def _reconcile_event(
@@ -141,7 +150,7 @@ class CalendarReconciler:
         external_scope: str,
         project_id: str | None,
         synced_at: datetime,
-    ) -> str:
+    ) -> tuple[str, str | None]:
         if event.source_system != source_system or event.calendar_id != external_scope:
             raise CalendarReconciliationError(
                 "Calendar event does not match the synchronization source"
@@ -162,7 +171,8 @@ class CalendarReconciler:
         )
         if identity is None:
             if not project_id:
-                return "skipped"
+                review = self.associations.queue_unmatched(event, seen_at=synced_at)
+                return "skipped", review.id
             if self.session.get(Project, project_id) is None:
                 raise CalendarReconciliationError("Mapped project does not exist")
             meeting = Meeting(
@@ -187,7 +197,7 @@ class CalendarReconciler:
             )
             self.session.add_all([meeting, identity])
             self.session.commit()
-            return "created"
+            return "created", None
 
         if identity.entity_kind != "meeting":
             raise CalendarReconciliationError("Calendar identity is not linked to a meeting")
@@ -220,7 +230,7 @@ class CalendarReconciler:
         identity.last_synced_at = synced_at
         identity.missing_since = None
         self.session.commit()
-        return "updated" if changed else "unchanged"
+        return ("updated" if changed else "unchanged"), None
 
     def _mark_missing(
         self,

@@ -1,5 +1,9 @@
 """Provider-neutral Phase 2 integration contracts."""
 
+from jonathan_ai_pm.integrations.associations import (
+    CalendarAssociationError,
+    CalendarAssociationService,
+)
 from jonathan_ai_pm.integrations.contracts import (
     READ_ONLY_CAPABILITIES,
     CalendarWindow,
@@ -24,6 +28,8 @@ from jonathan_ai_pm.integrations.reconciliation import (
 )
 
 __all__ = [
+    "CalendarAssociationError",
+    "CalendarAssociationService",
     "READ_ONLY_CAPABILITIES",
     "CalendarWindow",
     "ExternalCalendarEvent",

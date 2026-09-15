@@ -225,6 +225,68 @@ class ExternalIdentity(TimestampMixin, Base):
     missing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class CalendarProjectMapping(TimestampMixin, Base):
+    __tablename__ = "calendar_project_mappings"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_system",
+            "external_scope",
+            "external_id",
+            name="uq_calendar_project_mapping_source_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    source_system: Mapped[str] = mapped_column(String(80), index=True)
+    external_scope: Mapped[str] = mapped_column(String(240))
+    external_id: Mapped[str] = mapped_column(String(500))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="RESTRICT"))
+    confirmed_by: Mapped[str] = mapped_column(String(200))
+    confirmed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class CalendarImportReview(TimestampMixin, Base):
+    __tablename__ = "calendar_import_reviews"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','resolved','dismissed')"),
+        CheckConstraint("event_status IN ('confirmed','cancelled')"),
+        CheckConstraint(
+            "(status = 'pending' AND resolution_project_id IS NULL "
+            "AND resolved_by IS NULL AND resolved_at IS NULL) OR "
+            "(status = 'resolved' AND resolution_project_id IS NOT NULL "
+            "AND resolved_by IS NOT NULL AND resolved_at IS NOT NULL) OR "
+            "(status = 'dismissed' AND resolution_project_id IS NULL "
+            "AND resolved_by IS NOT NULL AND resolved_at IS NOT NULL)",
+            name="ck_calendar_import_review_resolution",
+        ),
+        UniqueConstraint(
+            "source_system",
+            "external_scope",
+            "external_id",
+            name="uq_calendar_import_review_source_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    source_system: Mapped[str] = mapped_column(String(80), index=True)
+    external_scope: Mapped[str] = mapped_column(String(240))
+    external_id: Mapped[str] = mapped_column(String(500))
+    title: Mapped[str] = mapped_column(String(300))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    event_status: Mapped[str] = mapped_column(String(20))
+    web_url: Mapped[str | None] = mapped_column(String(1000))
+    external_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    resolution_project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="RESTRICT")
+    )
+    resolved_by: Mapped[str | None] = mapped_column(String(200))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SyncRun(Base):
     __tablename__ = "sync_runs"
     __table_args__ = (

@@ -1,8 +1,9 @@
 # Idempotent calendar reconciliation
 
-P2-04 converts normalized provider events into stable operational meetings after a project mapping
-has been supplied explicitly. It does not call Microsoft Graph and does not infer ownership from
-event titles, attendees, descriptions, or other confidential text.
+P2-04 converts normalized provider events into stable operational meetings. P2-05 supplies project
+ownership through either an explicit invocation mapping or a previously confirmed persistent
+mapping. Neither step calls Microsoft Graph or infers ownership from event titles, attendees,
+descriptions, or other confidential text.
 
 ## Source identity
 
@@ -21,7 +22,8 @@ items inside one provider response are collapsed to one event and counted as ski
 | Provider result | Operational behavior |
 |---|---|
 | New event with explicit project mapping | Create one meeting and one external identity |
-| New event without mapping | Skip it; P2-05 will introduce the review queue |
+| New event without mapping | Upsert one review item and skip meeting creation |
+| New event with a confirmed persistent mapping | Create one meeting and reuse that decision on later runs |
 | Existing event unchanged | Refresh `last_synced_at` and count it as unchanged |
 | Existing title, time, link, or version changed | Update the same meeting and identity |
 | Explicit provider cancellation | Set a scheduled meeting to `cancelled` |
@@ -40,5 +42,5 @@ Absence from one calendar response is not proof of deletion: a window can change
 temporarily inconsistent, or permissions can be reduced. For that reason, `missing_since` is a
 review signal only. No meeting, task, action item, or deliverable is removed automatically.
 
-P2-05 will add reusable project mappings and a review queue so skipped new events can be associated
-without guessing from confidential calendar content.
+See [Calendar project associations](calendar-project-associations.md) for the review and confirmation
+workflow used by P2-05.

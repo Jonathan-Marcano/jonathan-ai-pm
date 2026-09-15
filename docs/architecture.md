@@ -48,6 +48,9 @@ Ports/adapters
 - Calendar reconciliation keys on provider, local calendar scope, and external event ID. It updates
   existing meetings, never guesses a project, and flags missing identities instead of deleting or
   cancelling records based only on absence from one provider response.
+- Unmatched calendar events enter a stable review queue. A meeting is imported only after an
+  explicit project decision, stored as a scoped mapping with actor and confirmation time; event
+  titles and other confidential text are never used as association heuristics.
 - A link to a Drive artifact is preferred over copying sensitive document content into the operational database.
 - Automated extraction creates a proposed record; user confirmation changes it to an accepted commitment.
 - All timestamps are stored in UTC and rendered using `APP_TIMEZONE`.

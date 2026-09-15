@@ -13,6 +13,14 @@ Calling `upsert_identity` with the same source key refreshes version, link, modi
 metadata on the same row and clears `missing_since`. A source key cannot silently move to a
 different operational entity.
 
+## Calendar association state
+
+P2-05 adds `calendar_import_reviews` for unmatched event snapshots and
+`calendar_project_mappings` for explicit, attributable project decisions. Both use the same scoped
+calendar source key as external identities. Reconciliation may reuse a confirmed mapping, but it
+never derives one from event content. See
+[Calendar project associations](calendar-project-associations.md).
+
 ## Synchronization runs
 
 Each execution starts as a `running` row in `sync_runs`. It records the provider, resource kind,
