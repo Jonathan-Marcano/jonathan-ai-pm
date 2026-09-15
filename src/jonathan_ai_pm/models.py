@@ -222,6 +222,7 @@ class ExternalIdentity(TimestampMixin, Base):
     web_url: Mapped[str | None] = mapped_column(String(1000))
     external_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    missing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class SyncRun(Base):

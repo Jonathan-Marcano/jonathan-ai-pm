@@ -45,6 +45,9 @@ Ports/adapters
   separately queryable redacted errors; credentials and provider payload bodies are excluded.
 - Microsoft 365 calendar retrieval uses delegated `Calendars.ReadBasic`, `calendarView`, forced UTC
   responses, bounded page counts, and validated `graph.microsoft.com` continuation links.
+- Calendar reconciliation keys on provider, local calendar scope, and external event ID. It updates
+  existing meetings, never guesses a project, and flags missing identities instead of deleting or
+  cancelling records based only on absence from one provider response.
 - A link to a Drive artifact is preferred over copying sensitive document content into the operational database.
 - Automated extraction creates a proposed record; user confirmation changes it to an accepted commitment.
 - All timestamps are stored in UTC and rendered using `APP_TIMEZONE`.

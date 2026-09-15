@@ -43,6 +43,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Phase 2 integration contracts](docs/phase-2-integration-contracts.md)
 - [Phase 2 integration state](docs/phase-2-integration-state.md)
 - [Microsoft 365 calendar adapter](docs/microsoft-365-calendar.md)
+- [Calendar reconciliation](docs/calendar-reconciliation.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
@@ -105,9 +106,9 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
   protection, and manual translations are implemented.
 - Phase 1: complete.
-- Phase 2: in progress; P2-01 through P2-03 are complete.
+- Phase 2: in progress; P2-01 through P2-04 are complete.
 - Microsoft 365 calendar: read-only adapter complete; tenant authorization is not configured.
-- P2-04 idempotent calendar reconciliation is next.
+- P2-05 project association and unmatched-event review are next.
 
 ## Working agreements
 

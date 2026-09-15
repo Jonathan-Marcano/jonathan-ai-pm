@@ -40,8 +40,8 @@ Microsoft Entra tenant and receive delegated `Calendars.ReadBasic` consent. Some
 restrict user consent and require an administrator. No secret or token should be committed, stored
 in integration-state tables, or included in logs.
 
-P2-03 retrieves and normalizes events only. P2-04 will reconcile repeated results without duplicates,
-and P2-05 will handle project association and review of unmatched meetings.
+P2-03 retrieves and normalizes events. P2-04 now reconciles repeated results without duplicates.
+P2-05 will handle project association and review of unmatched meetings.
 
 ## Microsoft references
 

@@ -92,6 +92,7 @@ class IntegrationStateStore:
             identity.web_url = _optional_text(web_url)
             identity.external_modified_at = external_modified_at
             identity.last_synced_at = synced_at
+            identity.missing_since = None
         else:
             identity = ExternalIdentity(
                 id=f"ext_{uuid4().hex}",
@@ -104,6 +105,7 @@ class IntegrationStateStore:
                 web_url=_optional_text(web_url),
                 external_modified_at=external_modified_at,
                 last_synced_at=synced_at,
+                missing_since=None,
             )
             self.session.add(identity)
         self.session.commit()

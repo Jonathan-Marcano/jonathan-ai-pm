@@ -17,6 +17,11 @@ from jonathan_ai_pm.integrations.microsoft365 import (
     Microsoft365CalendarError,
 )
 from jonathan_ai_pm.integrations.persistence import IntegrationStateError, IntegrationStateStore
+from jonathan_ai_pm.integrations.reconciliation import (
+    CalendarReconciler,
+    CalendarReconciliationError,
+    CalendarReconciliationResult,
+)
 
 __all__ = [
     "READ_ONLY_CAPABILITIES",
@@ -33,4 +38,7 @@ __all__ = [
     "Microsoft365CalendarAdapter",
     "Microsoft365CalendarConfig",
     "Microsoft365CalendarError",
+    "CalendarReconciler",
+    "CalendarReconciliationError",
+    "CalendarReconciliationResult",
 ]

@@ -10,7 +10,8 @@ identity uses `source_system + external_scope + external_id`, where `external_sc
 ID. Document identity uses an empty scope and the provider file ID.
 
 Calling `upsert_identity` with the same source key refreshes version, link, modification, and sync
-metadata on the same row. A source key cannot silently move to a different operational entity.
+metadata on the same row and clears `missing_since`. A source key cannot silently move to a
+different operational entity.
 
 ## Synchronization runs
 

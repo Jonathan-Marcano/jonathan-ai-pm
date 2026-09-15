@@ -49,6 +49,8 @@ An action item may create a new task or link to an existing task. It may also po
 - External identity is separate from operational records and is unique by `source_system`,
   `external_scope`, and `external_id`. The scope is a calendar ID for events and empty for Drive
   files.
+- `external_identity.missing_since` records the first successful window in which a linked calendar
+  event was not returned. It clears when the event reappears and never deletes the meeting.
 - Sync runs retain time windows and aggregate seen, created, updated, unchanged, skipped, and error
   counts. Individual error messages are redacted before persistence.
 - A translation targets only the canonical display field: project `name`; deliverable, task,
