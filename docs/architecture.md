@@ -32,6 +32,7 @@ Ports/adapters
 | Metrics service | Aggregate effort, throughput, aging, and risk | 1 |
 | Google Drive adapter | Link shared working documents and deliverables | 2 |
 | Calendar adapters | Import meetings and scheduling context | 2 |
+| Meeting preparation view | Combine dated meetings with linked project actions, tasks, deadlines, blockers, and optional references | 2 |
 | WhatsApp adapter | Capture explicitly forwarded or authorized messages | Later |
 | LLM adapter | Summarize, classify, translate, and propose actions | Later |
 

@@ -31,6 +31,9 @@ keeps both deadline pressure and the reason work cannot advance visible.
 
 ## Current limitations
 
-- Meeting entries are manual until a later calendar-integration phase.
+- Meeting entries may be manual or reconciled from a configured read-only calendar; live tenant
+  authorization remains an external deployment prerequisite.
+- Detailed project context for each meeting is available from the separate
+  [Meeting preparation](meeting-preparation.md) view.
 - Capacity comparison requires task estimates and is deferred to the measurement increment.
 - The API proposes focus tasks; the user remains responsible for confirming the day's plan.

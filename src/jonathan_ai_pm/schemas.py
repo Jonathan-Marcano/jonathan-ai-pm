@@ -320,6 +320,47 @@ class MorningBrief(ResponseModel):
     at_risk_projects: list[ProjectRead]
 
 
+class MeetingArtifactLink(ResponseModel):
+    deliverable_id: EntityId
+    deliverable_title: Name
+    url: Url
+
+
+class MeetingPreparationCounts(StrictModel):
+    open_action_items: int
+    open_tasks: int
+    overdue_tasks: int
+    due_soon_tasks: int
+    blocked_tasks: int
+    overdue_deliverables: int
+    due_soon_deliverables: int
+    artifact_links: int
+
+
+class MeetingPreparationItem(ResponseModel):
+    meeting: MeetingRead
+    client: ClientRead
+    project: ProjectRead
+    counts: MeetingPreparationCounts
+    open_action_items: list[ActionItemRead]
+    open_tasks: list[TaskRead]
+    overdue_tasks: list[TaskRead]
+    due_soon_tasks: list[TaskRead]
+    blocked_tasks: list[TaskRead]
+    overdue_deliverables: list[DeliverableRead]
+    due_soon_deliverables: list[DeliverableRead]
+    artifact_links: list[MeetingArtifactLink]
+
+
+class MeetingPreparation(ResponseModel):
+    preparation_date: date
+    timezone: str
+    due_soon_through: date
+    generated_at: datetime
+    meeting_count: int
+    meetings: list[MeetingPreparationItem]
+
+
 class EveningCloseCounts(StrictModel):
     completed_tasks: int
     work_logs: int

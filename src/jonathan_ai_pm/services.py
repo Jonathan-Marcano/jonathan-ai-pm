@@ -326,6 +326,147 @@ class DomainStore:
             "at_risk_projects": at_risk_projects,
         }
 
+    def meeting_preparation(
+        self,
+        timezone_name: str,
+        preparation_date: date | None = None,
+        due_soon_days: int = 7,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        if not 0 <= due_soon_days <= 30:
+            raise DomainRuleError("due_soon_days must be between 0 and 30")
+        local_timezone, target_date, generated_at = self._daily_context(
+            timezone_name, preparation_date, now
+        )
+        due_soon_through = target_date + timedelta(days=due_soon_days)
+
+        all_meetings: list[Meeting] = self.list("meeting")
+        dated_meetings = sorted(
+            [
+                meeting
+                for meeting in all_meetings
+                if meeting.status == "scheduled"
+                and self._local_date(meeting.starts_at, local_timezone) == target_date
+            ],
+            key=lambda meeting: (self._as_utc(meeting.starts_at), meeting.id),
+        )
+        meetings_by_id = {meeting.id: meeting for meeting in all_meetings}
+        projects_by_id = {project.id: project for project in self.list("project")}
+        clients_by_id = {client.id: client for client in self.list("client")}
+        tasks: list[Task] = self.list("task")
+        deliverables: list[Deliverable] = self.list("deliverable")
+        action_items: list[ActionItem] = self.list("action_item")
+
+        preparations = []
+        for meeting in dated_meetings:
+            project = projects_by_id.get(meeting.project_id)
+            if project is None:
+                raise DomainRuleError(f"Meeting project not found: {meeting.project_id}")
+            client = clients_by_id.get(project.client_id)
+            if client is None:
+                raise DomainRuleError(f"Project client not found: {project.client_id}")
+
+            open_tasks = self._sort_tasks(
+                [
+                    task
+                    for task in tasks
+                    if task.project_id == project.id
+                    and task.status not in {"done", "cancelled"}
+                ]
+            )
+            overdue_tasks = [
+                task for task in open_tasks if task.due_at and task.due_at < target_date
+            ]
+            due_soon_tasks = [
+                task
+                for task in open_tasks
+                if task.due_at and target_date <= task.due_at <= due_soon_through
+            ]
+            blocked_tasks = [task for task in open_tasks if task.status == "blocked"]
+
+            active_deliverables = sorted(
+                [
+                    deliverable
+                    for deliverable in deliverables
+                    if deliverable.project_id == project.id
+                    and deliverable.status not in {"accepted", "cancelled"}
+                ],
+                key=lambda deliverable: (deliverable.due_at, deliverable.id),
+            )
+            overdue_deliverables = [
+                deliverable
+                for deliverable in active_deliverables
+                if deliverable.due_at < target_date
+            ]
+            due_soon_deliverables = [
+                deliverable
+                for deliverable in active_deliverables
+                if target_date <= deliverable.due_at <= due_soon_through
+            ]
+
+            open_action_items = sorted(
+                [
+                    action
+                    for action in action_items
+                    if action.status in {"captured", "accepted"}
+                    and (source_meeting := meetings_by_id.get(action.meeting_id)) is not None
+                    and source_meeting.project_id == project.id
+                ],
+                key=lambda action: (action.status != "captured", action.id),
+            )
+            artifact_links = [
+                {
+                    "deliverable_id": deliverable.id,
+                    "deliverable_title": deliverable.title,
+                    "url": deliverable.drive_url,
+                }
+                for deliverable in sorted(
+                    [
+                        item
+                        for item in deliverables
+                        if item.project_id == project.id
+                        and item.status != "cancelled"
+                        and item.drive_url
+                    ],
+                    key=lambda item: (item.due_at, item.id),
+                )
+            ]
+            counts = {
+                "open_action_items": len(open_action_items),
+                "open_tasks": len(open_tasks),
+                "overdue_tasks": len(overdue_tasks),
+                "due_soon_tasks": len(due_soon_tasks),
+                "blocked_tasks": len(blocked_tasks),
+                "overdue_deliverables": len(overdue_deliverables),
+                "due_soon_deliverables": len(due_soon_deliverables),
+                "artifact_links": len(artifact_links),
+            }
+            preparations.append(
+                {
+                    "meeting": meeting,
+                    "client": client,
+                    "project": project,
+                    "counts": counts,
+                    "open_action_items": open_action_items,
+                    "open_tasks": open_tasks,
+                    "overdue_tasks": overdue_tasks,
+                    "due_soon_tasks": due_soon_tasks,
+                    "blocked_tasks": blocked_tasks,
+                    "overdue_deliverables": overdue_deliverables,
+                    "due_soon_deliverables": due_soon_deliverables,
+                    "artifact_links": artifact_links,
+                }
+            )
+
+        return {
+            "preparation_date": target_date,
+            "timezone": timezone_name,
+            "due_soon_through": due_soon_through,
+            "generated_at": generated_at,
+            "meeting_count": len(preparations),
+            "meetings": preparations,
+        }
+
     def evening_close(
         self,
         timezone_name: str,

@@ -15,10 +15,10 @@ and never create external changes.
 | P2-03 | Must | Synchronize Microsoft 365 calendars read-only | **Done** — the Microsoft Graph `calendarView` adapter retrieves bounded UTC windows with delegated `Calendars.ReadBasic`, safe pagination, multiple calendar scopes, and no write operation |
 | P2-04 | Must | Reconcile calendar events idempotently | **Done** — repeated windows update one meeting, duplicate provider items are skipped, explicit cancellations are applied, and missing events are flagged without deleting operational records |
 | P2-05 | Must | Associate imported meetings with projects | **Done** — unmatched events enter an idempotent review queue; explicit user decisions create scoped, reusable mappings without content-based guessing |
-| P2-06 | Must | Link Google Drive artifacts | Deliverables retain Drive file identity and link metadata without copying document bodies |
-| P2-07 | Must | Refresh Drive metadata | Name, URL, MIME type, version marker, and modification time refresh idempotently and preserve the external file |
+| P2-06 | Could | Link Google Drive artifacts | **Deferred** — deliverables already support optional manual `drive_url` references; advanced Drive identity is not required for the PM workflow |
+| P2-07 | Could | Refresh Drive metadata | **Deferred with P2-06** — automatic file metadata refresh is unnecessary while documents remain managed separately |
 | P2-08 | Should | Support Google Calendar read-only | Personal calendar events use the same contracts, boundaries, and deduplication rules |
-| P2-09 | Should | Prepare meetings | A dated preparation view combines the meeting, linked project, open actions, deadlines, and relevant artifact links |
+| P2-09 | Should | Prepare meetings | **Done** — a deterministic dated view combines every scheduled meeting with its client, project health, open actions, project tasks, deadlines, blockers, and optional manual artifact links |
 | P2-10 | Should | Review completed meetings | A post-meeting queue supports manual decisions and action capture while retaining source references |
 | P2-11 | Must | Enforce integration permissions and retention | Startup and sync checks reject write scopes, redact provider errors, and document retention/disconnection behavior |
 | P2-12 | Should | Expose synchronization status | Manual sync and status endpoints report bounded, auditable outcomes and safe retry information |
@@ -30,16 +30,19 @@ and never create external changes.
 P2-01 through P2-05: contracts, persistence, Microsoft 365 read-only import, deduplication, and
 project association.
 
-P2-01 through P2-05 are complete. Slice A is closed; P2-06 is next.
+P2-01 through P2-05 are complete. Slice A is closed.
 
 ### Slice B — Shared document context
 
-P2-06 and P2-07: Google Drive links and metadata refresh without document-body replication.
+P2-06 and P2-07 are deferred. Documents continue to be created and managed outside Jonathan AI PM;
+the existing optional `drive_url` field is sufficient for manual references.
 
 ### Slice C — Daily-loop context
 
 P2-08 through P2-12: optional Google Calendar, meeting preparation/review, permission controls,
 and synchronization visibility.
+
+P2-09 is complete. P2-10 post-meeting review is next; optional P2-08 remains non-blocking.
 
 ## Definition of done
 
