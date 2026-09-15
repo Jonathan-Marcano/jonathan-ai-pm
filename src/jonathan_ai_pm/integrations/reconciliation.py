@@ -11,8 +11,14 @@ from sqlalchemy.orm import Session
 
 import jonathan_ai_pm.audit  # noqa: F401
 from jonathan_ai_pm.integrations.associations import CalendarAssociationService
-from jonathan_ai_pm.integrations.contracts import CalendarWindow, ExternalCalendarEvent
+from jonathan_ai_pm.integrations.contracts import (
+    READ_ONLY_CAPABILITIES,
+    CalendarWindow,
+    ExternalCalendarEvent,
+    IntegrationCapabilities,
+)
 from jonathan_ai_pm.integrations.persistence import IntegrationStateStore
+from jonathan_ai_pm.integrations.security import require_read_only_capabilities
 from jonathan_ai_pm.models import ExternalIdentity, Meeting, Project, utc_now
 
 
@@ -51,7 +57,9 @@ class CalendarReconciler:
         external_scope: str,
         project_ids: Mapping[str, str] | None = None,
         synced_at: datetime | None = None,
+        capabilities: IntegrationCapabilities = READ_ONLY_CAPABILITIES,
     ) -> CalendarReconciliationResult:
+        require_read_only_capabilities(capabilities)
         source_system = _required_text(source_system, "source_system").lower()
         external_scope = _required_text(external_scope, "external_scope")
         synced_at = _as_utc(synced_at or utc_now(), "synced_at")

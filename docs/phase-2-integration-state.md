@@ -45,6 +45,7 @@ before commit. Provider credentials and raw response payloads have no columns in
 
 ## Current boundary
 
-P2-02 provides persistence and lifecycle behavior only. It does not make network calls, import
-events, copy Drive document bodies, expose synchronization endpoints, or delete external records.
-Those capabilities remain assigned to later Phase 2 stories.
+P2-11 provides local retention and disconnection operations for this state. It still does not
+store OAuth credentials, copy Drive document bodies, expose synchronization endpoints, or delete
+operational meetings and tasks. See
+[Integration security, retention, and disconnection](integration-security-retention.md).

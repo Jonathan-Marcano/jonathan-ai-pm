@@ -25,6 +25,10 @@ and future provider choice.
 - Provider timestamps must include timezone information and are normalized to UTC.
 - Credentials remain environment-only and must never enter domain records, logs, snapshots, or
   fixtures.
+- Configured permissions are validated against an explicit read-only allowlist at startup and
+  checked again at adapter and reconciliation boundaries.
+- Disconnecting a provider removes its local identities, association queue, and mappings while
+  preserving operational work. Retained synchronization rows lose their source scope.
 
 ## Consequences
 

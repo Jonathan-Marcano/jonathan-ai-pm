@@ -20,7 +20,7 @@ and never create external changes.
 | P2-08 | Should | Support Google Calendar read-only | Personal calendar events use the same contracts, boundaries, and deduplication rules |
 | P2-09 | Should | Prepare meetings | **Done** — a deterministic dated view combines every scheduled meeting with its client, project health, open actions, project tasks, deadlines, blockers, and optional manual artifact links |
 | P2-10 | Should | Review completed meetings | **Done** — a catch-up queue lists past unreviewed meetings; one explicit, audited transaction closes the meeting as either `actions_captured` or `no_follow_up` and optionally creates validated action items while preserving its source reference |
-| P2-11 | Must | Enforce integration permissions and retention | Startup and sync checks reject write scopes, redact provider errors, and document retention/disconnection behavior |
+| P2-11 | Must | Enforce integration permissions and retention | **Done** — startup, adapter, and reconciliation checks reject unapproved or write-enabled permissions; configurable retention removes only expired completed history and resolved reviews; explicit disconnection removes provider links while preserving operational records and anonymizing retained run scopes |
 | P2-12 | Should | Expose synchronization status | Manual sync and status endpoints report bounded, auditable outcomes and safe retry information |
 
 ## Delivery slices
@@ -42,7 +42,7 @@ the existing optional `drive_url` field is sufficient for manual references.
 P2-08 through P2-12: optional Google Calendar, meeting preparation/review, permission controls,
 and synchronization visibility.
 
-P2-09 and P2-10 are complete. P2-11 permission, retention, and disconnection controls are next;
+P2-09 through P2-11 are complete. P2-12 synchronization status and manual operation is next;
 optional P2-08 remains non-blocking.
 
 ## Definition of done

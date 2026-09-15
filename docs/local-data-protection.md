@@ -11,6 +11,8 @@ full-disk encryption, operating-system access controls, or an enterprise secrets
   are excluded from Git.
 - A logging filter redacts authorization values, cookies, passwords, secrets, tokens, API keys,
   and bearer credentials from configured application and Uvicorn handlers.
+- Integration permissions are allowlisted as read-only before a provider adapter or reconciliation
+  may run. Provider links have explicit retention and disconnection behavior.
 - `jonathan-ai-pm backup` writes a versioned JSON snapshot under `backups/` by default, with
   private permissions and no implicit overwrite.
 - `jonathan-ai-pm backup --path PATH --force` is required to replace an existing backup.
@@ -42,3 +44,7 @@ Resource deletion is hard deletion, subject to relational safeguards:
 Deleting an operational record is therefore not complete erasure. Full local erasure requires
 stopping the application and deleting the SQLite database plus every exported snapshot using
 operating-system-approved secure procedures. No bulk-erasure API is provided in Phase 1.
+
+Provider-specific metadata can be removed with the explicit local commands documented in
+[Integration security, retention, and disconnection](integration-security-retention.md). This does
+not erase operational meetings, actions, tasks, audit events, or previously exported snapshots.

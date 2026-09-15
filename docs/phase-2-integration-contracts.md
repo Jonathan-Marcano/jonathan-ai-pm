@@ -41,6 +41,8 @@ Both adapter protocols expose explicit read-only capabilities:
 | Delete | Disabled |
 
 Provider timestamps without a timezone, reversed date ranges, missing identities, and blank display
-values are rejected before synchronization. P2-02 persists external identities and sync-run
-outcomes. P2-03 implements the Microsoft 365 `calendarView` adapter; P2-04 will reconcile its
-results into operational meeting records.
+values are rejected before synchronization. P2-11 additionally validates permissions at
+configuration load, adapter construction/use, and reconciliation. Only `Calendars.ReadBasic` and
+the approved OAuth session scopes `openid`, `profile`, and `offline_access` are accepted for the
+Microsoft calendar path. See
+[Integration security, retention, and disconnection](integration-security-retention.md).

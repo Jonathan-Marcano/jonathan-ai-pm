@@ -14,6 +14,12 @@ from jonathan_ai_pm.integrations.contracts import (
     ReadOnlyCalendarAdapter,
     ReadOnlyDocumentAdapter,
 )
+from jonathan_ai_pm.integrations.maintenance import (
+    DisconnectionResult,
+    IntegrationMaintenanceError,
+    IntegrationMaintenanceService,
+    RetentionResult,
+)
 from jonathan_ai_pm.integrations.microsoft365 import (
     MICROSOFT_GRAPH_DELEGATED_PERMISSION,
     Microsoft365CalendarAdapter,
@@ -25,6 +31,13 @@ from jonathan_ai_pm.integrations.reconciliation import (
     CalendarReconciler,
     CalendarReconciliationError,
     CalendarReconciliationResult,
+)
+from jonathan_ai_pm.integrations.security import (
+    MICROSOFT_GRAPH_READ_ONLY_PERMISSIONS,
+    IntegrationSecurityError,
+    normalize_permissions,
+    require_read_only_capabilities,
+    validate_microsoft_graph_permissions,
 )
 
 __all__ = [
@@ -40,6 +53,15 @@ __all__ = [
     "ReadOnlyDocumentAdapter",
     "IntegrationStateError",
     "IntegrationStateStore",
+    "IntegrationMaintenanceError",
+    "IntegrationMaintenanceService",
+    "RetentionResult",
+    "DisconnectionResult",
+    "IntegrationSecurityError",
+    "MICROSOFT_GRAPH_READ_ONLY_PERMISSIONS",
+    "normalize_permissions",
+    "require_read_only_capabilities",
+    "validate_microsoft_graph_permissions",
     "MICROSOFT_GRAPH_DELEGATED_PERMISSION",
     "Microsoft365CalendarAdapter",
     "Microsoft365CalendarConfig",

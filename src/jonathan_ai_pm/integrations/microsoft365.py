@@ -14,6 +14,10 @@ from jonathan_ai_pm.integrations.contracts import (
     ExternalCalendarEvent,
     IntegrationCapabilities,
 )
+from jonathan_ai_pm.integrations.security import (
+    require_read_only_capabilities,
+    validate_microsoft_graph_permissions,
+)
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 MICROSOFT_GRAPH_DELEGATED_PERMISSION = "Calendars.ReadBasic"
@@ -47,6 +51,7 @@ class Microsoft365CalendarConfig:
     page_size: int = 100
     max_pages: int = 100
     timeout_seconds: float = 15.0
+    requested_permissions: tuple[str, ...] = (MICROSOFT_GRAPH_DELEGATED_PERMISSION,)
 
     def __post_init__(self) -> None:
         calendar_id = self.calendar_id.strip()
@@ -61,8 +66,13 @@ class Microsoft365CalendarConfig:
             raise Microsoft365CalendarError("max_pages must be positive")
         if self.timeout_seconds <= 0:
             raise Microsoft365CalendarError("timeout_seconds must be positive")
+        try:
+            requested_permissions = validate_microsoft_graph_permissions(self.requested_permissions)
+        except ValueError as exc:
+            raise Microsoft365CalendarError(str(exc)) from exc
         object.__setattr__(self, "calendar_id", calendar_id)
         object.__setattr__(self, "identity_scope", identity_scope)
+        object.__setattr__(self, "requested_permissions", requested_permissions)
 
 
 class Microsoft365CalendarAdapter:
@@ -82,8 +92,10 @@ class Microsoft365CalendarAdapter:
         self.token_provider = token_provider
         self.config = config or Microsoft365CalendarConfig()
         self.http_client = http_client or httpx
+        self._enforce_read_only()
 
     def list_events(self, window: CalendarWindow) -> list[ExternalCalendarEvent]:
+        self._enforce_read_only()
         try:
             supplied_token = self.token_provider()
         except Exception:
@@ -142,6 +154,13 @@ class Microsoft365CalendarAdapter:
             params = None
 
         raise Microsoft365CalendarError("Microsoft Graph pagination exceeded the configured limit")
+
+    def _enforce_read_only(self) -> None:
+        try:
+            require_read_only_capabilities(self.capabilities)
+            validate_microsoft_graph_permissions(self.config.requested_permissions)
+        except ValueError as exc:
+            raise Microsoft365CalendarError(str(exc)) from exc
 
     def _calendar_view_url(self) -> str:
         if self.config.calendar_id == "default":
