@@ -27,7 +27,7 @@ No external messaging or calendar write actions are required for Phase 1.
 
 ## Phase 2 — Calendar and shared-document context
 
-Status: in progress; P2-01 and P2-02 complete.
+Status: in progress; P2-01 through P2-03 complete.
 
 - Read-only calendar synchronization with deduplication.
 - Google Drive artifact linking and metadata refresh.

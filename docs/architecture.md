@@ -43,6 +43,8 @@ Ports/adapters
   `external_id`, version metadata, and `last_synced_at` for idempotent synchronization.
 - Every synchronization has a durable run record with bounded windows, outcome totals, and
   separately queryable redacted errors; credentials and provider payload bodies are excluded.
+- Microsoft 365 calendar retrieval uses delegated `Calendars.ReadBasic`, `calendarView`, forced UTC
+  responses, bounded page counts, and validated `graph.microsoft.com` continuation links.
 - A link to a Drive artifact is preferred over copying sensitive document content into the operational database.
 - Automated extraction creates a proposed record; user confirmation changes it to an accepted commitment.
 - All timestamps are stored in UTC and rendered using `APP_TIMEZONE`.

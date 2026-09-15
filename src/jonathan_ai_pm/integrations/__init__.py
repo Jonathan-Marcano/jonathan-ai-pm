@@ -10,6 +10,12 @@ from jonathan_ai_pm.integrations.contracts import (
     ReadOnlyCalendarAdapter,
     ReadOnlyDocumentAdapter,
 )
+from jonathan_ai_pm.integrations.microsoft365 import (
+    MICROSOFT_GRAPH_DELEGATED_PERMISSION,
+    Microsoft365CalendarAdapter,
+    Microsoft365CalendarConfig,
+    Microsoft365CalendarError,
+)
 from jonathan_ai_pm.integrations.persistence import IntegrationStateError, IntegrationStateStore
 
 __all__ = [
@@ -23,4 +29,8 @@ __all__ = [
     "ReadOnlyDocumentAdapter",
     "IntegrationStateError",
     "IntegrationStateStore",
+    "MICROSOFT_GRAPH_DELEGATED_PERMISSION",
+    "Microsoft365CalendarAdapter",
+    "Microsoft365CalendarConfig",
+    "Microsoft365CalendarError",
 ]

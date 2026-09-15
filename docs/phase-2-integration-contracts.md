@@ -41,5 +41,6 @@ Both adapter protocols expose explicit read-only capabilities:
 | Delete | Disabled |
 
 Provider timestamps without a timezone, reversed date ranges, missing identities, and blank display
-values are rejected before synchronization. P2-02 now persists external identities and sync-run
-outcomes. P2-03 will implement the first live Microsoft 365 calendar adapter on that foundation.
+values are rejected before synchronization. P2-02 persists external identities and sync-run
+outcomes. P2-03 implements the Microsoft 365 `calendarView` adapter; P2-04 will reconcile its
+results into operational meeting records.
