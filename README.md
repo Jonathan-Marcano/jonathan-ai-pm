@@ -61,6 +61,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Snapshots and audit history](docs/snapshots-and-audit.md)
 - [Local data protection](docs/local-data-protection.md)
 - [Manual translations](docs/translations.md)
+- [Capture classification](docs/capture-classification.md)
 - [Web dashboard](docs/web-dashboard.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
@@ -131,6 +132,10 @@ Seed data under `data/seed/` is intentionally fictional.
   Drive authorization is not configured.
 - Web: `GET /` serves the branded dashboard under the `static/` kit (design tokens, Inter,
   favicon, app icons, and an installable PWA manifest).
+- Phase 3 (in progress): read-only capture classification proposals, the provider-neutral
+  classifier contract (HTTP 503 until a provider is authorized), and explicit confirmation that
+  creates the operational record from the proposal with an immutable decision trail are
+  implemented; per-text caching and live provider accounts are next.
 
 ## Working agreements
 

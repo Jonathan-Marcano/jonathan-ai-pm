@@ -5,6 +5,11 @@ from fastapi import Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from faroflow.classification import (
+    ClassifierAdapter,
+    ClassifierNotConfigured,
+    build_capture_classifier,
+)
 from faroflow.db import get_session
 from faroflow.services import DomainRuleError, DomainStore
 
@@ -18,6 +23,16 @@ def request_session(request: Request, session: RawDbSession) -> Session:
 
 
 DbSession = Annotated[Session, Depends(request_session)]
+
+
+def capture_classifier() -> ClassifierAdapter:
+    try:
+        return build_capture_classifier()
+    except ClassifierNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+CaptureClassifier = Annotated[ClassifierAdapter, Depends(capture_classifier)]
 
 PageLimit = Annotated[int | None, Query(ge=1, le=500)]
 PageOffset = Annotated[int, Query(ge=0)]

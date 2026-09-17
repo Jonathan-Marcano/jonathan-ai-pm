@@ -77,7 +77,7 @@ with retention and disconnection behavior documented in
 | Task work logs | Through task | Chronological by task | Yes | Append only | Preserved |
 | Meetings | Yes | `project_id`, `status`, `starts_from`, `starts_to` | Yes | Yes | Yes |
 | Action items | Yes | `meeting_id`, `status` | Yes | Yes | Yes |
-| Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
+| Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage / apply endpoints | Preserved |
 | Translations | Yes | `entity_kind`, `entity_id`, `field_name`, `language` | Yes | Text only | Yes |
 | Audit events | Automatic | `entity_kind`, `entity_id`, `actor` | Through list | Immutable | Preserved |
 
@@ -115,6 +115,17 @@ Listings are ordered by record id. Single-item detail reads are unaffected.
 - `POST /api/v1/captures/{id}/triage` records one immutable disposition and optionally creates a
   task or meeting action in the same transaction.
 - A dismissed capture requires a reason in `note`.
+- `POST /api/v1/captures/{id}/suggest` attaches a read-only classification proposal
+  (`proposal_kind`, `proposal_project_id`, `proposal_priority`, `proposal_due_at`,
+  `proposal_confidence`, `proposal_reasons`, `proposed_at`) to an inbox capture. It never changes
+  the capture status and never binds a project; manual triage keeps working unchanged. An
+  unconfigured classifier provider answers HTTP 503. See
+  [Capture classification](capture-classification.md).
+- `POST /api/v1/captures/{id}/apply` explicitly confirms a pending proposal and creates the
+  operational record exactly from it (one ready task, one meeting action item, or a reference).
+  An action proposal requires `{"meeting_id": ...}` in the body. Applying is idempotent, keeps the
+  immutable proposal and original text on the capture as the decision trail, and never binds an
+  unconfirmed capture to a project. See [Capture classification](capture-classification.md).
 
 ## Example
 

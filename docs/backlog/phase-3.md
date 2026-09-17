@@ -17,10 +17,10 @@ confirmed proposal.
 
 | ID | Priority | Story | Acceptance summary |
 |---|---|---|---|
-| P3-01 | Must | Enrich captures with a pending proposal | Captures retain a read-only suggestion (kind, candidate project/client, priority, due date) with confidence and quoted supporting text; manual triage keeps working unchanged |
-| P3-02 | Must | Classify captures through a provider-neutral contract | A `suggest_capture_disposition(text, candidates)` service returns a bounded, validated proposal with confidence and quoted reasons; no credentials live in the repository and unconfigured providers answer HTTP 503 |
-| P3-03 | Must | Apply a capture only on explicit confirmation | `POST /api/v1/captures/{id}/apply` creates the operational record exactly from the confirmed proposal, is idempotent, and never binds an unconfirmed capture to a project |
-| P3-04 | Should | Preserve the decision trail | Confirmations reference the exact immutable proposal and original text; audit links the capture, the applied record, and the source wording |
+| P3-01 | Must | Enrich captures with a pending proposal | **Done** — `POST /api/v1/captures/{id}/suggest` stores a read-only proposal (kind, candidate project, priority, due date, confidence, quoted reasons) on an inbox capture; manual triage keeps working unchanged (see [Capture classification](../capture-classification.md)) |
+| P3-02 | Must | Classify captures through a provider-neutral contract | **Done** — `suggest_capture_disposition(text, candidates)` bounds the request, validates the provider suggestion, and quotes-only reasons; no credentials live in the repository and unconfigured providers answer HTTP 503 |
+| P3-03 | Must | Apply a capture only on explicit confirmation | **Done** — `POST /api/v1/captures/{id}/apply` creates the operational record exactly from the confirmed proposal (task, meeting action, or reference), is idempotent, and never binds an unconfirmed capture to a project |
+| P3-04 | Should | Preserve the decision trail | **Done** — confirmations reference the exact immutable proposal and original text; audit links the capture, the applied record, and the source wording |
 | P3-05 | Must | Bound LLM cost and data exposure | Prompt bodies are redacted, per-text caching and token limits prevent repeated charges, and no test ever calls a live model |
 
 ## Explicitly deferred

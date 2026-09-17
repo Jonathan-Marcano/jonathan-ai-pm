@@ -1,8 +1,10 @@
+import json
 from datetime import date, datetime
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from faroflow.classification import ProposalKind
 from faroflow.domain_rules import (
     action_item_link_error,
     deliverable_review_evidence_error,
@@ -317,6 +319,28 @@ class CaptureRead(Timestamps):
     action_item_id: EntityId | None = None
     disposition_note: str | None = None
     triaged_at: datetime | None = None
+    proposal_kind: ProposalKind | None = None
+    proposal_source: str | None = None
+    proposal_confidence: float | None = None
+    proposal_project_id: EntityId | None = None
+    proposal_owner: str | None = None
+    proposal_priority: TaskPriority | None = None
+    proposal_due_at: date | None = None
+    proposal_reasons: list[str] | None = None
+    proposed_at: datetime | None = None
+    applied_at: datetime | None = None
+
+    @field_validator("proposal_reasons", mode="before")
+    @classmethod
+    def parse_proposal_reasons(cls, value: Any) -> Any:
+        if isinstance(value, str) and value.strip():
+            try:
+                parsed = json.loads(value)
+            except ValueError:
+                return []
+            if isinstance(parsed, list):
+                return [item for item in parsed if isinstance(item, str)]
+        return value
 
 
 class CaptureTriage(StrictModel):
@@ -350,6 +374,12 @@ class CaptureTriage(StrictModel):
         if self.disposition == "dismissed" and not self.note:
             raise ValueError("Dismissed triage requires a note")
         return self
+
+
+class CaptureApply(StrictModel):
+    """Explicit confirmation payload for a pending capture proposal."""
+
+    meeting_id: EntityId | None = None
 
 
 class TranslationCreate(StrictModel):

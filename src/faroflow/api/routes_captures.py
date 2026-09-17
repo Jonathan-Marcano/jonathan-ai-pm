@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from sqlalchemy.exc import IntegrityError
 
+from faroflow.classification import ClassifierError
 from faroflow.schemas import (
+    CaptureApply,
     CaptureCreate,
     CaptureDisposition,
     CaptureRead,
@@ -12,6 +14,7 @@ from faroflow.schemas import (
 from faroflow.services import DomainRuleError
 
 from .deps import (
+    CaptureClassifier,
     DbSession,
     PageLimit,
     PageOffset,
@@ -59,6 +62,51 @@ def list_captures(
 @router.get("/api/v1/captures/{entity_id}", response_model=CaptureRead, tags=["captures"])
 def get_capture(entity_id: EntityId, session: DbSession):
     return get_record(session, "capture", entity_id)
+
+
+@router.post(
+    "/api/v1/captures/{entity_id}/suggest",
+    response_model=CaptureRead,
+    tags=["captures"],
+)
+def suggest_capture(
+    entity_id: EntityId,
+    classifier: CaptureClassifier,
+    session: DbSession,
+):
+    """Attach a read-only classification proposal without binding the capture."""
+    try:
+        return store(session).suggest_capture(entity_id, classifier=classifier)
+    except ClassifierError as exc:
+        session.rollback()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except DomainRuleError as exc:
+        session.rollback()
+        raise domain_http_error(exc) from exc
+
+
+@router.post(
+    "/api/v1/captures/{entity_id}/apply",
+    response_model=CaptureRead,
+    tags=["captures"],
+)
+def apply_capture(
+    entity_id: EntityId,
+    session: DbSession,
+    payload: CaptureApply | None = None,
+):
+    """Confirm a pending proposal and create the operational record from it."""
+    try:
+        return store(session).apply_capture(
+            entity_id,
+            meeting_id=payload.meeting_id if payload else None,
+        )
+    except DomainRuleError as exc:
+        session.rollback()
+        raise domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Record or relationship conflict") from exc
 
 
 @router.post("/api/v1/captures/{entity_id}/triage", response_model=CaptureRead, tags=["captures"])

@@ -190,7 +190,7 @@ class Capture(TimestampMixin, Base):
     proposal_owner: Mapped[str | None] = mapped_column(String(120))
     proposal_priority: Mapped[str | None] = mapped_column(String(20))
     proposal_due_at: Mapped[date | None] = mapped_column(Date)
-    proposal_reasons: Mapped[str | None] = mapped_column(Text)
+    proposal_reasons: Mapped[list[str] | None] = mapped_column(JSON)
     proposed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

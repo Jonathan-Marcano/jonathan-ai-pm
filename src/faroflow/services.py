@@ -9,6 +9,12 @@ from sqlalchemy import Select, inspect, select
 from sqlalchemy.orm import Session
 
 import faroflow.audit  # noqa: F401
+from faroflow.classification import (
+    CaptureCandidate,
+    ClassifierAdapter,
+    ClassifierConfig,
+    suggest_capture_disposition,
+)
 from faroflow.domain_rules import (
     DELIVERABLE_PROTECTED_STATUSES,
     DomainNotFoundError,
@@ -425,6 +431,143 @@ class DomainStore:
             raise DomainRuleError("A capture requires non-empty text")
         capture = Capture(id=f"cap_{uuid4().hex}", text=normalized_text, status="inbox")
         self.session.add(capture)
+        self.session.commit()
+        self.session.refresh(capture)
+        return capture
+
+    def suggest_capture(
+        self,
+        capture_id: str,
+        *,
+        classifier: ClassifierAdapter,
+        config: ClassifierConfig | None = None,
+        now: datetime | None = None,
+    ) -> Capture:
+        """Attach a read-only, bounded proposal to an inbox capture.
+
+        The classification never binds a record to a project: the capture stays in the
+        inbox and manual triage keeps working unchanged. Re-suggesting replaces the
+        previous pending proposal.
+        """
+        capture = self._required("capture", capture_id)
+        if capture.status != "inbox":
+            raise DomainRuleError("Only inbox captures can receive a proposal")
+
+        clients = {client.id: client.name for client in self.list("client")}
+        candidates = [
+            CaptureCandidate(
+                id=project.id,
+                name=project.name,
+                client=clients.get(project.client_id),
+            )
+            for project in self.list("project")
+        ]
+        suggestion = suggest_capture_disposition(
+            capture.text, candidates, classifier=classifier, config=config
+        )
+
+        capture.proposal_kind = suggestion.kind
+        capture.proposal_source = suggestion.source
+        capture.proposal_confidence = suggestion.confidence
+        capture.proposal_project_id = suggestion.project_id
+        capture.proposal_owner = suggestion.owner
+        capture.proposal_priority = suggestion.priority
+        capture.proposal_due_at = suggestion.due_at
+        capture.proposal_reasons = (
+            list(suggestion.reasons) if suggestion.reasons else None
+        )
+        capture.proposed_at = now or utc_now()
+        capture.applied_at = None
+        self.session.commit()
+        self.session.refresh(capture)
+        return capture
+
+    def apply_capture(
+        self,
+        capture_id: str,
+        *,
+        meeting_id: str | None = None,
+        now: datetime | None = None,
+    ) -> Capture:
+        """Confirm a pending proposal by creating the operational record from it.
+
+        The confirmation is idempotent: an already-applied capture is returned
+        unchanged and never creates a second record. Applying requires an explicit
+        proposal (``proposed_at``) and never binds an unconfirmed capture. The
+        immutable proposal fields and the original text stay on the capture as the
+        decision trail, and the audit events link the capture, the applied record,
+        and the source wording.
+        """
+        capture = self._required("capture", capture_id)
+        if capture.applied_at is not None:
+            return capture
+        if capture.status != "inbox":
+            raise DomainRuleError("Only inbox captures can be confirmed")
+        if capture.proposed_at is None or not capture.proposal_kind:
+            raise DomainRuleError("Capture has no pending proposal to apply")
+
+        confirmed_at = now or utc_now()
+        kind = capture.proposal_kind
+        if kind == "task":
+            if not capture.proposal_project_id:
+                raise DomainRuleError("Task proposal requires a project")
+            if meeting_id:
+                raise DomainRuleError("meeting_id applies only to action proposals")
+            project = self._required("project", capture.proposal_project_id)
+            task = Task(
+                id=f"tsk_{uuid4().hex}",
+                project_id=project.id,
+                title=capture.text,
+                status="ready",
+                priority=capture.proposal_priority or "medium",
+                due_at=capture.proposal_due_at,
+            )
+            self.session.add(task)
+            self._validate_links(task)
+            self.session.flush()
+            capture.project_id = project.id
+            capture.task_id = task.id
+        elif kind == "action":
+            if not meeting_id:
+                raise DomainRuleError("Action proposal requires a meeting")
+            meeting = self._required("meeting", meeting_id)
+            if meeting.project_id is None:
+                raise DomainRuleError(
+                    "Associate the meeting with a project before confirming an action"
+                )
+            if (
+                capture.proposal_project_id
+                and capture.proposal_project_id != meeting.project_id
+            ):
+                raise DomainRuleError("Capture project must match the meeting project")
+            owner = capture.proposal_owner
+            if not owner:
+                raise DomainRuleError("Action proposal requires an owner")
+            action = ActionItem(
+                id=f"act_{uuid4().hex}",
+                meeting_id=meeting.id,
+                title=capture.text,
+                status="captured",
+                owner=owner,
+            )
+            self.session.add(action)
+            self._validate_links(action)
+            self.session.flush()
+            capture.project_id = meeting.project_id
+            capture.action_item_id = action.id
+        elif kind == "reference":
+            if meeting_id:
+                raise DomainRuleError("meeting_id applies only to action proposals")
+            if capture.proposal_project_id:
+                self._required("project", capture.proposal_project_id)
+            capture.project_id = capture.proposal_project_id
+        else:
+            raise DomainRuleError(f"Unknown proposal kind: {kind}")
+
+        capture.status = "triaged"
+        capture.disposition = kind
+        capture.triaged_at = confirmed_at
+        capture.applied_at = confirmed_at
         self.session.commit()
         self.session.refresh(capture)
         return capture
