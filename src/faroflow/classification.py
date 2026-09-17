@@ -1,25 +1,35 @@
-"""Provider-neutral capture classification (Phase 3, P3-02).
+"""Provider-neutral capture classification (Phase 3, P3-02 and P3-05).
 
 A classifier turns free-text captures into a bounded, validated *suggestion* (kind,
 candidate project, priority, due date) with confidence and reasons quoted from the
 captured text. Suggestions are read-only: applying one is a separate, explicit human
 confirmation. No provider credential lives in the repository, and an unconfigured
 provider raises ``ClassifierNotConfigured`` so the HTTP layer can answer 503.
+
+Cost and data exposure are kept bounded (P3-05): the request bounds cap token cost
+per call, ``CachingClassifier`` replays repeated suggestions for the same text without
+re-charging the model, ``prompt_brief`` renders a redacted summary that never contains
+the captured text, and no test or default path ever calls a live model.
 """
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from hashlib import sha256
 from typing import Literal, Protocol
+
+logger = logging.getLogger("faroflow.classification")
 
 ProposalKind = Literal["task", "action", "reference"]
 
 PROPOSAL_KINDS: tuple[str, ...] = ("task", "action", "reference")
 PROPOSAL_PRIORITIES: tuple[str, ...] = ("low", "medium", "high", "critical")
 MAX_OWNER_CHARS = 120
+DEFAULT_CACHE_ENTRIES = 100
 
 
 class ClassifierError(ValueError):
@@ -152,6 +162,201 @@ class ClassifierAdapter(Protocol):
     ) -> CaptureDispositionSuggestion: ...
 
 
+def _text_digest(value: str) -> str:
+    return sha256(value.encode("utf-8")).hexdigest()
+
+
+def _cache_key(
+    source_system: str,
+    text: str,
+    candidates: Sequence[CaptureCandidate],
+) -> str:
+    candidate_signature = "|".join(
+        f"{candidate.id}\u001f{candidate.name}\u001f{candidate.client or ''}"
+        for candidate in candidates
+    )
+    return _text_digest(f"{source_system}\u001e{text}\u001e{candidate_signature}")
+
+
+class CaptureSuggestionCache:
+    """Bounded, content-addressed store that replays prior suggestions.
+
+    Entries are keyed by the provider, the bounded text, and the candidate set, so a
+    repeated request is replayed instead of charged again while a changed candidate
+    set is still re-sent to the provider. ``max_entries`` caps the number of cached
+    texts; the oldest entry is evicted first.
+    """
+
+    def __init__(self, *, max_entries: int = DEFAULT_CACHE_ENTRIES) -> None:
+        if isinstance(max_entries, bool) or max_entries < 1:
+            raise ClassifierError("cache max_entries must be positive")
+        self._max_entries = max_entries
+        self._entries: dict[str, CaptureDispositionSuggestion] = {}
+        self._hit_count = 0
+        self._miss_count = 0
+
+    @property
+    def size(self) -> int:
+        return len(self._entries)
+
+    @property
+    def max_entries(self) -> int:
+        return self._max_entries
+
+    @property
+    def hits(self) -> int:
+        return self._hit_count
+
+    @property
+    def misses(self) -> int:
+        return self._miss_count
+
+    def lookup(self, key: str) -> CaptureDispositionSuggestion | None:
+        suggestion = self._entries.get(key)
+        if suggestion is None:
+            self._miss_count += 1
+            return None
+        self._hit_count += 1
+        return suggestion
+
+    def store(self, key: str, suggestion: CaptureDispositionSuggestion) -> None:
+        if key in self._entries:
+            return
+        if len(self._entries) >= self._max_entries:
+            self._entries.pop(next(iter(self._entries)))
+        self._entries[key] = suggestion
+
+
+class PromptBrief:
+    """A log-safe summary of a classifier request. It never contains the text."""
+
+    def __init__(
+        self,
+        *,
+        text_digest: str,
+        text_chars: int,
+        max_text_chars: int,
+        candidate_ids: tuple[str, ...],
+        source_system: str,
+        cache_state: Literal["off", "hit", "miss"] = "off",
+        cache_size: int = 0,
+        cache_hits: int = 0,
+    ) -> None:
+        if len(text_digest) != 64:
+            raise ClassifierError("text_digest must be a sha256 hex digest")
+        if isinstance(text_chars, bool) or text_chars < 0:
+            raise ClassifierError("text_chars must be non-negative")
+        if cache_state not in {"off", "hit", "miss"}:
+            raise ClassifierError("cache_state must be off, hit, or miss")
+        self.text_digest = text_digest
+        self.text_chars = text_chars
+        self.max_text_chars = max_text_chars
+        self.candidate_ids = candidate_ids
+        self.source_system = source_system
+        self.cache_state = cache_state
+        self.cache_size = cache_size
+        self.cache_hits = cache_hits
+
+    def __str__(self) -> str:
+        return (
+            "PromptBrief("
+            f"source={self.source_system} "
+            f"text_digest={self.text_digest[:12]} "
+            f"text_chars={self.text_chars}/{self.max_text_chars} "
+            f"candidates={','.join(self.candidate_ids)} "
+            f"cache={self.cache_state} "
+            f"cache_size={self.cache_size} cache_hits={self.cache_hits})"
+        )
+
+
+def prompt_brief(
+    text: str,
+    candidates: Sequence[CaptureCandidate] = (),
+    *,
+    config: ClassifierConfig | None = None,
+    cache: CaptureSuggestionCache | None = None,
+    cache_state: Literal["off", "hit", "miss"] = "off",
+) -> PromptBrief:
+    """Render a log-safe summary for a classifier request without leaking its body."""
+    resolved_config = config or ClassifierConfig()
+    normalized = text.strip() if isinstance(text, str) else ""
+    bounded = normalized[: resolved_config.max_text_chars]
+    return PromptBrief(
+        text_digest=_text_digest(bounded),
+        text_chars=len(bounded),
+        max_text_chars=resolved_config.max_text_chars,
+        candidate_ids=tuple(candidate.id for candidate in candidates),
+        source_system=resolved_config.source_system,
+        cache_state=cache_state,
+        cache_size=cache.size if cache is not None else 0,
+        cache_hits=cache.hits if cache is not None else 0,
+    )
+
+
+class CachingClassifier:
+    """Classifier adapter that replays per-text suggestions without re-charging.
+
+    Wraps any ``ClassifierAdapter``: the first suggestion for a given text and
+    candidate set is stored in a bounded cache, and repeated requests are replayed
+    without ever calling the wrapped provider again. The wrapper stays on the
+    provider side of ``suggest_capture_disposition``, so request bounds and
+    candidate re-validation still run on every call.
+    """
+
+    def __init__(
+        self,
+        classifier: ClassifierAdapter,
+        *,
+        cache: CaptureSuggestionCache | None = None,
+    ) -> None:
+        if isinstance(classifier, CachingClassifier):
+            raise ClassifierError("classifier is already wrapped in a cache")
+        source_system = getattr(classifier, "source_system", None)
+        if not isinstance(source_system, str) or not source_system.strip():
+            raise ClassifierError("classifier must declare a source_system")
+        self._classifier = classifier
+        self._cache = cache or CaptureSuggestionCache()
+
+    @property
+    def source_system(self) -> str:
+        return self._classifier.source_system
+
+    @property
+    def cache(self) -> CaptureSuggestionCache:
+        return self._cache
+
+    def suggest(
+        self, text: str, candidates: Sequence[CaptureCandidate]
+    ) -> CaptureDispositionSuggestion:
+        key = _cache_key(self.source_system, text, candidates)
+        cached = self._cache.lookup(key)
+        if cached is not None:
+            logger.info(
+                "capture_classifier cache=hit %s",
+                prompt_brief(
+                    text,
+                    candidates,
+                    cache=self._cache,
+                    cache_state="hit",
+                ),
+            )
+            return cached
+        logger.info(
+            "capture_classifier cache=miss %s",
+            prompt_brief(
+                text,
+                candidates,
+                cache=self._cache,
+                cache_state="miss",
+            ),
+        )
+        suggestion = self._classifier.suggest(text, list(candidates))
+        if not isinstance(suggestion, CaptureDispositionSuggestion):
+            raise ClassifierError("classifier did not return a capture suggestion")
+        self._cache.store(key, suggestion)
+        return suggestion
+
+
 def suggest_capture_disposition(
     text: str,
     candidates: Sequence[CaptureCandidate],
@@ -216,7 +421,9 @@ def _normalize_suggestion(
 def build_capture_classifier() -> ClassifierAdapter:
     """Build the runtime classifier once a provider is authorized.
 
-    No provider account is configured yet, so this helper intentionally raises
-    ``ClassifierNotConfigured``. The endpoint exposes that state as HTTP 503.
+    The runtime adapter will be wrapped in a ``CachingClassifier`` so repeated
+    suggestions of the same text never re-charge the model. No provider account is
+    configured yet, so this helper intentionally raises ``ClassifierNotConfigured``.
+    The endpoint exposes that state as HTTP 503, and no test ever calls a live model.
     """
     raise ClassifierNotConfigured("Capture classification is not configured")

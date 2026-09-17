@@ -132,10 +132,11 @@ Seed data under `data/seed/` is intentionally fictional.
   Drive authorization is not configured.
 - Web: `GET /` serves the branded dashboard under the `static/` kit (design tokens, Inter,
   favicon, app icons, and an installable PWA manifest).
-- Phase 3 (in progress): read-only capture classification proposals, the provider-neutral
-  classifier contract (HTTP 503 until a provider is authorized), and explicit confirmation that
-  creates the operational record from the proposal with an immutable decision trail are
-  implemented; per-text caching and live provider accounts are next.
+- Phase 3: read-only capture classification proposals, the provider-neutral
+  classifier contract (HTTP 503 until a provider is authorized), explicit confirmation that
+  creates the operational record from the proposal with an immutable decision trail, and bounded
+  cost/data exposure (per-text caching, redacted prompt logs, request bounds) are implemented;
+  live provider accounts are next.
 
 ## Working agreements
 

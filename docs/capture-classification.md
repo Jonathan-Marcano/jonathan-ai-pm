@@ -77,7 +77,23 @@ its title, and the apply event on the capture links `task_id`/`action_item_id`, 
 `disposition`, `status`, `triaged_at`, and `applied_at`. Applied captures round-trip through
 portable snapshots unchanged.
 
+## Bounded cost and data exposure
+
+`CachingClassifier` wraps any provider adapter so per-text suggestions are never re-charged:
+repeating `suggest` for the same text and candidate set replays the stored suggestion without
+calling the model again. The cache key is content-addressed from the provider, the bounded text,
+and the candidate set, so a changed candidate set still reaches the provider, and a bounded
+`CaptureSuggestionCache` (FIFO, default 100 entries) caps memory use. The wrapper validates the
+provider result like any adapter and re-validation against the *current* candidates still runs on
+every call.
+
+Nothing that leaves the process for logging carries the captured text: `prompt_brief` renders a
+redacted summary (sha256 digest of the bounded text, character count, candidate ids, provider, and
+cache hit/miss state) and every classifier log line uses it, so a full-text capture never appears in
+logs. Request bounds (`max_text_chars`) cap token cost and exposure on every call, and no test or
+default path ever calls a live model.
+
 ## Out of scope
 
-Per-text caching, token limits for live providers, and provider accounts are tracked separately in
-the [Phase 3 backlog](backlog/phase-3.md).
+Provider accounts and token limits for live providers are tracked separately in the
+[Phase 3 backlog](backlog/phase-3.md).

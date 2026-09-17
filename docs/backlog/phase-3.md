@@ -21,7 +21,7 @@ confirmed proposal.
 | P3-02 | Must | Classify captures through a provider-neutral contract | **Done** — `suggest_capture_disposition(text, candidates)` bounds the request, validates the provider suggestion, and quotes-only reasons; no credentials live in the repository and unconfigured providers answer HTTP 503 |
 | P3-03 | Must | Apply a capture only on explicit confirmation | **Done** — `POST /api/v1/captures/{id}/apply` creates the operational record exactly from the confirmed proposal (task, meeting action, or reference), is idempotent, and never binds an unconfirmed capture to a project |
 | P3-04 | Should | Preserve the decision trail | **Done** — confirmations reference the exact immutable proposal and original text; audit links the capture, the applied record, and the source wording |
-| P3-05 | Must | Bound LLM cost and data exposure | Prompt bodies are redacted, per-text caching and token limits prevent repeated charges, and no test ever calls a live model |
+| P3-05 | Must | Bound LLM cost and data exposure | **Done** — `CachingClassifier` replays per-text suggestions without re-charging a model, request bounds cap token usage, `prompt_brief` logs only a redacted digest of the capture, and no test ever calls a live model |
 
 ## Explicitly deferred
 
