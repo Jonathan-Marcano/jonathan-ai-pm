@@ -1,6 +1,6 @@
 # Morning Brief
 
-The Morning Brief is a deterministic daily view built only from Jonathan AI PM records. Phase 1
+The Morning Brief is a deterministic daily view built only from FaroFlow records. Phase 1
 does not read calendars, messages, Google Drive content, or an LLM.
 
 ## Endpoint

@@ -3,8 +3,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from jonathan_ai_pm.config import get_settings
-from jonathan_ai_pm.models import Base
+from faroflow.config import get_settings
+from faroflow.models import Base
 
 config = context.config
 if config.config_file_name is not None:
@@ -32,8 +32,9 @@ def run_migrations_online() -> None:
     )
     with connectable.begin() as connection:
         if connection.dialect.name == "sqlite":
-            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
-        context.configure(connection=connection, target_metadata=target_metadata)
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.exec_driver_sql("PRAGMA defer_foreign_keys=ON")
+            context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
 

@@ -2,8 +2,8 @@ import stat
 
 import pytest
 
-from jonathan_ai_pm.db import build_engine
-from jonathan_ai_pm.security import REDACTED, redact_text, redact_value, write_private_text
+from faroflow.db import build_engine
+from faroflow.security import REDACTED, redact_text, redact_value, write_private_text
 
 
 def create_task(api_client) -> None:
@@ -61,6 +61,17 @@ def test_sensitive_values_are_redacted() -> None:
         "nested": {"password": REDACTED},
         "safe": "visible",
     }
+
+
+def test_request_logging_redacts_sensitive_query_values(api_client, caplog) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO, logger="faroflow.api")
+    api_client.get("/api/v1/tasks?status=ready&api_key=secret123")
+
+    logged = [record.message for record in caplog.records]
+    assert any("api_key=[REDACTED]" in message for message in logged)
+    assert all("secret123" not in message for message in logged)
 
 
 def test_manual_translation_preserves_original_and_is_audited(api_client) -> None:

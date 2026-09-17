@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from jonathan_ai_pm.services import DomainRuleError, DomainStore
+from faroflow.services import DomainRuleError, DomainStore
 
 
 def seed_brief_scenario(store: DomainStore) -> None:
@@ -46,7 +46,7 @@ def seed_brief_scenario(store: DomainStore) -> None:
         ("tsk_today", "ready", "medium", date(2026, 9, 14), None),
         ("tsk_soon", "ready", "critical", date(2026, 9, 16), None),
         ("tsk_future", "ready", "high", date(2026, 9, 25), None),
-        ("tsk_doing", "in_progress", "medium", date(2026, 9, 17), "del_active"),
+        ("tsk_doing", "ready", "medium", date(2026, 9, 17), "del_active"),
         ("tsk_blocked", "blocked", "high", date(2026, 9, 15), "del_blocked"),
         ("tsk_done", "ready", "critical", date(2026, 9, 12), None),
     )
@@ -61,6 +61,7 @@ def seed_brief_scenario(store: DomainStore) -> None:
             priority=priority,
             due_at=due_at,
         )
+    store.start_task("tsk_doing")
     store.complete_task("tsk_done", "Finished")
 
     store.create(

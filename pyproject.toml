@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "jonathan-ai-pm"
+name = "faroflow"
 version = "0.1.0"
 description = "Manual-first personal project management assistant"
 readme = "README.md"
@@ -24,10 +24,10 @@ dev = [
 ]
 
 [project.scripts]
-jonathan-ai-pm = "jonathan_ai_pm.cli:main"
+faroflow = "faroflow.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jonathan_ai_pm"]
+packages = ["src/faroflow"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

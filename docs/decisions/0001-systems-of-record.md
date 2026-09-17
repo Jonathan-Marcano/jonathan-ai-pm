@@ -11,7 +11,7 @@ The project needs collaborative documents, versioned code, and operational proje
 
 - GitHub owns code, schemas, tests, technical decisions, and versioned engineering documentation.
 - Google Drive owns shared documents and management artifacts intended for collaborators.
-- A future Jonathan AI PM datastore owns normalized operational state such as task status and work logs.
+- A future FaroFlow datastore owns normalized operational state such as task status and work logs.
 - External systems remain authoritative for their original events or messages; integrations store references and synchronization metadata.
 
 ## Consequences

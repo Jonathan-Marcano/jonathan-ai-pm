@@ -1,6 +1,6 @@
 # Evening Close
 
-P1-08 provides a deterministic end-of-day reconciliation built only from Jonathan AI PM records.
+P1-08 provides a deterministic end-of-day reconciliation built only from FaroFlow records.
 It does not call a calendar, WhatsApp, Google Drive, an LLM, or another external service.
 
 ## Endpoint

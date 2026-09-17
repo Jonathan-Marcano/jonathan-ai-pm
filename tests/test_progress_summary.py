@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime
 
-from jonathan_ai_pm.services import DomainStore
+from faroflow.services import DomainStore
 
 
 def seed_progress_scenario(store: DomainStore) -> None:

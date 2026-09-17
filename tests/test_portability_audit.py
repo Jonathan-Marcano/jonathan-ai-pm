@@ -4,10 +4,10 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from jonathan_ai_pm.db import build_engine
-from jonathan_ai_pm.models import Base
-from jonathan_ai_pm.portability import export_snapshot, import_snapshot
-from jonathan_ai_pm.schemas import SnapshotDocument
+from faroflow.db import build_engine
+from faroflow.models import Base
+from faroflow.portability import export_snapshot, import_snapshot
+from faroflow.schemas import SnapshotDocument
 
 
 def create_hierarchy(api_client, headers=None) -> None:

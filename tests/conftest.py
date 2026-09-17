@@ -2,9 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from jonathan_ai_pm.api import app
-from jonathan_ai_pm.db import build_engine, get_session
-from jonathan_ai_pm.models import Base
+from faroflow.api import app
+from faroflow.db import build_engine, get_session
+from faroflow.models import Base
 
 
 @pytest.fixture

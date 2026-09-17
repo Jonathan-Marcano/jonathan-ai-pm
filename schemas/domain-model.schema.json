@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/jonathan-ai-pm/domain-model.schema.json",
-  "title": "Jonathan AI PM domain snapshot",
+  "$id": "https://example.invalid/faroflow/domain-model.schema.json",
+  "title": "FaroFlow domain snapshot",
   "type": "object",
   "additionalProperties": false,
   "required": [

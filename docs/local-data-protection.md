@@ -11,9 +11,9 @@ full-disk encryption, operating-system access controls, or an enterprise secrets
   are excluded from Git.
 - A logging filter redacts authorization values, cookies, passwords, secrets, tokens, API keys,
   and bearer credentials from configured application and Uvicorn handlers.
-- `jonathan-ai-pm backup` writes a versioned JSON snapshot under `backups/` by default, with
+- `faroflow backup` writes a versioned JSON snapshot under `backups/` by default, with
   private permissions and no implicit overwrite.
-- `jonathan-ai-pm backup --path PATH --force` is required to replace an existing backup.
+- `faroflow backup --path PATH --force` is required to replace an existing backup.
 
 Snapshots and the audit table can still contain customer names, tasks, notes, and evidence. Keep
 the device encrypted, restrict account access, and store off-device copies only in an approved
@@ -24,7 +24,7 @@ private location.
 Create a backup after meaningful data changes and before upgrades:
 
 ```bash
-uv run jonathan-ai-pm backup
+uv run faroflow backup
 ```
 
 Recovery uses the validated snapshot import endpoint and requires an empty datastore. Test

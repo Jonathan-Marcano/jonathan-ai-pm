@@ -42,5 +42,19 @@ Both adapter protocols expose explicit read-only capabilities:
 
 Provider timestamps without a timezone, reversed date ranges, missing identities, and blank display
 values are rejected before synchronization. P2-02 persists external identities and sync-run
-outcomes. P2-03 implements the Microsoft 365 `calendarView` adapter; P2-04 will reconcile its
-results into operational meeting records.
+outcomes. P2-03 implements the Microsoft 365 `calendarView` adapter, P2-04 reconciles its results
+into operational meeting records idempotently, and P2-05 queues unmatched meetings for confirmed
+project association without reading confidential event content.
+
+P2-06 links Google Drive files to deliverables through the document contract (see
+[Google Drive artifacts](google-drive-artifacts.md)), and P2-07 refreshes name, URL, MIME type,
+version marker, and modification time idempotently without ever copying document bodies.
+
+P2-08 adds a Google Calendar adapter (scope `calendar.readonly`) behind the same calendar contract
+(see [Google Calendar read-only](google-calendar.md)); its events use the identical boundaries,
+timezone rules, and deduplication as the Microsoft 365 path.
+
+P2-11 enforces this safety boundary at runtime: `assert_registered_providers_read_only()` audits the
+registered adapters at startup and `check_read_only_adapter()` guards every sync run, so an adapter
+with create/update/delete capability or a write scope is rejected before any provider call. See
+[Integration permissions and retention](integration-retention.md).

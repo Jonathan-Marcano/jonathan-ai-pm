@@ -1,4 +1,4 @@
-# Jonathan AI PM — Phase 0 index
+# FaroFlow — Phase 0 index
 
 Phase 0 establishes a durable foundation for the future daily loop:
 
@@ -20,4 +20,4 @@ Phase 0 establishes a durable foundation for the future daily loop:
 
 There are no live WhatsApp, calendar, Google Drive runtime, LLM, or other API integrations in Phase 0. The Drive content published from this repository is a collaboration copy; GitHub remains the versioned technical source of truth.
 
-Repository: <https://github.com/Jonathan-Marcano/jonathan-ai-pm>
+Repository: <https://github.com/Jonathan-Marcano/faroflow>

@@ -1,7 +1,8 @@
 # Phase 1 HTTP API
 
 The manual-first API is served under `/api/v1`. Interactive OpenAPI documentation is available
-at `/docs` while the application is running.
+at `/docs` while the application is running. `GET /` serves the branded dashboard documented in
+[Web dashboard](web-dashboard.md).
 
 `GET /api/v1/briefs/morning` generates the dated operational brief. Its selection and ranking
 rules are documented in [Morning Brief](morning-brief.md).
@@ -21,6 +22,49 @@ Manual translations are managed through `/api/v1/translations`. Each translation
 supported display field while the source record remains unchanged. See
 [Manual translations](translations.md).
 
+Imported meetings that arrive without a confirmed project enter a review queue. `GET
+/api/v1/integrations/meetings/unmatched` lists them, and `POST
+/api/v1/integrations/meetings/{id}/project` with `{"project_id": ...}` confirms the association
+and records a reusable mapping. `GET /api/v1/integrations/meeting-project-mappings` lists confirmed
+mappings and `DELETE /api/v1/integrations/meeting-project-mappings/{mapping_id}` removes one
+without touching operational meeting data. See [Meeting project association](phase-2-integration-state.md).
+
+Drive file links attach read-only artifact metadata to deliverables. `POST
+/api/v1/deliverables/{id}/drive-link` registers a link, `DELETE
+/api/v1/deliverables/{id}/drive-link` removes it, and `GET /api/v1/integrations/drive-links`
+lists them. `POST /api/v1/integrations/drive/refresh` refreshes name, URL, MIME type, version
+marker, and modification time idempotently, returning the document sync run; it returns HTTP 503
+until Drive authorization is configured. See [Google Drive artifacts](google-drive-artifacts.md).
+
+`POST /api/v1/integrations/calendar/sync?starts_at=...&ends_at=...` imports a bounded,
+timezone-aware Google Calendar window into meetings using the same deduplication rules as
+Microsoft 365. Both bounds are required (`ends_at` after `starts_at`) and an optional `project_id`
+projects every event onto one deliverable. It returns the calendar sync run, HTTP 422 on an
+invalid window, and HTTP 503 until Calendar authorization is configured. See
+[Google Calendar read-only](google-calendar.md).
+
+`GET /api/v1/meetings/{id}/preparation` returns the dated read-only preparation view for a meeting:
+the linked project and client, open action items, task and deliverable deadlines, and relevant
+artifact links. It returns HTTP 404 for an unknown meeting. See
+[Meeting preparation](meeting-preparation.md).
+
+Completed meetings enter a post-meeting review queue. `POST /api/v1/meetings/{id}/complete` moves a
+scheduled meeting to `completed`, `GET /api/v1/integrations/meetings/completed` lists completed
+meetings awaiting acknowledgment, and `POST /api/v1/meetings/{id}/review` with
+`{"decision": "reviewed"}` acknowledges one so it leaves the queue. See
+[Meeting review](meeting-review.md).
+
+Synchronization status is exposed read-only. `GET /api/v1/integrations/sync-runs` lists runs with
+optional `source_system`, `resource_kind`, and `status` filters; `GET
+/api/v1/integrations/sync-runs/{id}` and `GET /api/v1/integrations/sync-runs/{id}/errors` return one
+run and its redacted errors. `POST /api/v1/integrations/sync-runs/{id}/retry` safely re-runs the
+original bounded window and returns HTTP 503 until authorization is configured. See
+[Synchronization status](integration-status.md).
+
+Integration security is enforced at startup and per run (read-only capabilities and scopes only),
+with retention and disconnection behavior documented in
+[Integration permissions and retention](integration-retention.md).
+
 ## Resources
 
 | Resource | Create | List/filter | Read | Update | Delete |
@@ -36,6 +80,24 @@ supported display field while the source record remains unchanged. See
 | Captures | Text only | `capture_status`, `disposition`, `project_id` | Yes | Triage endpoint | Preserved |
 | Translations | Yes | `entity_kind`, `entity_id`, `field_name`, `language` | Yes | Text only | Yes |
 | Audit events | Automatic | `entity_kind`, `entity_id`, `actor` | Through list | Immutable | Preserved |
+
+## Pagination
+
+Every list endpoint (`workspaces`, `clients`, `projects`, `deliverables`, `tasks`, `meetings`,
+`action-items`, `captures`, `translations`, `audit-events`) accepts optional `limit` (`1..500`,
+default: all results) and `offset` (`>= 0`). When `limit` is provided the response adds a `Link`
+header with `rel="next"` and `rel="prev"` URLs that preserve the current filters:
+
+```bash
+curl 'http://127.0.0.1:8000/api/v1/tasks?status=ready&limit=20' \
+  -H 'Accept: application/json'
+```
+
+```http
+Link: <http://127.0.0.1:8000/api/v1/tasks?status=ready&limit=20&offset=20>; rel="next"
+```
+
+Listings are ordered by record id. Single-item detail reads are unaffected.
 
 ## Protected transitions
 

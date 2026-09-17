@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
-from jonathan_ai_pm.integrations import (
+from faroflow.integrations import (
     READ_ONLY_CAPABILITIES,
     CalendarWindow,
     ExternalCalendarEvent,

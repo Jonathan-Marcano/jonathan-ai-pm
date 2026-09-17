@@ -1,17 +1,17 @@
-# Jonathan AI PM
+# FaroFlow
 
 AI-powered personal project management assistant for coordinating multiple jobs, clients, projects, tasks, meetings, action items, and deliverables.
 
 ## Purpose
 
-Jonathan AI PM is intended to support a simple daily operating loop:
+FaroFlow is intended to support a simple daily operating loop:
 
 1. **Morning Brief:** surface meetings, priorities, deadlines, and risks.
 2. **Day capture:** record work, decisions, and action items as they appear.
 3. **Incremental delivery:** turn tasks into visible progress on deliverables.
 4. **Evening Close:** review completed and pending work, update projects, and measure effort.
 
-Phase 0 established the product definition and repository conventions. Phase 1 delivered the tested manual-first application. Phase 2 is underway with provider-neutral, read-only calendar and document contracts; no live provider connection is enabled yet. WhatsApp and AI integrations remain deferred.
+Phase 0 established the product definition and repository conventions. Phase 1 delivered the tested manual-first application. Phase 2 is underway; Slice B links and refreshes read-only Google Drive artifacts, Microsoft 365 calendar sync is complete, and Google Calendar is now available through the same read-only contracts without a live provider connection. WhatsApp and AI integrations remain deferred.
 
 ## Repository map
 
@@ -23,7 +23,8 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 │   └── backlog/            # Phase backlogs
 ├── migrations/             # Versioned database migrations
 ├── schemas/                # Machine-readable domain contracts
-├── src/jonathan_ai_pm/     # Application, persistence, and domain services
+├── src/faroflow/     # Application, persistence, and domain services
+├── static/                 # Brand kit, PWA manifest, and web dashboard
 ├── tests/                  # Automated domain and API checks
 ├── .env.example            # Safe configuration template
 ├── pyproject.toml          # Runtime and development dependencies
@@ -40,9 +41,17 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Roadmap](docs/roadmap.md)
 - [Phase 1 backlog](docs/backlog/phase-1.md)
 - [Phase 2 backlog](docs/backlog/phase-2.md)
+- [Phase 3 backlog](docs/backlog/phase-3.md)
+- [Phase 4 backlog](docs/backlog/phase-4.md)
 - [Phase 2 integration contracts](docs/phase-2-integration-contracts.md)
 - [Phase 2 integration state](docs/phase-2-integration-state.md)
 - [Microsoft 365 calendar adapter](docs/microsoft-365-calendar.md)
+- [Google Calendar read-only](docs/google-calendar.md)
+- [Google Drive artifacts](docs/google-drive-artifacts.md)
+- [Meeting preparation](docs/meeting-preparation.md)
+- [Meeting review](docs/meeting-review.md)
+- [Synchronization status](docs/integration-status.md)
+- [Integration permissions and retention](docs/integration-retention.md)
 - [Phase 1 HTTP API](docs/api.md)
 - [Morning Brief](docs/morning-brief.md)
 - [Incremental work](docs/incremental-work.md)
@@ -52,6 +61,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Snapshots and audit history](docs/snapshots-and-audit.md)
 - [Local data protection](docs/local-data-protection.md)
 - [Manual translations](docs/translations.md)
+- [Web dashboard](docs/web-dashboard.md)
 - [Source-of-truth decision](docs/decisions/0001-systems-of-record.md)
 - [Phase 1 stack decision](docs/decisions/0002-phase-1-stack.md)
 - [Phase 2 integration boundary](docs/decisions/0003-phase-2-integrations.md)
@@ -80,9 +90,9 @@ Install [uv](https://docs.astral.sh/uv/), then prepare the local application:
 cp .env.example .env
 uv sync --extra dev
 uv run alembic upgrade head
-uv run jonathan-ai-pm seed-demo
-uv run jonathan-ai-pm backup
-uv run uvicorn jonathan_ai_pm.api:app --reload
+uv run faroflow seed-demo
+uv run faroflow backup
+uv run uvicorn faroflow.api:app --reload
 ```
 
 The API health check is available at `http://127.0.0.1:8000/health` and interactive endpoint
@@ -105,9 +115,22 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 1 / Slice C: workload summaries, portable snapshots, audit history, local-data
   protection, and manual translations are implemented.
 - Phase 1: complete.
-- Phase 2: in progress; P2-01 through P2-03 are complete.
+- Phase 2: complete — contracts, calendar/document synchronization, meeting preparation and
+  review, integration permission/retention controls, and synchronization status are implemented.
+- Meeting review (P2-10): completed meetings enter a post-meeting review queue; completion and
+  acknowledgment endpoints are implemented.
+- Permissions and retention (P2-11): startup and sync checks reject write scopes and capabilities,
+  provider errors are redacted, deliverable deletion requires unlinking Drive files first, and
+  retention/disconnection behavior is documented.
+- Synchronization status (P2-12): read-only run list/detail/error endpoints and safe retry are
+  implemented.
 - Microsoft 365 calendar: read-only adapter complete; tenant authorization is not configured.
-- P2-04 idempotent calendar reconciliation is next.
+- Google Calendar: read-only adapter complete using the same contracts and deduplication rules;
+  authorization is not configured.
+- Google Drive artifacts: read-only file links and idempotent metadata refresh are implemented;
+  Drive authorization is not configured.
+- Web: `GET /` serves the branded dashboard under the `static/` kit (design tokens, Inter,
+  favicon, app icons, and an installable PWA manifest).
 
 ## Working agreements
 

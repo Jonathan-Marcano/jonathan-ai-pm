@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from jonathan_ai_pm.integrations import (
+from faroflow.integrations import (
     MICROSOFT_GRAPH_DELEGATED_PERMISSION,
     READ_ONLY_CAPABILITIES,
     CalendarWindow,

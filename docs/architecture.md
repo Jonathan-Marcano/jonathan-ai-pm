@@ -55,7 +55,7 @@ Ports/adapters
 |---|---|
 | Code, schemas, versioned technical decisions | GitHub |
 | Shared project documents and management artifacts | Google Drive |
-| Operational task state and work logs | Jonathan AI PM datastore (from Phase 1) |
+| Operational task state and work logs | FaroFlow datastore (from Phase 1) |
 | Meeting schedule | Connected calendar, once enabled |
 | Original message | Source channel, once enabled |
 

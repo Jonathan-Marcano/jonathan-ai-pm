@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from jonathan_ai_pm.services import DomainRuleError, DomainStore
+from faroflow.services import DomainRuleError, DomainStore
 
 
 def build_hierarchy(store: DomainStore) -> None:
@@ -234,3 +234,94 @@ def test_referenced_project_cannot_be_deleted(session) -> None:
     build_hierarchy(store)
     with pytest.raises(IntegrityError):
         store.delete("project", "prj_rules")
+
+
+def test_protected_statuses_cannot_be_written_directly(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+
+    with pytest.raises(DomainRuleError, match="start_task"):
+        store.create(
+            "task",
+            id="tsk_direct_progress",
+            project_id="prj_rules",
+            title="Started too early",
+            status="in_progress",
+        )
+    session.rollback()
+
+    with pytest.raises(DomainRuleError, match="accepted"):
+        store.create(
+            "deliverable",
+            id="del_direct_accepted",
+            project_id="prj_rules",
+            title="Accepted too early",
+            status="accepted",
+            due_at=date(2026, 9, 20),
+        )
+    session.rollback()
+
+    with pytest.raises(DomainRuleError, match="accepted"):
+        store.update("deliverable", "del_rules", status="accepted")
+    session.rollback()
+
+
+def test_completed_task_cannot_return_to_an_earlier_status(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    store.complete_task("tsk_rules", "Delivered")
+
+    with pytest.raises(DomainRuleError, match="earlier status"):
+        store.update("task", "tsk_rules", status="ready")
+
+
+def test_task_linked_to_action_item_cannot_be_deleted(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    add_meeting(store)
+    store.create(
+        "action_item",
+        id="act_linked",
+        meeting_id="mtg_rules",
+        task_id="tsk_rules",
+        title="Follow-up",
+        owner="Demo Engineer",
+    )
+
+    with pytest.raises(DomainRuleError, match="action item"):
+        store.delete("task", "tsk_rules")
+    assert store.get("task", "tsk_rules") is not None
+
+
+def test_task_referenced_by_capture_cannot_be_deleted(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    capture = store.capture("Prepare the validation")
+    store.triage_capture(
+        capture.id,
+        "task",
+        project_id="prj_rules",
+        task_id="tsk_from_capture",
+    )
+
+    with pytest.raises(DomainRuleError, match="captured note"):
+        store.delete("task", "tsk_from_capture")
+    assert store.get("task", "tsk_from_capture") is not None
+
+
+def test_action_item_referenced_by_capture_cannot_be_deleted(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
+    add_meeting(store)
+    capture = store.capture("Confirm dependencies")
+    store.triage_capture(
+        capture.id,
+        "action",
+        meeting_id="mtg_rules",
+        action_item_id="act_from_capture",
+        owner="Demo Engineer",
+    )
+
+    with pytest.raises(DomainRuleError, match="captured note"):
+        store.delete("action_item", "act_from_capture")
+    assert store.get("action_item", "act_from_capture") is not None

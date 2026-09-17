@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from jonathan_ai_pm.seed import load_snapshot
-from jonathan_ai_pm.services import DomainStore
+from faroflow.seed import load_snapshot
+from faroflow.services import DomainStore
 
 
 def test_demo_snapshot_loads(session) -> None:

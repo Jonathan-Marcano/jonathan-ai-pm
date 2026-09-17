@@ -1,0 +1,105 @@
+from typing import Annotated, Any
+from urllib.parse import urlencode
+
+from fastapi import Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from faroflow.db import get_session
+from faroflow.services import DomainRuleError, DomainStore
+
+RawDbSession = Annotated[Session, Depends(get_session)]
+
+
+def request_session(request: Request, session: RawDbSession) -> Session:
+    actor = (request.headers.get("X-Actor") or "local-user").strip()
+    session.info["actor"] = actor[:200] or "local-user"
+    return session
+
+
+DbSession = Annotated[Session, Depends(request_session)]
+
+PageLimit = Annotated[int | None, Query(ge=1, le=500)]
+PageOffset = Annotated[int, Query(ge=0)]
+
+
+def store(session: Session) -> DomainStore:
+    return DomainStore(session)
+
+
+def page_items(
+    session: Session,
+    kind: str,
+    filters: dict[str, Any],
+    limit: int | None,
+    offset: int,
+) -> tuple[list[Any], bool]:
+    return store(session).list_page(kind, limit=limit, offset=offset, **filters)
+
+
+def set_page_links(
+    response: Response,
+    request: Request,
+    limit: int | None,
+    offset: int,
+    has_more: bool,
+) -> None:
+    if limit is None:
+        return
+    base = str(request.url).split("?", 1)[0]
+    params = dict(request.query_params)
+    links: list[str] = []
+    if has_more:
+        next_params = dict(params)
+        next_params["offset"] = str(offset + limit)
+        links.append(f'<{base}?{urlencode(next_params)}>; rel="next"')
+    if offset > 0:
+        prev_params = dict(params)
+        prev_params["offset"] = str(max(offset - limit, 0))
+        links.append(f'<{base}?{urlencode(prev_params)}>; rel="prev"')
+    if links:
+        response.headers["Link"] = ", ".join(links)
+
+
+def domain_http_error(exc: DomainRuleError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=str(exc))
+
+
+def create_record(session: Session, kind: str, payload) -> Any:
+    try:
+        return store(session).create(kind, **payload.model_dump())
+    except DomainRuleError as exc:
+        session.rollback()
+        raise domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Record or relationship conflict") from exc
+
+
+def get_record(session: Session, kind: str, entity_id: str) -> Any:
+    entity = store(session).get(kind, entity_id)
+    if entity is None:
+        raise HTTPException(status_code=404, detail=f"{kind} not found")
+    return entity
+
+
+def update_record(session: Session, kind: str, entity_id: str, payload) -> Any:
+    try:
+        return store(session).update(kind, entity_id, **payload.model_dump(exclude_unset=True))
+    except DomainRuleError as exc:
+        session.rollback()
+        raise domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Record or relationship conflict") from exc
+
+
+def delete_record(session: Session, kind: str, entity_id: str) -> Response:
+    try:
+        store(session).delete(kind, entity_id)
+    except DomainRuleError as exc:
+        raise domain_http_error(exc) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Record is still referenced") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

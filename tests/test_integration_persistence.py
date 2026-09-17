@@ -2,9 +2,9 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from jonathan_ai_pm.integrations import IntegrationStateError, IntegrationStateStore
-from jonathan_ai_pm.models import ExternalIdentity, SyncRun
-from jonathan_ai_pm.services import DomainStore
+from faroflow.integrations import IntegrationStateError, IntegrationStateStore
+from faroflow.models import ExternalIdentity, SyncRun
+from faroflow.services import DomainStore
 
 
 def build_targets(session) -> None:

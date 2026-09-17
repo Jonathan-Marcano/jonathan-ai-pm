@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from jonathan_ai_pm.services import DomainRuleError, DomainStore
+from faroflow.services import DomainRuleError, DomainStore
 
 
 def build_hierarchy(store: DomainStore) -> None:

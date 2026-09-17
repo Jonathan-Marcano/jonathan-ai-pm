@@ -14,7 +14,7 @@ Existing information is fragmented across calendars, conversations, documents, a
 
 ## Product promise
 
-Jonathan AI PM converts daily signals into a controlled project loop: plan the day, capture commitments, advance deliverables in small steps, close the day, and update project health.
+FaroFlow converts daily signals into a controlled project loop: plan the day, capture commitments, advance deliverables in small steps, close the day, and update project health.
 
 ## Primary user
 
