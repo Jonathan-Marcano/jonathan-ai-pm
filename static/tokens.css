@@ -1,8 +1,110 @@
 :root {
-  --brand-primary: #182B49;
-  --brand-secondary: #4D8DFF;
-  --brand-accent: #7765E3;
-  --brand-background-light: #F5F7FF;
-  --brand-background-dark: #0B1220;
-  --brand-font: 'Inter', sans-serif;
+  /* ============================================================
+     FAROFLOW — DESIGN TOKENS
+     Identidad: violeta / indigo (modern SaaS, productivity, calm)
+     ============================================================ */
+
+  /* Color — primario (indigo / violeta) */
+  --ff-primary-50: #f3f1fe;
+  --ff-primary-100: #e8e4fd;
+  --ff-primary-200: #d2ccfa;
+  --ff-primary-300: #b3a9f5;
+  --ff-primary-400: #8f80ee;
+  --ff-primary-500: #6f5ce3;
+  --ff-primary-600: #6049d8;
+  --ff-primary-700: #523cc0;
+  --ff-primary-800: #46349f;
+  --ff-primary-900: #3a2e7d;
+
+  /* Color — secundario (azul de apoyo, heredado de la marca) */
+  --ff-secondary-50: #edf4ff;
+  --ff-secondary-100: #ddeaff;
+  --ff-secondary-500: #4d8dff;
+  --ff-secondary-600: #2e7bf6;
+  --ff-secondary-700: #1f66d6;
+
+  /* Color — semántico */
+  --ff-success-500: #1e9c62;
+  --ff-success-100: #e3f6ec;
+  --ff-warning-500: #c07f17;
+  --ff-warning-100: #fff3d9;
+  --ff-danger-500: #d64545;
+  --ff-danger-100: #ffe7e6;
+  --ff-info-500: #2e7bf6;
+  --ff-info-100: #e6efff;
+
+  /* Color — neutro / superficie / texto */
+  --ff-neutral-500: #5a6b85;
+  --ff-neutral-400: #7c8aa0;
+  --ff-neutral-300: #a4aeba;
+  --ff-bg: #f6f7fb;
+  --ff-surface: #ffffff;
+  --ff-surface-tint: #f2f3fa;
+  --ff-border: #e3e7f0;
+  --ff-border-strong: #ccd5e4;
+  --ff-text: #141a2e;
+  --ff-text-muted: #5a6b85;
+  --ff-text-faint: #8a94a8;
+
+  /* Color — marca (compatibilidad con kit de marca) */
+  --brand-primary: #141a2e;
+  --brand-secondary: var(--ff-secondary-500);
+  --brand-accent: var(--ff-primary-500);
+  --brand-background-light: var(--ff-bg);
+  --brand-background-dark: #0b1220;
+  --brand-font: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Tipografía */
+  --ff-font: var(--brand-font);
+  --ff-text-xs: 11px;
+  --ff-text-sm: 12.5px;
+  --ff-text-md: 14px;
+  --ff-text-lg: 16px;
+  --ff-text-xl: 20px;
+  --ff-text-2xl: 24px;
+  --ff-text-3xl: 30px;
+  --ff-weight-regular: 400;
+  --ff-weight-medium: 500;
+  --ff-weight-semibold: 600;
+  --ff-weight-bold: 700;
+  --ff-weight-extrabold: 800;
+
+  /* Espaciado */
+  --ff-space-0: 0;
+  --ff-space-1: 4px;
+  --ff-space-2: 8px;
+  --ff-space-3: 12px;
+  --ff-space-4: 16px;
+  --ff-space-5: 20px;
+  --ff-space-6: 24px;
+  --ff-space-7: 32px;
+  --ff-space-8: 40px;
+  --ff-space-9: 48px;
+  --ff-space-10: 64px;
+
+  /* Radio */
+  --ff-radius-sm: 6px;
+  --ff-radius-md: 10px;
+  --ff-radius-lg: 14px;
+  --ff-radius-xl: 20px;
+  --ff-radius-full: 999px;
+
+  /* Sombra */
+  --ff-shadow-sm: 0 1px 2px rgba(20, 26, 46, 0.06);
+  --ff-shadow-md: 0 1px 2px rgba(20, 26, 46, 0.06), 0 6px 20px rgba(20, 26, 46, 0.07);
+  --ff-shadow-lg: 0 4px 12px rgba(20, 26, 46, 0.08), 0 18px 40px rgba(20, 26, 46, 0.12);
+
+  /* Bordes */
+  --ff-border-hairline: 1px solid var(--ff-border);
+
+  /* Transición */
+  --ff-transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ff-transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Capas */
+  --ff-z-sidebar: 40;
+  --ff-z-topbar: 30;
+  --ff-z-overlay: 60;
+  --ff-z-modal: 70;
+  --ff-z-toast: 80;
 }
