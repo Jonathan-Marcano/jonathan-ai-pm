@@ -1,4 +1,4 @@
-"""Provider-neutral Phase 2 integration contracts."""
+"""Provider-neutral integration contracts (Phase 2 read-only providers, Phase 4 messaging)."""
 
 from faroflow.integrations.contracts import (
     READ_ONLY_CAPABILITIES,
@@ -20,6 +20,17 @@ from faroflow.integrations.google_drive import (
     GoogleDriveAdapter,
     GoogleDriveConfig,
     GoogleDriveError,
+)
+from faroflow.integrations.messaging import (
+    MAX_MESSAGE_CHARS,
+    MAX_MESSAGES_PER_LISTING,
+    ExternalInboundMessage,
+    ExternalMessageReceipt,
+    MessagingAdapter,
+    OutboundConfirmationError,
+    OutboundNotice,
+    OutboundPolicy,
+    outbound_preview_digest,
 )
 from faroflow.integrations.microsoft365 import (
     MICROSOFT_GRAPH_DELEGATED_PERMISSION,
@@ -51,4 +62,13 @@ __all__ = [
     "GoogleDriveAdapter",
     "GoogleDriveConfig",
     "GoogleDriveError",
+    "MAX_MESSAGE_CHARS",
+    "MAX_MESSAGES_PER_LISTING",
+    "ExternalInboundMessage",
+    "ExternalMessageReceipt",
+    "MessagingAdapter",
+    "OutboundConfirmationError",
+    "OutboundNotice",
+    "OutboundPolicy",
+    "outbound_preview_digest",
 ]

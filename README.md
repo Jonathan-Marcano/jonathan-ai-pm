@@ -44,6 +44,7 @@ Phase 0 established the product definition and repository conventions. Phase 1 d
 - [Phase 3 backlog](docs/backlog/phase-3.md)
 - [Phase 4 backlog](docs/backlog/phase-4.md)
 - [Phase 2 integration contracts](docs/phase-2-integration-contracts.md)
+- [Phase 4 messaging contracts and outbound policy](docs/phase-4-messaging-contracts.md)
 - [Phase 2 integration state](docs/phase-2-integration-state.md)
 - [Microsoft 365 calendar adapter](docs/microsoft-365-calendar.md)
 - [Google Calendar read-only](docs/google-calendar.md)
@@ -135,8 +136,10 @@ Seed data under `data/seed/` is intentionally fictional.
 - Phase 3: read-only capture classification proposals, the provider-neutral
   classifier contract (HTTP 503 until a provider is authorized), explicit confirmation that
   creates the operational record from the proposal with an immutable decision trail, and bounded
-  cost/data exposure (per-text caching, redacted prompt logs, request bounds) are implemented;
-  live provider accounts are next.
+  cost/data exposure (per-text caching, redacted prompt logs, request bounds) are implemented.
+- Phase 4 (in progress): provider-neutral messaging contracts bound inbound capture
+  candidates and outbound notices, and an `OutboundPolicy` gate refuses any send without an
+  explicit preview-confirmation; WhatsApp capture and notifications are next.
 
 ## Working agreements
 

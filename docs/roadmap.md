@@ -27,7 +27,7 @@ No external messaging or calendar write actions are required for Phase 1.
 
 ## Phase 2 — Calendar and shared-document context
 
-Status: in progress; P2-01 through P2-03 complete.
+Status: complete.
 
 - Read-only calendar synchronization with deduplication.
 - Google Drive artifact linking and metadata refresh.
@@ -36,12 +36,16 @@ Status: in progress; P2-01 through P2-03 complete.
 
 ## Phase 3 — Assisted capture and AI
 
+Status: complete.
+
 - Optional LLM classification, summarization, and translation.
 - User-confirmed extraction of action items from selected content.
 - Confidence indicators, source citations, and correction feedback.
 - Explicit cost, retention, and customer-data policies.
 
 ## Phase 4 — Messaging channels and proactive operation
+
+Status: in progress; P4-01 complete.
 
 - Approved WhatsApp capture path using a supported business integration.
 - Notifications for briefs, overdue items, and close reminders.
