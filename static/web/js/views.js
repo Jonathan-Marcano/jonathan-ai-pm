@@ -30,6 +30,7 @@ import {
   errorBlock,
   setPageTitle,
   promptDate,
+  promptCompletionNote,
   humanStatus,
 } from './ui.js';
 
@@ -539,9 +540,11 @@ export async function renderMiDia(el) {
             await api(`/api/v1/tasks/${encodeURIComponent(id)}/start`, { method: 'POST' });
             toast('Tarea iniciada', 'success');
           } else if (btn.dataset.act === 'complete') {
+            const note = await promptCompletionNote();
+            if (note === null) return;
             await api(`/api/v1/tasks/${encodeURIComponent(id)}/complete`, {
               method: 'POST',
-              body: JSON.stringify({}),
+              body: JSON.stringify(note ? { completion_note: note } : {}),
             });
             toast('Tarea completada', 'success');
           } else if (btn.dataset.act === 'resched') {
@@ -1008,7 +1011,12 @@ export async function renderProyectoDetalle(el, projectId) {
         const taskId = taskBtn.dataset.id;
         try {
           if (taskBtn.dataset.tact === 'complete') {
-            await api(`/api/v1/tasks/${encodeURIComponent(taskId)}/complete`, { method: 'POST', body: '{}' });
+            const note = await promptCompletionNote();
+            if (note === null) { taskBtn.disabled = false; return; }
+            await api(`/api/v1/tasks/${encodeURIComponent(taskId)}/complete`, {
+              method: 'POST',
+              body: JSON.stringify(note ? { completion_note: note } : {}),
+            });
             toast('Tarea completada', 'success');
           } else if (taskBtn.dataset.tact === 'start') {
             await api(`/api/v1/tasks/${encodeURIComponent(taskId)}/start`, { method: 'POST' });
@@ -1119,11 +1127,13 @@ export async function renderTareas(el) {
       el.addEventListener('click', async (event) => {
         const btn = event.target.closest('[data-act="complete"]');
         if (!btn) return;
+        const note = await promptCompletionNote();
+        if (note === null) return;
         btn.disabled = true;
         try {
           await api(`/api/v1/tasks/${encodeURIComponent(btn.dataset.id)}/complete`, {
             method: 'POST',
-            body: JSON.stringify({}),
+            body: JSON.stringify(note ? { completion_note: note } : {}),
           });
           toast('Tarea completada', 'success');
         } catch (err) {

@@ -214,6 +214,48 @@ export async function promptDate(caption, initial) {
         resolve(null);
       }
     });
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); overlay.remove(); resolve(input.value); }
+      if (event.key === 'Escape') { overlay.remove(); resolve(null); }
+    });
     input.focus();
+  });
+}
+
+export function promptCompletionNote(caption = 'Completar tarea') {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="cn-title">
+        <header class="modal-head"><h3 id="cn-title">${esc(caption)}</h3>
+          <button class="icon-btn" type="button" data-cn="cancel" aria-label="Cerrar">${icon('x')}</button>
+        </header>
+        <div class="modal-body">
+          <label class="modal-label" for="cn-input">Nota de compleción</label>
+          <textarea id="cn-input" class="capture-textarea" rows="2" maxlength="2000" aria-label="Nota de compleción" placeholder="Qué se completó… (obligatoria si no hay registro de trabajo)"></textarea>
+          <p class="form-hint">Faro guarda la nota como evidencia de la decisión.</p>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-cn="cancel">Cancelar</button>
+            <button class="btn btn-primary" type="button" data-cn="ok">Completar</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#cn-input');
+    input.focus();
+    const finish = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-cn]');
+      if (btn) finish(btn.dataset.cn === 'ok' ? input.value.trim() : null);
+      if (event.target === overlay) finish(null);
+    });
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); finish(input.value.trim()); }
+      if (event.key === 'Escape') finish(null);
+    });
   });
 }

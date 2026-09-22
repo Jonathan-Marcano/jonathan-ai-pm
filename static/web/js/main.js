@@ -57,7 +57,10 @@ async function route() {
   const view = $('view');
   if (view) {
     window.scrollTo({ top: 0 });
-    const fresh = view.cloneNode(false);
+    const fresh = document.createElement('div');
+    fresh.id = 'view';
+    fresh.className = 'view';
+    fresh.tabIndex = -1;
     view.parentNode.replaceChild(fresh, view);
     const renderer = id && ROUTES[path].detail ? ROUTES[path].detail : ROUTES[path].render;
     renderer(fresh, id);
