@@ -321,6 +321,8 @@ function bind() {
   });
   $('scrim').addEventListener('click', closeSidebar);
 
+  window.addEventListener('ff:config-changed', setupWorkspaces);
+
   const initial = localStorage.getItem('ff.user');
   if (initial) {
     $('user-name').textContent = initial;

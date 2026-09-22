@@ -283,6 +283,9 @@ a { color: inherit; }
    PÁGINA
    ============================================================ */
 .page-head { margin-bottom: 20px; }
+.page-head:not(.detail-head) { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.page-head:not(.detail-head) > .page-sub { flex-basis: 100%; }
+.page-head-actions { display: flex; gap: 8px; align-items: center; }
 .page-greeting { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .page-greeting h1 { margin: 0; font-size: var(--ff-text-2xl); font-weight: var(--ff-weight-extrabold); letter-spacing: -0.03em; }
 .page-greeting .date-line { color: var(--ff-text-muted); font-size: var(--ff-text-md); font-weight: 600; }
@@ -670,6 +673,23 @@ a { color: inherit; }
 }
 .capture-textarea:focus { outline: none; border-color: var(--ff-primary-400); box-shadow: 0 0 0 3px var(--ff-primary-100); }
 .capture-hint-char { margin: 4px 2px 0; font-size: 11px; color: var(--ff-text-faint); text-align: right; }
+
+.form-control {
+  width: 100%;
+  font: inherit;
+  font-size: var(--ff-text-md);
+  padding: 10px 12px;
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-md);
+  background: var(--ff-surface);
+  color: var(--ff-text);
+  resize: vertical;
+}
+.form-control:focus { outline: none; border-color: var(--ff-primary-400); box-shadow: 0 0 0 3px var(--ff-primary-100); }
+.modal-body .form-control,
+.modal-body .capture-textarea { margin-bottom: 12px; }
+
+.tab-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 
 /* ============================================================
    COMMAND PALETTE

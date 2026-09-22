@@ -187,7 +187,7 @@ class WorkLogRead(Timestamps):
 
 class MeetingCreate(StrictModel):
     id: EntityId
-    project_id: EntityId
+    project_id: EntityId | None = None
     title: Name
     starts_at: datetime
     status: MeetingStatus = "scheduled"

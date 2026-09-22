@@ -10,6 +10,7 @@ import {
   listTasks,
   nameMaps,
   invalidate,
+  forgetMaps,
 } from './api.js';
 import {
   esc,
@@ -31,6 +32,9 @@ import {
   setPageTitle,
   promptDate,
   promptCompletionNote,
+  openForm,
+  promptTriage,
+  genEntityId,
   humanStatus,
 } from './ui.js';
 
@@ -589,7 +593,12 @@ export async function renderInbox(el) {
     <div class="page-head"><h1>Inbox</h1><p class="page-sub">Lo capturado, todavía sin organizar.</p></div>
     ${skeleton(4)}`;
   try {
-    const [items, maps] = await Promise.all([api('/api/v1/captures?limit=200&capture_status=inbox'), nameMaps()]);
+    const [items, projects, meetings, maps] = await Promise.all([
+      api('/api/v1/captures?limit=200&capture_status=inbox'),
+      listProjects(),
+      listMeetings(),
+      nameMaps(),
+    ]);
     const body = items && items.length
       ? `<div class="list">${items
           .map((c) => inboxItem(c, maps))
@@ -599,7 +608,7 @@ export async function renderInbox(el) {
     el.innerHTML = `
       <div class="page-head">
         <div class="page-greeting"><h1>Inbox</h1><span class="date-line">· ${plural((items || []).length, 'elemento', 'elementos')}</span></div>
-        <p class="page-sub">Faro propone · tú confirmas.</p>
+        <p class="page-sub">Faro propone · tú confirmas. También puedes clasificar manualmente.</p>
       </div>
       <section class="card no-pad"><div class="card-body">${body}</div></section>`;
 
@@ -614,6 +623,14 @@ export async function renderInbox(el) {
           if (btn.dataset.cap === 'suggest') {
             await api(`/api/v1/captures/${encodeURIComponent(id)}/suggest`, { method: 'POST' });
             toast('Propuesta generada', 'success');
+          } else if (btn.dataset.cap === 'triage') {
+            const triage = await promptTriage({ projects, meetings });
+            if (triage === null) { btn.disabled = false; return; }
+            await api(`/api/v1/captures/${encodeURIComponent(id)}/triage`, {
+              method: 'POST',
+              body: JSON.stringify(triage),
+            });
+            toast('Captura clasificada', 'success');
           } else if (btn.dataset.cap === 'apply') {
             await api(`/api/v1/captures/${encodeURIComponent(id)}/apply`, { method: 'POST', body: '{}' });
             toast('Clasificación confirmada', 'success');
@@ -627,7 +644,11 @@ export async function renderInbox(el) {
             toast('Captura descartada', 'success');
           }
         } catch (err2) {
-          toast(`${err2.message}`, 'error');
+          if (btn.dataset.cap === 'suggest' && err2.status === 503) {
+            toast('Clasificación IA no configurada. Usa «Clasificar» para organizarla manualmente.', 'info');
+          } else {
+            toast(err2.message, 'error');
+          }
           btn.disabled = false;
         }
         renderInbox(el);
@@ -657,8 +678,9 @@ function inboxItem(c, maps) {
     : '';
   const actions = `
     <div class="item-actions">
-      ${!c.proposal_kind ? `<button class="btn btn-ghost btn-xs" data-cap="suggest" data-id="${esc(c.id)}">Sugerir</button>` : ''}
-      ${c.proposal_kind ? `<button class="btn btn-primary btn-xs" data-cap="apply" data-id="${esc(c.id)}">Confirmar</button>` : ''}
+      <button class="btn btn-primary btn-xs" data-cap="triage" data-id="${esc(c.id)}">Clasificar</button>
+      ${!c.proposal_kind ? `<button class="btn btn-ghost btn-xs" data-cap="suggest" data-id="${esc(c.id)}">Sugerir IA</button>` : ''}
+      ${c.proposal_kind ? `<button class="btn btn-soft btn-xs" data-cap="apply" data-id="${esc(c.id)}">Confirmar</button>` : ''}
       <button class="btn btn-danger-soft btn-xs" data-cap="discard" data-id="${esc(c.id)}">Descartar</button>
     </div>`;
   return `
@@ -775,7 +797,11 @@ export async function renderProyectos(el) {
       .join('');
 
     el.innerHTML = `
-      <div class="page-head"><h1>Proyectos</h1><p class="page-sub">Portafolio de trabajo.</p></div>
+      <div class="page-head"><h1>Proyectos</h1><p class="page-sub">Portafolio de trabajo.</p>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-create="project">${icon('plus')} Nuevo proyecto</button>
+        </div>
+      </div>
       <section class="kpi-row">
         ${kpiCard(counts.active, 'Activos', 'folder', '#/proyectos', 'kpi-icon--success')}
         ${kpiCard(counts.paused, 'En espera', 'folder', '#/proyectos')}
@@ -802,12 +828,57 @@ export async function renderProyectos(el) {
         state[sel.dataset.pf] = sel.value;
         renderGrid();
       });
-      el.addEventListener('click', (event) => {
-        const btn = event.target.closest('[data-pf-view]');
-        if (!btn) return;
-        state.view = btn.dataset.pfView;
-        el.querySelectorAll('[data-pf-view]').forEach((b) => b.classList.toggle('active', b === btn));
-        renderGrid();
+      el.addEventListener('click', async (event) => {
+        const viewBtn = event.target.closest('[data-pf-view]');
+        if (viewBtn) {
+          state.view = viewBtn.dataset.pfView;
+          el.querySelectorAll('[data-pf-view]').forEach((b) => b.classList.toggle('active', b === viewBtn));
+          renderGrid();
+          return;
+        }
+        const createBtn = event.target.closest('[data-create="project"]');
+        if (createBtn) {
+          const form = await openForm({
+            title: 'Nuevo proyecto',
+            submitLabel: 'Crear proyecto',
+            fields: [
+              { name: 'name', label: 'Nombre', required: true, placeholder: 'Ej. Migración de red' },
+              {
+                name: 'client',
+                label: 'Cliente',
+                type: 'select',
+                required: true,
+                options: (clients || []).map((c) => ({ value: c.id, label: c.name })),
+              },
+              {
+                name: 'status',
+                label: 'Estado',
+                type: 'select',
+                value: 'active',
+                options: ['planned', 'active', 'paused'].map((s) => ({ value: s, label: humanStatus(s) })),
+              },
+            ],
+          });
+          if (!form) return;
+          try {
+            await api('/api/v1/projects', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('prj', form.name),
+                name: form.name,
+                client_id: form.client,
+                status: form.status || 'planned',
+                health: 'unknown',
+              }),
+            });
+            toast('Proyecto creado', 'success');
+          } catch (err) {
+            toast(`No se pudo crear el proyecto: ${err.message}`, 'error');
+          }
+          invalidate('projects');
+          renderProyectos(el);
+          return;
+        }
       });
     }
     renderGrid();
@@ -855,7 +926,9 @@ export async function renderProyectoDetalle(el, projectId) {
     const deliverableIds = new Set((deliverables || []).map((d) => d.id));
     const links = (driveLinks || []).filter((l) => deliverableIds.has(l.deliverable_id));
 
-    const tasksHtml = openTasks.length
+    const tasksHtml = `<div class="tab-head">
+      <button class="btn btn-soft btn-sm" data-create="project-task">${icon('plus')} Nueva tarea</button>
+    </div>${openTasks.length
       ? `<div class="task-list">${openTasks.map((t) => `
         <div class="item">
           <div class="item-main">
@@ -868,9 +941,11 @@ export async function renderProyectoDetalle(el, projectId) {
             ${t.status !== 'in_progress' && t.status !== 'done' ? `<button class="btn btn-soft btn-xs" data-tact="start" data-id="${esc(t.id)}">${icon('play')} Iniciar</button>` : ''}
           </div>
         </div>`).join('')}</div>`
-      : emptyBlock('Sin tareas abiertas. Todo listo por ahora.');
+      : emptyBlock('Sin tareas abiertas. Todo listo por ahora.')}`;
 
-    const deliverablesHtml = (deliverables || []).length
+    const deliverablesHtml = `<div class="tab-head">
+      <button class="btn btn-soft btn-sm" data-create="project-deliverable">${icon('plus')} Nuevo entregable</button>
+    </div>${(deliverables || []).length
       ? `<div class="list">${openDeliverables.concat((deliverables || []).filter((d) => d.status === 'accepted' || d.status === 'cancelled')).map((d) => `
         <div class="item">
           <div class="item-main">
@@ -879,7 +954,7 @@ export async function renderProyectoDetalle(el, projectId) {
           </div>
           <div class="item-side">${badge(d.status)}</div>
         </div>`).join('')}</div>`
-      : emptyBlock('Sin entregables registrados.');
+      : emptyBlock('Sin entregables registrados.')}`;
 
     const meetingsHtml = (upcomingMeetings.length || pastMeetings.length)
       ? `<div class="list">${upcomingMeetings.concat(pastMeetings).slice(0, 12).map((m) => `
@@ -1005,6 +1080,76 @@ export async function renderProyectoDetalle(el, projectId) {
           if (body) body.innerHTML = tabContent[key] || resumenHtml;
           return;
         }
+        const createTask = event.target.closest('[data-create="project-task"]');
+        if (createTask) {
+          const form = await openForm({
+            title: 'Nueva tarea',
+            submitLabel: 'Crear tarea',
+            fields: [
+              { name: 'title', label: 'Título', required: true, placeholder: 'Ej. Preparar demo' },
+              {
+                name: 'priority',
+                label: 'Prioridad',
+                type: 'select',
+                value: 'medium',
+                options: ['critical', 'high', 'medium', 'low'].map((s) => ({ value: s, label: humanStatus(s) })),
+              },
+              { name: 'due', label: 'Vence', type: 'date' },
+            ],
+          });
+          if (!form) return;
+          try {
+            await api('/api/v1/tasks', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('tsk', form.title),
+                project_id: projectId,
+                title: form.title,
+                status: 'ready',
+                priority: form.priority || 'medium',
+                ...(form.due ? { due_at: form.due } : {}),
+              }),
+            });
+            toast('Tarea creada', 'success');
+          } catch (err) {
+            toast(`No se pudo crear la tarea: ${err.message}`, 'error');
+          }
+          invalidate('tasks');
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
+        const createDeliverable = event.target.closest('[data-create="project-deliverable"]');
+        if (createDeliverable) {
+          const form = await openForm({
+            title: 'Nuevo entregable',
+            submitLabel: 'Crear entregable',
+            fields: [
+              { name: 'title', label: 'Título', required: true, placeholder: 'Ej. Documento de arquitectura' },
+              { name: 'due', label: 'Vence', type: 'date', required: true },
+              { name: 'drive', label: 'URL en Drive (opcional)', placeholder: 'https://drive.google.com/…' },
+            ],
+          });
+          if (!form) return;
+          try {
+            await api('/api/v1/deliverables', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('del', form.title),
+                project_id: projectId,
+                title: form.title,
+                status: 'planned',
+                due_at: form.due,
+                ...(form.drive ? { drive_url: form.drive } : {}),
+              }),
+            });
+            toast('Entregable creado', 'success');
+          } catch (err) {
+            toast(`No se pudo crear el entregable: ${err.message}`, 'error');
+          }
+          invalidate('deliverables');
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
         const taskBtn = event.target.closest('[data-tact]');
         if (!taskBtn) return;
         taskBtn.disabled = true;
@@ -1045,7 +1190,7 @@ export async function renderTareas(el) {
     <div class="page-head"><h1>Tareas</h1><p class="page-sub">Todas las tareas de tu trabajo.</p></div>
     ${skeleton(6)}`;
   try {
-    const [tasks, maps] = await Promise.all([listTasks(), nameMaps()]);
+    const [tasks, projects, maps] = await Promise.all([listTasks(), listProjects(), nameMaps()]);
     let filtered = tasks || [];
     const statusFilter = params.get('status');
     if (statusFilter === 'overdue') {
@@ -1085,7 +1230,11 @@ export async function renderTareas(el) {
           .join('')
       : emptyBlock('Sin tareas que mostrar aquí.');
     el.innerHTML = `
-      <div class="page-head"><h1>Tareas</h1><p class="page-sub">${plural(filtered.length, 'tarea', 'tareas')} en la vista actual.</p></div>
+      <div class="page-head"><h1>Tareas</h1><p class="page-sub">${plural(filtered.length, 'tarea', 'tareas')} en la vista actual.</p>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-create="task">${icon('plus')} Nueva tarea</button>
+        </div>
+      </div>
       <div class="filterbar">
         <select class="f-filter f-status">${statusOpts}</select>
         <select class="f-filter f-prio">${prioOpts}</select>
@@ -1125,6 +1274,52 @@ export async function renderTareas(el) {
         if (event.target.classList.contains('f-filter')) applyFilters();
       });
       el.addEventListener('click', async (event) => {
+        const createBtn = event.target.closest('[data-create="task"]');
+        if (createBtn) {
+          const form = await openForm({
+            title: 'Nueva tarea',
+            submitLabel: 'Crear tarea',
+            fields: [
+              { name: 'title', label: 'Título', required: true, placeholder: 'Ej. Preparar demo para el cliente' },
+              {
+                name: 'project',
+                label: 'Proyecto',
+                type: 'select',
+                required: true,
+                options: (projects || []).map((p) => ({ value: p.id, label: p.name })),
+              },
+              {
+                name: 'priority',
+                label: 'Prioridad',
+                type: 'select',
+                value: 'medium',
+                options: ['critical', 'high', 'medium', 'low'].map((s) => ({ value: s, label: humanStatus(s) })),
+              },
+              { name: 'due', label: 'Vence', type: 'date' },
+            ],
+          });
+          if (!form) return;
+          try {
+            await api('/api/v1/tasks', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('tsk', form.title),
+                project_id: form.project,
+                title: form.title,
+                status: 'ready',
+                priority: form.priority || 'medium',
+                ...(form.due ? { due_at: form.due } : {}),
+              }),
+            });
+            toast('Tarea creada', 'success');
+          } catch (err) {
+            toast(`No se pudo crear la tarea: ${err.message}`, 'error');
+          }
+          invalidate('tasks');
+          invalidate('projects');
+          renderTareas(el);
+          return;
+        }
         const btn = event.target.closest('[data-act="complete"]');
         if (!btn) return;
         const note = await promptCompletionNote();
@@ -1219,7 +1414,11 @@ export async function renderReuniones(el) {
       : emptyBlock('Sin reuniones por revisar.');
 
     el.innerHTML = `
-      <div class="page-head"><h1>Reuniones</h1><p class="page-sub">${plural(upcoming.length, 'próxima', 'próximas')} · ${plural((unmatched || []).length + (completedQueue || []).length, 'requiere revisión', 'requieren revisión')}</p></div>
+      <div class="page-head"><h1>Reuniones</h1><p class="page-sub">${plural(upcoming.length, 'próxima', 'próximas')} · ${plural((unmatched || []).length + (completedQueue || []).length, 'requiere revisión', 'requieren revisión')}</p>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-create="meeting">${icon('plus')} Nueva reunión</button>
+        </div>
+      </div>
       <section class="card">
         <div class="card-head"><h2>${icon('calendar')} Próximas</h2></div>
         <div class="card-body">${upcoming.length ? `<div class="list">${upcoming.map(row).join('')}</div>` : emptyBlock('Sin reuniones próximas.')}</div>
@@ -1240,6 +1439,42 @@ export async function renderReuniones(el) {
     if (!el.dataset.viewBound) {
       el.dataset.viewBound = '1';
       el.addEventListener('click', async (event) => {
+        const createBtn = event.target.closest('[data-create="meeting"]');
+        if (createBtn) {
+          const form = await openForm({
+            title: 'Nueva reunión',
+            submitLabel: 'Crear reunión',
+            fields: [
+              { name: 'title', label: 'Título', required: true, placeholder: 'Ej. Revisión de sprint' },
+              {
+                name: 'project',
+                label: 'Proyecto',
+                type: 'select',
+                options: [{ value: '', label: 'Sin proyecto' }].concat((projects || []).map((p) => ({ value: p.id, label: p.name }))),
+              },
+              { name: 'starts', label: 'Fecha y hora', type: 'datetime-local', required: true },
+            ],
+          });
+          if (!form) return;
+          try {
+            await api('/api/v1/meetings', {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('mtg', form.title),
+                title: form.title,
+                starts_at: form.starts,
+                status: 'scheduled',
+                ...(form.project ? { project_id: form.project } : {}),
+              }),
+            });
+            toast('Reunión creada', 'success');
+          } catch (err) {
+            toast(`No se pudo crear la reunión: ${err.message}`, 'error');
+          }
+          invalidate('meetings');
+          renderReuniones(el);
+          return;
+        }
         const btn = event.target.closest('[data-act]');
         if (!btn) return;
         btn.disabled = true;
@@ -1404,7 +1639,8 @@ export async function renderCalendario(el) {
     <div class="page-head"><h1>Calendario</h1><p class="page-sub">Agenda de los próximos 14 días. Vista mes en Fase UI-7.</p></div>
     ${skeleton(5)}`;
   try {
-    const [meetings, deliverables, tasks, maps] = await Promise.all([
+    const [projects, meetings, deliverables, tasks, maps] = await Promise.all([
+      listProjects(),
       listMeetings(),
       listDeliverables(),
       listTasks(),
@@ -1457,8 +1693,52 @@ export async function renderCalendario(el) {
           .join('')
       : emptyBlock('Sin actividad en los próximos 14 días.');
     el.innerHTML = `
-      <div class="page-head"><h1>Calendario</h1><p class="page-sub">Reuniones, vencimientos y entregables.</p></div>
+      <div class="page-head"><h1>Calendario</h1><p class="page-sub">Reuniones, vencimientos y entregables.</p>
+        <div class="page-head-actions">
+          <button class="btn btn-primary btn-sm" data-create="meeting">${icon('plus')} Nueva reunión</button>
+        </div>
+      </div>
       <div class="cal-wrap">${html}</div>`;
+
+    if (!el.dataset.viewBound) {
+      el.dataset.viewBound = '1';
+      el.addEventListener('click', async (event) => {
+        const createBtn = event.target.closest('[data-create="meeting"]');
+        if (!createBtn) return;
+        const form = await openForm({
+          title: 'Nueva reunión',
+          submitLabel: 'Crear reunión',
+          fields: [
+            { name: 'title', label: 'Título', required: true, placeholder: 'Ej. Revisión de sprint' },
+            {
+              name: 'project',
+              label: 'Proyecto',
+              type: 'select',
+              options: [{ value: '', label: 'Sin proyecto' }].concat((projects || []).map((p) => ({ value: p.id, label: p.name }))),
+            },
+            { name: 'starts', label: 'Fecha y hora', type: 'datetime-local', required: true },
+          ],
+        });
+        if (!form) return;
+        try {
+          await api('/api/v1/meetings', {
+            method: 'POST',
+            body: JSON.stringify({
+              id: genEntityId('mtg', form.title),
+              title: form.title,
+              starts_at: form.starts,
+              status: 'scheduled',
+              ...(form.project ? { project_id: form.project } : {}),
+            }),
+          });
+          toast('Reunión creada', 'success');
+        } catch (err) {
+          toast(`No se pudo crear la reunión: ${err.message}`, 'error');
+        }
+        invalidate('meetings');
+        renderCalendario(el);
+      });
+    }
   } catch (err) {
     el.innerHTML = errorBlock(`Calendario no disponible: ${esc(err.message)}`);
   }
@@ -1633,7 +1913,19 @@ function formatSync(run) {
    CONFIGURACIÓN
    ============================================================ */
 
-export async function renderConfiguracion(el) {
+const TIMEZONES = [
+  'America/Santiago',
+  'America/Argentina/Buenos_Aires',
+  'America/Lima',
+  'America/Bogota',
+  'America/Mexico_City',
+  'America/New_York',
+  'America/Los_Angeles',
+  'Europe/Madrid',
+  'UTC',
+];
+
+export async function renderConfiguracion(el, initialTab = 'cat') {
   setPageTitle('Configuración');
   el.innerHTML = `
     <div class="page-head"><h1>Configuración</h1><p class="page-sub">Tu perfil, catálogo y preferencias.</p></div>
@@ -1648,18 +1940,37 @@ export async function renderConfiguracion(el) {
       nameMaps(),
     ]);
     const tabs = [['cat', 'Catálogo'], ['sys', 'Sistema']];
+    const wsActions = (w) => `
+      <div class="item-side item-actions">
+        <button class="btn btn-ghost btn-xs" data-conf="ws-edit" data-id="${esc(w.id)}">${icon('edit')} Editar</button>
+        <button class="btn btn-danger-soft btn-xs" data-conf="ws-delete" data-id="${esc(w.id)}">${icon('trash')} Eliminar</button>
+        ${badge(w.status)}
+      </div>`;
+    const clientActions = (c) => `
+      <div class="item-side item-actions">
+        <button class="btn btn-ghost btn-xs" data-conf="client-edit" data-id="${esc(c.id)}">${icon('edit')} Editar</button>
+        <button class="btn btn-danger-soft btn-xs" data-conf="client-delete" data-id="${esc(c.id)}">${icon('trash')} Eliminar</button>
+        ${badge(c.status)}
+      </div>`;
     const catalog = `
       <section class="card">
-        <div class="card-head"><h2>${icon('folder')} Workspaces</h2></div>
+        <div class="card-head"><h2>${icon('folder')} Workspaces</h2>
+          <button class="btn btn-soft btn-sm card-action" data-conf="ws-create">${icon('plus')} Nuevo workspace</button></div>
         <div class="card-body"><div class="list">${(workspaces || []).map((w) => `
-          <div class="item"><div class="item-main"><div class="item-title">${esc(w.name)}</div>
-          <div class="item-sub">${esc(w.id)} · ${esc(w.timezone)}</div></div>${badge(w.status)}</div>`).join('') || emptyBlock('Sin workspaces.')}</div></div>
+          <div class="item">
+            <div class="item-main"><div class="item-title">${esc(w.name)}</div>
+            <div class="item-sub">${esc(w.id)} · ${esc(w.timezone)}</div></div>
+            ${wsActions(w)}
+          </div>`).join('') || emptyBlock('Sin workspaces. Crea el primero para organizar tu trabajo.')}</div></div>
       </section>
       <section class="card" style="margin-top:16px">
-        <div class="card-head"><h2>${icon('folder')} Clientes</h2></div>
+        <div class="card-head"><h2>${icon('folder')} Clientes</h2>
+          <button class="btn btn-soft btn-sm card-action" data-conf="client-create">${icon('plus')} Nuevo cliente</button></div>
         <div class="card-body"><div class="list">${(clients || []).map((c) => `
           <div class="item"><div class="item-main"><div class="item-title">${esc(c.name)}</div>
-          <div class="item-sub">${esc(maps.workspace[maps.clientWorkspace[c.id]] || c.workspace_id)}</div></div>${badge(c.status)}</div>`).join('') || emptyBlock('Sin clientes.')}</div></div>
+          <div class="item-sub">${esc(maps.workspace[maps.clientWorkspace[c.id]] || c.workspace_id)}</div></div>
+          ${clientActions(c)}
+          </div>`).join('') || emptyBlock('Sin clientes. Crea el primero para empezar el portafolio.')}</div></div>
       </section>`;
     const counts = [
       ['Workspaces', (workspaces || []).length],
@@ -1674,18 +1985,186 @@ export async function renderConfiguracion(el) {
         <div class="card-body"><div class="list">${counts.map(([label, n]) => `<div class="integ-row"><b>${esc(label)}</b><span>${n}</span></div>`).join('')}</div>
         <p class="integ-note" style="margin-top:10px">Esta instalación opera en modo manual local (usuario único). Las secciones de perfil, notificaciones y seguridad se habilitarán junto con el sistema de autenticación.</p></div>
       </section>`;
+
+    const reloadCatalog = async () => {
+      invalidate('workspaces');
+      invalidate('clients');
+      invalidate('projects');
+      invalidate('deliverables');
+      invalidate('meetings');
+      forgetMaps();
+      window.dispatchEvent(new Event('ff:config-changed'));
+      renderConfiguracion(el, 'cat');
+    };
+
+    const refresh = (tab) => {
+      el.querySelector('#conf-content').innerHTML = tab === 'sys' ? sys : catalog;
+      el.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+    };
+
+    const timezoneField = (value = 'America/Santiago') => ({
+      name: 'timezone',
+      label: 'Zona horaria',
+      type: 'select',
+      required: true,
+      value,
+      options: TIMEZONES.map((tz) => ({ value: tz, label: tz })),
+    });
+
+    const wsFields = (w) => {
+      const fields = [
+        { name: 'name', label: 'Nombre', required: true, value: w ? w.name : '', placeholder: 'Ej. Consultora Mirada' },
+        timezoneField(w ? w.timezone : 'America/Santiago'),
+        {
+          name: 'status',
+          label: 'Estado',
+          type: 'select',
+          value: w ? w.status : 'active',
+          options: ['active', 'paused', 'archived'].map((s) => ({ value: s, label: humanStatus(s) })),
+        },
+      ];
+      return fields;
+    };
+
     el.innerHTML = `
       <div class="page-head"><h1>Configuración</h1><p class="page-sub">Catálogo y estado de tu instalación.</p></div>
       <div class="tabs">
-        ${tabs.map(([key, label], i) => `<button class="tab ${i === 0 ? 'active' : ''}" data-tab="${key}">${esc(label)}</button>`).join('')}
+        ${tabs.map(([key, label]) => `<button class="tab ${key === initialTab ? 'active' : ''}" data-tab="${key}">${esc(label)}</button>`).join('')}
       </div>
-      <div id="conf-content">${catalog}</div>`;
-    el.addEventListener('click', (event) => {
-      const tab = event.target.closest('.tab');
-      if (!tab) return;
-      el.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
-      el.querySelector('#conf-content').innerHTML = tab.dataset.tab === 'sys' ? sys : catalog;
-    });
+      <div id="conf-content">${initialTab === 'sys' ? sys : catalog}</div>`;
+
+    if (!el.dataset.viewBound) {
+      el.dataset.viewBound = '1';
+      el.addEventListener('click', async (event) => {
+        const tab = event.target.closest('.tab');
+        if (tab) {
+          refresh(tab.dataset.tab);
+          return;
+        }
+        const action = event.target.closest('[data-conf]');
+        const btn = action;
+        if (!btn) return;
+        const kind = btn.dataset.conf;
+        const id = btn.dataset.id;
+        try {
+          if (kind === 'ws-create') {
+            const form = await openForm({
+              title: 'Nuevo workspace',
+              submitLabel: 'Crear workspace',
+              fields: wsFields(),
+              hint: 'El workspace agrupa clientes y proyectos de tu operación.',
+            });
+            if (!form) return;
+            await api('/api/v1/workspaces', {
+              method: 'POST',
+              body: JSON.stringify({ id: genEntityId('wrk', form.name), name: form.name, timezone: form.timezone, status: form.status || 'active' }),
+            });
+            toast('Workspace creado', 'success');
+            await reloadCatalog();
+            return;
+          }
+          if (kind === 'ws-edit') {
+            const ws = (workspaces || []).find((w) => w.id === id);
+            const form = await openForm({
+              title: 'Editar workspace',
+              submitLabel: 'Guardar cambios',
+              fields: wsFields(ws),
+            });
+            if (!form) return;
+            await api(`/api/v1/workspaces/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ name: form.name, timezone: form.timezone, status: form.status }),
+            });
+            toast('Workspace actualizado', 'success');
+            await reloadCatalog();
+            return;
+          }
+          if (kind === 'ws-delete') {
+            const ws = (workspaces || []).find((w) => w.id === id) || {};
+            if (!window.confirm(`¿Eliminar el workspace «${ws.name}»?`)) return;
+            await api(`/api/v1/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            toast('Workspace eliminado', 'success');
+            await reloadCatalog();
+            return;
+          }
+          if (kind === 'client-create') {
+            const current = localStorage.getItem('ff.workspace') || (workspaces && workspaces[0] ? workspaces[0].id : '');
+            const form = await openForm({
+              title: 'Nuevo cliente',
+              submitLabel: 'Crear cliente',
+              fields: [
+                { name: 'name', label: 'Nombre', required: true, placeholder: 'Ej. Northwind' },
+                {
+                  name: 'workspace',
+                  label: 'Workspace',
+                  type: 'select',
+                  required: true,
+                  value: current,
+                  options: (workspaces || []).map((w) => ({ value: w.id, label: w.name })),
+                },
+                {
+                  name: 'status',
+                  label: 'Estado',
+                  type: 'select',
+                  value: 'active',
+                  options: ['active', 'paused', 'archived'].map((s) => ({ value: s, label: humanStatus(s) })),
+                },
+              ],
+            });
+            if (!form) return;
+            await api('/api/v1/clients', {
+              method: 'POST',
+              body: JSON.stringify({ id: genEntityId('cli', form.name), workspace_id: form.workspace, name: form.name, status: form.status || 'active' }),
+            });
+            toast('Cliente creado', 'success');
+            await reloadCatalog();
+            return;
+          }
+          if (kind === 'client-edit') {
+            const client = (clients || []).find((c) => c.id === id);
+            const form = await openForm({
+              title: 'Editar cliente',
+              submitLabel: 'Guardar cambios',
+              fields: [
+                { name: 'name', label: 'Nombre', required: true, value: client ? client.name : '' },
+                {
+                  name: 'workspace',
+                  label: 'Workspace',
+                  type: 'select',
+                  required: true,
+                  value: client ? client.workspace_id : '',
+                  options: (workspaces || []).map((w) => ({ value: w.id, label: w.name })),
+                },
+                {
+                  name: 'status',
+                  label: 'Estado',
+                  type: 'select',
+                  value: client ? client.status : 'active',
+                  options: ['active', 'paused', 'archived'].map((s) => ({ value: s, label: humanStatus(s) })),
+                },
+              ],
+            });
+            if (!form) return;
+            await api(`/api/v1/clients/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ name: form.name, workspace_id: form.workspace, status: form.status }),
+            });
+            toast('Cliente actualizado', 'success');
+            await reloadCatalog();
+            return;
+          }
+          if (kind === 'client-delete') {
+            const client = (clients || []).find((c) => c.id === id) || {};
+            if (!window.confirm(`¿Eliminar el cliente «${client.name}»?`)) return;
+            await api(`/api/v1/clients/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            toast('Cliente eliminado', 'success');
+            await reloadCatalog();
+          }
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    }
   } catch (err) {
     el.innerHTML = errorBlock(`Configuración no disponible: ${esc(err.message)}`);
   }

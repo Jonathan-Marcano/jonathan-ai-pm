@@ -222,6 +222,223 @@ export async function promptDate(caption, initial) {
   });
 }
 
+export function genEntityId(prefix, fromName = '') {
+  const base = (fromName || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return `${prefix}_${base || 'item'}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function openForm({ title, fields = [], submitLabel = 'Guardar', hint = '' }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    const rows = fields
+      .map((f) => {
+        const id = `ff-${f.name}`;
+        let control;
+        if (f.type === 'select') {
+          const options = (f.options || [])
+            .map((o) => {
+              const value = typeof o === 'object' ? o.value : o;
+              const label = typeof o === 'object' ? o.label || o.value : o;
+              const selected = f.value !== undefined && String(f.value) === String(value) ? ' selected' : '';
+              return `<option value="${esc(value)}"${selected}>${esc(label)}</option>`;
+            })
+            .join('');
+          control = `<select id="${id}" class="form-control"${f.required ? ' required' : ''}>${options}</select>`;
+        } else if (f.type === 'textarea') {
+          control = `<textarea id="${id}" class="capture-textarea" rows="${f.rows || 2}" maxlength="${f.maxlength || 5000}"${f.required ? ' required' : ''}>${esc(f.value || '')}</textarea>`;
+        } else if (f.type === 'datetime-local' || f.type === 'date') {
+          control = `<input id="${id}" class="form-control" type="${esc(f.type)}" value="${esc(f.value || '')}"${f.required ? ' required' : ''} />`;
+        } else {
+          control = `<input id="${id}" class="form-control" type="text" value="${esc(f.value || '')}"${f.required ? ' required' : ''} placeholder="${esc(f.placeholder || '')}" maxlength="${esc(f.maxlength || 300)}" />`;
+        }
+        return `<label class="modal-label" for="${id}">${esc(f.label)}</label>${control}`;
+      })
+      .join('');
+    overlay.innerHTML = `
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="of-title">
+        <header class="modal-head"><h3 id="of-title">${esc(title)}</h3>
+          <button class="icon-btn" type="button" data-of="cancel" aria-label="Cerrar">${icon('x')}</button></header>
+        <div class="modal-body">
+          ${hint ? `<p class="modal-hint">${esc(hint)}</p>` : ''}
+          ${rows}
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-of="cancel">Cancelar</button>
+            <button class="btn btn-primary" type="button" data-of="ok">${esc(submitLabel)}</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const readValues = () => {
+      const out = {};
+      for (const f of fields) {
+        const node = overlay.querySelector(`#ff-${f.name}`);
+        if (!node) continue;
+        let val = node.value;
+        if (f.type === 'datetime-local') val = val ? new Date(val).toISOString() : '';
+        else val = val.trim();
+        if (val) out[f.name] = val;
+      }
+      return out;
+    };
+    const missing = (v) => fields.some((f) => f.required && !v[f.name]);
+    const finish = (v) => {
+      overlay.remove();
+      resolve(v);
+    };
+    overlay.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-of]');
+      if (btn) {
+        if (btn.dataset.of === 'cancel') return finish(null);
+        const v = readValues();
+        if (missing(v)) {
+          toast('Completa los campos obligatorios', 'error');
+          return;
+        }
+        finish(v);
+      }
+      if (event.target === overlay) finish(null);
+    });
+    const first = overlay.querySelector('input, select, textarea');
+    if (first) first.focus();
+    overlay.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && event.target.tagName === 'INPUT') {
+        event.preventDefault();
+        const v = readValues();
+        if (missing(v)) {
+          toast('Completa los campos obligatorios', 'error');
+          return;
+        }
+        finish(v);
+      }
+      if (event.key === 'Escape') finish(null);
+    });
+  });
+}
+
+export function promptTriage({ projects, meetings }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    const projOptions = (projects || [])
+      .map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`)
+      .join('');
+    const meetOptions = (meetings || [])
+      .filter((m) => m.status === 'scheduled')
+      .map((m) => `<option value="${esc(m.id)}">${esc(m.title)}</option>`)
+      .join('');
+    overlay.innerHTML = `
+      <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="ct-title">
+        <header class="modal-head"><h3 id="ct-title">Clasificar captura</h3>
+          <button class="icon-btn" type="button" data-ct="cancel" aria-label="Cerrar">${icon('x')}</button></header>
+        <div class="modal-body">
+          <label class="modal-label" for="ct-disposition">Tipo</label>
+          <select id="ct-disposition" class="form-control">
+            <option value="task">Tarea</option>
+            <option value="action">Elemento de acción</option>
+            <option value="reference">Referencia</option>
+            <option value="dismissed">Descartar</option>
+          </select>
+          <div data-ct-group="task reference">
+            <label class="modal-label" for="ct-project">Proyecto</label>
+            <select id="ct-project" class="form-control"><option value="">Sin proyecto</option>${projOptions}</select>
+          </div>
+          <div data-ct-group="task">
+            <label class="modal-label" for="ct-priority">Prioridad</label>
+            <select id="ct-priority" class="form-control">
+              <option value="low">Baja</option>
+              <option value="medium" selected>Media</option>
+              <option value="high">Alta</option>
+              <option value="critical">Crítica</option>
+            </select>
+            <label class="modal-label" for="ct-due">Vence</label>
+            <input id="ct-due" type="date" class="form-control" />
+          </div>
+          <div data-ct-group="action" hidden>
+            <label class="modal-label" for="ct-meeting">Reunión</label>
+            <select id="ct-meeting" class="form-control"><option value="">Elige reunión…</option>${meetOptions}</select>
+            <label class="modal-label" for="ct-owner">Responsable (owner)</label>
+            <input id="ct-owner" type="text" class="form-control" placeholder="Quién responde" maxlength="200" />
+          </div>
+          <div data-ct-group="dismissed" hidden>
+            <label class="modal-label" for="ct-note">Motivo</label>
+            <textarea id="ct-note" class="capture-textarea" rows="2" maxlength="2000" placeholder="Por qué se descarta…"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" type="button" data-ct="cancel">Cancelar</button>
+            <button class="btn btn-primary" type="button" data-ct="ok">Clasificar</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const disposition = () => overlay.querySelector('#ct-disposition').value;
+    const setGroups = () => {
+      overlay.querySelectorAll('[data-ct-group]').forEach((g) => {
+        g.hidden = !(g.dataset.ctGroup || '').split(' ').includes(disposition());
+      });
+    };
+    const valueOf = (id) => overlay.querySelector(`#${id}`).value.trim();
+    const finish = (v) => {
+      overlay.remove();
+      resolve(v);
+    };
+    overlay.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-ct]');
+      if (btn) {
+        if (btn.dataset.ct === 'cancel') return finish(null);
+        const d = disposition();
+        const payload = { disposition: d };
+        if (d === 'task') {
+          const projectId = valueOf('ct-project');
+          if (!projectId) {
+            toast('Elige un proyecto para la tarea', 'error');
+            return;
+          }
+          payload.project_id = projectId;
+          payload.task_id = genEntityId('tsk');
+          payload.priority = valueOf('ct-priority');
+          const due = valueOf('ct-due');
+          if (due) payload.due_at = due;
+        } else if (d === 'action') {
+          const meetingId = valueOf('ct-meeting');
+          const owner = valueOf('ct-owner');
+          if (!meetingId || !owner) {
+            toast('El elemento de acción requiere reunión y responsable', 'error');
+            return;
+          }
+          payload.meeting_id = meetingId;
+          payload.action_item_id = genEntityId('act');
+          payload.owner = owner;
+        } else if (d === 'dismissed') {
+          const note = valueOf('ct-note');
+          if (!note) {
+            toast('Indica el motivo para descartar', 'error');
+            return;
+          }
+          payload.note = note;
+        } else {
+          const projectId = valueOf('ct-project');
+          if (projectId) payload.project_id = projectId;
+        }
+        finish(payload);
+      }
+      if (event.target === overlay) finish(null);
+    });
+    overlay.querySelector('#ct-disposition').addEventListener('change', setGroups);
+    overlay.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') finish(null);
+    });
+    setGroups();
+    overlay.querySelector('#ct-disposition').focus();
+  });
+}
+
 export function promptCompletionNote(caption = 'Completar tarea') {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
