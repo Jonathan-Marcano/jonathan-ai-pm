@@ -39,6 +39,13 @@ from faroflow.integrations.microsoft365 import (
     Microsoft365CalendarError,
 )
 from faroflow.integrations.persistence import IntegrationStateError, IntegrationStateStore
+from faroflow.integrations.telegram_messaging import (
+    TelegramMessagingAdapter,
+    TelegramMessagingConfig,
+    TelegramMessagingError,
+    TelegramMessagingNotConfigured,
+    build_telegram_messaging_adapter,
+)
 
 __all__ = [
     "READ_ONLY_CAPABILITIES",
@@ -71,4 +78,9 @@ __all__ = [
     "OutboundNotice",
     "OutboundPolicy",
     "outbound_preview_digest",
+    "TelegramMessagingAdapter",
+    "TelegramMessagingConfig",
+    "TelegramMessagingError",
+    "TelegramMessagingNotConfigured",
+    "build_telegram_messaging_adapter",
 ]

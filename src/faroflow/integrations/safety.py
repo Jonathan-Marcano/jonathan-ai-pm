@@ -89,6 +89,27 @@ def check_read_only_adapter(adapter: object) -> None:
     )
 
 
+def check_messaging_adapter(adapter: object) -> None:
+    """Reject a messaging adapter that is unsafe for the inbound capture path.
+
+    Inbound ingestion may only read a provider and feed the inbox; the adapter must advertise
+    read capability and no wider FaroFlow write capability. Outbound confirmations are handled
+    separately by ``OutboundPolicy`` and never bypass this guard.
+    """
+    provider_type = type(adapter)
+    check_adapter_read_only(
+        name=provider_type.__name__,
+        source_system=getattr(adapter, "source_system", None),
+        delegated_scope=getattr(adapter, "delegated_scope", None)
+        or getattr(adapter, "delegated_permission", None),
+        capabilities=getattr(adapter, "capabilities", READ_ONLY_CAPABILITIES),
+    )
+    if not callable(getattr(adapter, "list_messages", None)):
+        raise ProviderSafetyError(
+            f"{provider_type.__name__} does not implement the messaging inbound contract"
+        )
+
+
 _REGISTERED_PROVIDERS: Sequence[type] = (
     Microsoft365CalendarAdapter,
     GoogleCalendarAdapter,

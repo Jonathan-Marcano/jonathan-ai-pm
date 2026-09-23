@@ -186,7 +186,7 @@ class IntegrationStateStore:
         started_at: datetime | None = None,
     ) -> SyncRun:
         source_system = _required_text(source_system, "source_system").lower()
-        if resource_kind not in {"calendar", "document"}:
+        if resource_kind not in {"calendar", "document", "message"}:
             raise IntegrationStateError(f"Unsupported resource kind: {resource_kind}")
         if (window_starts_at is None) != (window_ends_at is None):
             raise IntegrationStateError("Synchronization windows require both timestamps")

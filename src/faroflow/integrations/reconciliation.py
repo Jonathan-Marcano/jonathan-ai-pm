@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from faroflow.integrations.contracts import (
@@ -12,9 +13,15 @@ from faroflow.integrations.contracts import (
     ReadOnlyCalendarAdapter,
     ReadOnlyDocumentAdapter,
 )
+from faroflow.integrations.messaging import ExternalInboundMessage
 from faroflow.integrations.persistence import IntegrationStateError, IntegrationStateStore
-from faroflow.integrations.safety import ProviderSafetyError, check_read_only_adapter
+from faroflow.integrations.safety import (
+    ProviderSafetyError,
+    check_messaging_adapter,
+    check_read_only_adapter,
+)
 from faroflow.models import (
+    BandejaItem,
     Deliverable,
     ExternalIdentity,
     Meeting,
@@ -22,6 +29,9 @@ from faroflow.models import (
     SyncRun,
 )
 from faroflow.services import DomainRuleError, DomainStore
+from faroflow.unified import InboxService
+
+_MESSAGING_CHANNELS = {"telegram", "whatsapp"}
 
 CANCELLED_EVENT_STATUS = "cancelled"
 CANCELLED_MEETING_STATUS = "cancelled"
@@ -360,3 +370,94 @@ def _same_modified(existing: datetime | None, fresh: datetime | None) -> bool:
     if existing is None or fresh is None:
         return existing is None and fresh is None
     return _as_utc(existing) == _as_utc(fresh)
+
+
+def ingest_inbound_messages(
+    session: Session,
+    *,
+    adapter,
+    conversation_ids: list[str],
+    since: datetime,
+    started_at: datetime | None = None,
+) -> SyncRun:
+    """Reconcile bounded messaging messages into inbox captures idempotently (P4-02).
+
+    Inbound messages become ``BandejaItem`` records with a stable source key derived from
+    ``source_system + conversation_id + external_id``. Repeated polls return the same key and
+    update nothing instead of duplicating the capture, and messages are never applied to a
+    project or habit on their own.
+    """
+    state = IntegrationStateStore(session)
+    inbox = InboxService(session)
+    run = state.start_run(
+        source_system=adapter.source_system,
+        resource_kind="message",
+        external_scope=",".join(sorted(conversation_ids)) or None,
+        started_at=started_at,
+    )
+
+    try:
+        check_messaging_adapter(adapter)
+        messages = adapter.list_messages(conversation_ids, _as_utc(since))
+    except Exception as exc:
+        state.record_error(
+            run.id,
+            code="unsafe_adapter" if isinstance(exc, ProviderSafetyError) else "list_failed",
+            message=str(exc) or "Messaging inbound listing failed",
+        )
+        return state.finish_run(run.id, seen_count=0, status="failed")
+
+    created = duplicated = skipped = 0
+    for message in messages:
+        try:
+            outcome = _ingest_message(session, inbox, state, run.id, message)
+        except IntegrationStateError as exc:
+            session.rollback()
+            state.record_error(run.id, code="ingest_failed", message=str(exc))
+            skipped += 1
+            continue
+        if outcome == "created":
+            created += 1
+        else:
+            duplicated += 1
+
+    return state.finish_run(
+        run.id,
+        seen_count=len(messages),
+        created_count=created,
+        updated_count=0,
+        unchanged_count=duplicated,
+        skipped_count=skipped,
+    )
+
+
+def _ingest_message(
+    session: Session,
+    inbox: InboxService,
+    state: IntegrationStateStore,
+    run_id: str,
+    message: ExternalInboundMessage,
+) -> str:
+    channel = _messaging_channel(message.source_system)
+    source_ref = f"{message.conversation_id}:{message.external_id}"[:240]
+    exists = session.scalar(
+        select(BandejaItem.id).where(
+            BandejaItem.channel == channel,
+            BandejaItem.source_ref == source_ref,
+        )
+    )
+    inbox.receive(
+        channel=channel,
+        source_ref=source_ref,
+        original_text=message.text,
+        author=message.sender_display,
+        original_at=message.received_at,
+    )
+    return "created" if exists is None else "unchanged"
+
+
+def _messaging_channel(source_system: str) -> str:
+    channel = source_system.strip().lower()
+    if channel not in _MESSAGING_CHANNELS:
+        raise IntegrationStateError(f"Unsupported messaging source system: {source_system}")
+    return channel

@@ -17,8 +17,13 @@ from faroflow.integrations.google_drive import (
 )
 from faroflow.integrations.persistence import IntegrationStateError, IntegrationStateStore
 from faroflow.integrations.reconciliation import (
+    ingest_inbound_messages,
     reconcile_calendar_events,
     reconcile_drive_files,
+)
+from faroflow.integrations.telegram_messaging import (
+    TelegramMessagingNotConfigured,
+    build_telegram_messaging_adapter,
 )
 from faroflow.models import Deliverable, ExternalIdentity, SyncRun
 from faroflow.schemas import (
@@ -241,6 +246,28 @@ def sync_calendar(
     return run
 
 
+@router.post(
+    "/api/v1/integrations/messaging/inbound",
+    response_model=SyncRunRead,
+    tags=["integrations"],
+)
+def ingest_messaging(
+    session: DbSession,
+    conversation_ids: Annotated[list[str], Query(min_length=1)],
+    since: Annotated[datetime, Query()],
+):
+    try:
+        adapter = build_telegram_messaging_adapter()
+    except TelegramMessagingNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return ingest_inbound_messages(
+        session,
+        adapter=adapter,
+        conversation_ids=conversation_ids,
+        since=since,
+    )
+
+
 def _restore_run_window(run: SyncRun) -> CalendarWindow:
     stripped = run.window_starts_at.replace(tzinfo=UTC)
     stripped_end = run.window_ends_at.replace(tzinfo=UTC)
@@ -322,6 +349,11 @@ def retry_sync_run(run_id: str, session: DbSession):
         except GoogleCalendarNotConfigured as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         return reconcile_calendar_events(session, adapter=adapter, window=window)
+    if run.resource_kind == "message":
+        raise HTTPException(
+            status_code=422,
+            detail="Messaging inbound runs are re-polled through the ingest endpoint",
+        )
     try:
         adapter = build_google_drive_adapter()
     except GoogleDriveNotConfigured as exc:
