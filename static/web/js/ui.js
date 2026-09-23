@@ -47,6 +47,20 @@ export function todayISO() {
   return new Date(d.getTime() - tz).toISOString().slice(0, 10);
 }
 
+export function money(value, currency = 'CLP') {
+  const n = Number(value) || 0;
+  const ccy = currency || 'CLP';
+  try {
+    return new Intl.NumberFormat('es-CL', {
+      style: 'currency',
+      currency: ccy,
+      maximumFractionDigits: ccy === 'CLP' ? 0 : 2,
+    }).format(n);
+  } catch (_) {
+    return `${n.toLocaleString('es-CL')} ${ccy}`;
+  }
+}
+
 export function addDaysISO(iso, days) {
   const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + days);
@@ -128,6 +142,19 @@ const STATUS_LABELS = {
   on_track: 'Al día',
   at_risk: 'En riesgo',
   off_track: 'Fuera de curso',
+  received: 'Recibida',
+  importing: 'Importando',
+  reviewing: 'En revisión',
+  confirmed: 'Confirmada',
+  applied: 'Aplicada',
+  discarded: 'Descartada',
+  imported: 'Importada',
+  error: 'Error',
+  archived: 'Archivado',
+  paid_off: 'Pagada',
+  closed: 'Cerrada',
+  voided: 'Anulada',
+  inactive: 'Inactiva',
 };
 
 export function humanStatus(status) {

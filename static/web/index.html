@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#6049d8" />
-  <meta name="description" content="FaroFlow: tu centro personal de operaciones de trabajo." />
+  <meta name="theme-color" content="#0b2a3d" />
+  <meta name="description" content="FaroFlow: Mi día, Trabajo, Finanzas, Hábitos y Bandeja en una sola aplicación local." />
   <title>FaroFlow</title>
   <link rel="icon" href="/static/favicon.ico" />
   <link rel="manifest" href="/manifest.webmanifest" />
@@ -15,135 +15,93 @@
 <body>
   <div class="app">
 
-    <!-- ==================== SIDEBAR (desktop) ==================== -->
-    <aside class="sidebar" id="sidebar" aria-label="Navegación principal">
-      <a href="#/inicio" class="brand" id="brand">
-        <img src="/static/brand/FaroFlow_Isotipo.png" alt="" class="brand-mark" />
-        <span class="brand-name">FaroFlow</span>
-      </a>
+    <!-- ==================== BARRA SUPERIOR DE ÁREAS ==================== -->
+    <header class="topnav" id="topnav">
+      <div class="topnav-inner">
+        <a href="#/mi-dia" class="brand" id="brand" aria-label="Ir a Mi día">
+          <img src="/static/brand/FaroFlow_Isotipo.png" alt="" class="brand-mark" />
+          <span class="brand-name">FaroFlow</span>
+        </a>
 
-      <button class="sidebar-capture btn btn-primary" id="sidebar-capture" type="button">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
-        <span>Capturar</span>
-      </button>
+        <nav class="area-nav" id="area-nav" aria-label="Áreas">
+          <a href="#/mi-dia" class="area-link" data-area="mi-dia">Mi día</a>
+          <a href="#/proyectos" class="area-link" data-area="trabajo">Trabajo</a>
+          <a href="#/finanzas" class="area-link" data-area="finanzas">Finanzas</a>
+          <a href="#/habitos" class="area-link" data-area="habitos">Hábitos</a>
+          <a href="#/bandeja" class="area-link" data-area="bandeja">Bandeja<span class="area-badge" id="bandeja-count" hidden></span></a>
+        </nav>
 
-      <nav class="sidebar-nav" aria-label="Secciones">
-        <div class="nav-group">
-          <a href="#/inicio" class="nav-link" data-route="inicio">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 10.5 10 4l7 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M5.5 9.5V16h9V9.5M8.5 16v-3.5h3V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-            <span>Inicio</span>
-          </a>
-          <a href="#/mi-dia" class="nav-link" data-route="mi-dia">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6.5V10l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><path d="M6 2.5 4 4.5M14 2.5l2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-            <span>Mi Día</span>
-          </a>
-          <a href="#/inbox" class="nav-link" data-route="inbox">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M3 10h4l1.5 2h3L13 10h4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
-            <span>Inbox</span>
-            <span class="nav-badge" id="inbox-count" hidden aria-label="elementos sin clasificar"></span>
-          </a>
-        </div>
-
-        <div class="nav-group">
-          <a href="#/proyectos" class="nav-link" data-route="proyectos">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
-            <span>Proyectos</span>
-          </a>
-          <a href="#/tareas" class="nav-link" data-route="tareas">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M6 4.5h9.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M3.5 7.5 5.5 9.5l2.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-            <span>Tareas</span>
-          </a>
-          <a href="#/calendario" class="nav-link" data-route="calendario">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="1.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M3 8.5h14M7 3v3M13 3v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-            <span>Calendario</span>
-          </a>
-          <a href="#/reuniones" class="nav-link" data-route="reuniones">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><rect x="3" y="5" width="14" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M6 5V8.5M14 5V8.5M3 8.5h14M7.5 11.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-            <span>Reuniones</span>
-          </a>
-        </div>
-
-        <div class="nav-group">
-          <a href="#/asistente" class="nav-link" data-route="asistente">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 3l1.5 3.6 3.6 1.5-3.6 1.5L10 13.2 8.5 9.6 4.9 8.1l3.6-1.5L10 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/><path d="M14.5 13.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg>
-            <span>Asistente IA</span>
-          </a>
-        </div>
-
-        <div class="nav-group">
-          <a href="#/integraciones" class="nav-link" data-route="integraciones">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M9.5 4.5a2 2 0 0 1 2 2v1h3.5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3.5v1a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h3.5v-1a2 2 0 0 1 2-2h1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>
-            <span>Integraciones</span>
-          </a>
-          <a href="#/configuracion" class="nav-link" data-route="configuracion">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-            <span>Configuración</span>
-          </a>
-        </div>
-      </nav>
-
-      <div class="sidebar-foot">
-        <div class="workspace-picker" id="workspace-picker">
-          <label for="workspace-select" class="ws-label">Workspace</label>
-          <select id="workspace-select" class="workspace-select"></select>
-        </div>
-        <div class="user-chip">
-          <span class="user-avatar" id="user-avatar">U</span>
-          <div class="user-meta">
-            <b id="user-name">Usuario local</b>
-            <small>operación manual</small>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <div class="scrim" id="scrim" hidden></div>
-
-    <!-- ==================== COLUMNA PRINCIPAL ==================== -->
-    <div class="content">
-      <header class="topbar">
-        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false">
-          <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
-        </button>
-        <div class="topbar-title">
-          <h1 id="route-title"></h1>
-        </div>
-        <div class="topbar-actions">
-          <button class="search-trigger btn btn-ghost" id="search-trigger" type="button">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+        <div class="topnav-actions">
+          <button class="search-trigger btn btn-ghost btn-sm" id="search-trigger" type="button">
+            <svg viewBox="0 0 20 20" class="ff-icon search-icon" aria-hidden="true"><circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
             <span class="search-trigger-text">Buscar</span>
             <kbd class="kbd">⌘K</kbd>
           </button>
-          <button class="btn btn-primary capture-cta" id="capture-cta" type="button">
+          <button class="btn btn-primary btn-sm capture-cta" id="capture-cta" type="button">
             <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
             <span>Capturar</span>
           </button>
+          <a class="icon-btn config-link" href="#/configuracion" data-route="configuracion" aria-label="Configuración" title="Configuración">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+          </a>
         </div>
-      </header>
+      </div>
+    </header>
 
-      <main id="view" class="view" tabindex="-1"></main>
+    <!-- ==================== CUERPO: MENÚ CONTEXTUAL + CONTENIDO ==================== -->
+    <div class="shell">
+      <aside class="areaside" id="areaside" aria-label="Menú del área">
+        <nav class="areaside-nav" id="areaside-nav"></nav>
+        <div class="areaside-foot">
+          <a href="#/configuracion" class="nav-link nav-link-foot" data-route="configuracion">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+            <span>Configuración</span>
+          </a>
+          <div class="areaside-user">
+            <span class="user-avatar" id="user-avatar">U</span>
+            <div class="user-meta">
+              <b id="user-name">Usuario local</b>
+              <small>operación manual</small>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="scrim" id="scrim" hidden></div>
+
+      <div class="content">
+        <header class="topbar">
+          <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
+          </button>
+          <div class="topbar-title">
+            <h1 id="route-title"></h1>
+          </div>
+        </header>
+        <main id="view" class="view" tabindex="-1"></main>
+      </div>
     </div>
 
     <!-- ==================== NAVEGACIÓN MÓVIL ==================== -->
     <nav class="mobile-nav" aria-label="Navegación móvil">
-      <a href="#/inicio" class="mobile-item" data-route="inicio">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 10.5 10 4l7 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M5.5 9.5V16h9V9.5M8.5 16v-3.5h3V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-        <span>Inicio</span>
-      </a>
       <a href="#/mi-dia" class="mobile-item" data-route="mi-dia">
         <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6.5V10l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-        <span>Mi Día</span>
+        <span>Mi día</span>
+      </a>
+      <a href="#/proyectos" class="mobile-item" data-route="trabajo">
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+        <span>Trabajo</span>
       </a>
       <button class="fab" id="fab" type="button" aria-label="Capturar">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
       </button>
-      <a href="#/inbox" class="mobile-item" data-route="inbox">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M3 10h4l1.5 2h3L13 10h4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
-        <span>Inbox</span>
+      <a href="#/habitos" class="mobile-item" data-route="habitos">
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+        <span>Hábitos</span>
       </a>
-      <a href="#/proyectos" class="mobile-item" data-route="proyectos">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
-        <span>Proyectos</span>
+      <a href="#/bandeja" class="mobile-item" data-route="bandeja">
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M3 10h4l1.5 2h3L13 10h4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+        <span>Bandeja</span>
       </a>
     </nav>
   </div>
@@ -158,13 +116,14 @@
         </button>
       </header>
       <div class="modal-body">
-        <p class="modal-hint">Tarea, idea, recordatorio o información sin clasificar. Puedes enviarlo a Inbox y Faro te propondrá cómo organizar.</p>
+        <p class="modal-hint">Tarea, gasto, hábito, idea o referencia. Llega a la Bandeja y Faro te propone cómo organizarla.</p>
         <textarea id="capture-text" class="capture-textarea" rows="4" maxlength="5000"
           placeholder="¿Qué quieres capturar?"></textarea>
         <p class="capture-hint-char" id="capture-char-hint">0 / 5000</p>
+        <div id="capture-suggest" hidden></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="capture-cancel" type="button">Cancelar</button>
-          <button class="btn btn-primary" id="capture-submit" type="button">Enviar a Inbox</button>
+          <button class="btn btn-primary" id="capture-submit" type="button">Enviar a Bandeja</button>
         </div>
       </div>
     </div>

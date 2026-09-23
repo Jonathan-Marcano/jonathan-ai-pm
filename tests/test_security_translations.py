@@ -167,7 +167,7 @@ def test_snapshot_1_1_includes_translations_and_accepts_1_0(api_client) -> None:
         },
     )
     current = api_client.get("/api/v1/snapshots/export").json()
-    assert current["schema_version"] == "1.1"
+    assert current["schema_version"] == "1.2"
     assert current["entities"]["translations"][0]["id"] == "trn_task_en"
 
     legacy = {**current, "schema_version": "1.0"}

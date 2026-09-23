@@ -35,6 +35,13 @@ LanguageCode = Annotated[
     str,
     Field(min_length=2, max_length=20, pattern=r"^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"),
 ]
+HabitStatus = Literal["active", "paused", "archived"]
+HabitGoalType = Literal["binary", "quantity"]
+HabitFrequency = Literal["daily", "weekly", "weekdays", "specific_days"]
+HabitSource = Literal["manual", "bandeja", "telegram"]
+BandejaKind = Literal["task", "expense", "income", "habit", "note", "unknown"]
+BandejaStatus = Literal["received", "reviewing", "confirmed", "applied", "discarded", "error"]
+BandejaChannel = Literal["telegram", "drive", "manual"]
 EntityKind = Literal[
     "workspace",
     "client",
@@ -46,9 +53,12 @@ EntityKind = Literal[
     "work_log",
     "capture",
     "translation",
+    "habit",
+    "habit_completion",
+    "bandeja",
 ]
 AuditAction = Literal["create", "update", "delete"]
-SnapshotVersion = Literal["1.0", "1.1"]
+SnapshotVersion = Literal["1.0", "1.1", "1.2"]
 
 
 class StrictModel(BaseModel):
@@ -530,6 +540,205 @@ class AuditEventRead(ResponseModel):
     changes: dict[str, Any]
 
 
+IsoWeekday = Annotated[int, Field(ge=1, le=7)]
+
+
+class HabitCreate(StrictModel):
+    id: EntityId
+    name: Name
+    description: Annotated[str, Field(max_length=500)] | None = None
+    status: HabitStatus = "active"
+    goal_type: HabitGoalType = "binary"
+    target_quantity: Annotated[int, Field(ge=1)] = 1
+    unit: Annotated[str, Field(max_length=40)] | None = None
+    frequency: HabitFrequency = "daily"
+    weekly_target: Annotated[int, Field(ge=1)] | None = None
+    specific_days: list[IsoWeekday] | None = None
+    timezone: Annotated[str, Field(min_length=1, max_length=80)] = "America/Santiago"
+
+    @model_validator(mode="after")
+    def validate_habit_config(self) -> Self:
+        if self.goal_type == "binary" and self.target_quantity != 1:
+            raise ValueError("Binary habits must have a target_quantity of 1")
+        if self.frequency == "weekly" and self.weekly_target is None:
+            self.weekly_target = 1
+        if self.frequency == "weekly" and self.specific_days is not None:
+            raise ValueError("Weekly habits cannot define specific_days")
+        if self.frequency == "specific_days":
+            if not self.specific_days:
+                raise ValueError("specific_days frequency requires a day selection")
+            if len(set(self.specific_days)) != len(self.specific_days):
+                raise ValueError("specific_days cannot repeat weekdays")
+        else:
+            self.specific_days = None
+        return self
+
+
+class HabitUpdate(StrictModel):
+    name: Name | None = None
+    description: Annotated[str, Field(max_length=500)] | None = None
+    status: HabitStatus | None = None
+    goal_type: HabitGoalType | None = None
+    target_quantity: Annotated[int, Field(ge=1)] | None = None
+    unit: Annotated[str, Field(max_length=40)] | None = None
+    frequency: HabitFrequency | None = None
+    weekly_target: Annotated[int, Field(ge=1)] | None = None
+    specific_days: list[IsoWeekday] | None = None
+    timezone: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+
+
+class HabitRead(Timestamps, HabitCreate):
+    pass
+
+
+class HabitMark(StrictModel):
+    local_date: date | None = None
+    quantity: Annotated[int, Field(ge=1)] = 1
+    note: Annotated[str, Field(max_length=500)] | None = None
+    source: HabitSource = "manual"
+    external_ref: Annotated[str, Field(max_length=240)] | None = None
+
+
+class HabitUndo(StrictModel):
+    local_date: date | None = None
+
+
+class HabitCompletionRead(Timestamps):
+    id: EntityId
+    habit_id: EntityId
+    local_date: date
+    quantity: int
+    note: str | None
+    source: HabitSource
+    external_ref: str | None
+
+
+class HabitSeriesRead(StrictModel):
+    habit: HabitRead
+    today: date
+    zone: str
+    completed_today: bool
+    today_quantity: int
+    current_streak: int
+    longest_streak: int
+    completion_rate_14d: float
+    completions: list[HabitCompletionRead]
+
+
+class BandejaAttachment(StrictModel):
+    name: Annotated[str, Field(max_length=500)] | None = None
+    mime_type: Annotated[str, Field(max_length=200)] | None = None
+    drive_file_id: Annotated[str, Field(max_length=240)] | None = None
+    web_url: str | None = None
+    external_version: Annotated[str, Field(max_length=120)] | None = None
+
+
+class BandejaReceive(StrictModel):
+    channel: BandejaChannel
+    author: Annotated[str, Field(max_length=120)] | None = None
+    source_ref: Annotated[str, Field(min_length=1, max_length=240)]
+    original_text: Annotated[str, Field(min_length=1, max_length=4000)]
+    original_at: datetime | None = None
+    kind: BandejaKind = "unknown"
+    amount: int | None = None
+    attachments: list[BandejaAttachment] = Field(default_factory=list)
+    drive_file_id: Annotated[str, Field(max_length=240)] | None = None
+    drive_version: Annotated[str, Field(max_length=120)] | None = None
+
+
+class BandejaItemRead(ResponseModel):
+    id: EntityId
+    channel: BandejaChannel
+    author: str | None
+    source_ref: str
+    original_text: str
+    original_at: datetime
+    kind: BandejaKind
+    kind_confidence: float | None
+    kind_source: str
+    amount: int | None
+    account_id: str | None
+    category_id: str | None
+    project_id: str | None
+    habit_id: str | None
+    destination_module: str | None
+    destination_ref: str | None
+    attachments: list[BandejaAttachment]
+    status: BandejaStatus
+    attempts: int
+    error: str | None
+    drive_file_id: str | None
+    drive_version: str | None
+    integrity_ok: bool | None
+    drive_cleaned_at: datetime | None
+    resolved_at: datetime | None
+    decision_note: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class BandejaItemUpdate(StrictModel):
+    kind: BandejaKind | None = None
+    amount: int | None = None
+    account_id: Annotated[str, Field(max_length=120)] | None = None
+    category_id: Annotated[str, Field(max_length=120)] | None = None
+    project_id: EntityId | None = None
+    habit_id: EntityId | None = None
+    decision_note: Annotated[str, Field(max_length=500)] | None = None
+
+
+class BandejaApply(StrictModel):
+    decision: Literal["task", "expense", "income", "habit", "note", "discard"]
+    project_id: EntityId | None = None
+    priority: TaskPriority = "medium"
+    due_at: date | None = None
+    account_id: Annotated[str, Field(max_length=120)] | None = None
+    category_id: Annotated[str, Field(max_length=120)] | None = None
+    amount: int | None = None
+    recorded_on: date | None = None
+    habit_id: EntityId | None = None
+    note: Annotated[str, Field(max_length=500)] | None = None
+
+
+class HomeSection(StrictModel):
+    label: str
+    count: int
+    items: list[dict[str, Any]]
+
+
+class HomeFinance(StrictModel):
+    available: bool
+    household_id: str | None = None
+    household_name: str | None = None
+    total_balance: int = 0
+    active_debts: int = 0
+    upcoming_payments: int = 0
+    pending_installments: int = 0
+
+
+class HomeHabitCard(StrictModel):
+    id: EntityId
+    name: str
+    goal_type: str
+    due_today: bool
+    completed_today: bool
+    current_streak: int
+
+
+class HomeData(StrictModel):
+    model_config = ConfigDict(extra="forbid")
+
+    as_of: datetime
+    timezone: str
+    date: date
+    work: HomeSection
+    meetings: HomeSection
+    projects: HomeSection
+    bandeja: HomeSection
+    habits: list[HomeHabitCard]
+    finance: HomeFinance
+
+
 class SnapshotEntities(StrictModel):
     workspaces: list[WorkspaceRead]
     clients: list[ClientRead]
@@ -541,6 +750,9 @@ class SnapshotEntities(StrictModel):
     work_logs: list[WorkLogRead]
     captures: list[CaptureRead]
     translations: list[TranslationRead] = Field(default_factory=list)
+    habits: list[HabitRead] = Field(default_factory=list)
+    habit_completions: list[HabitCompletionRead] = Field(default_factory=list)
+    bandeja_items: list[BandejaItemRead] = Field(default_factory=list)
     audit_events: list[AuditEventRead]
 
     @model_validator(mode="after")
@@ -556,6 +768,9 @@ class SnapshotEntities(StrictModel):
             self.work_logs,
             self.captures,
             self.translations,
+            self.habits,
+            self.habit_completions,
+            self.bandeja_items,
             self.audit_events,
         )
         for records in collections:
@@ -608,6 +823,9 @@ class SnapshotEntities(StrictModel):
 
         if any(record.task_id not in tasks for record in self.work_logs):
             raise ValueError("Snapshot work log references an unknown task")
+        habit_ids = {record.id for record in self.habits}
+        if any(record.habit_id not in habit_ids for record in self.habit_completions):
+            raise ValueError("Snapshot habit completion references an unknown habit")
         logged_task_ids = {record.task_id for record in self.work_logs}
         if any(
             task_completion_evidence_error(
@@ -693,6 +911,9 @@ class SnapshotCounts(StrictModel):
     work_logs: int
     captures: int
     translations: int = 0
+    habits: int = 0
+    habit_completions: int = 0
+    bandeja_items: int = 0
     audit_events: int
 
 

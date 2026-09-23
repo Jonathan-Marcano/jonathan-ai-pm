@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#123B4A" />
+    <title>CuentaFaro · Tus finanzas en claro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                navy: "#123B4A",
+                "navy-dark": "#0F1F26",
+                turquoise: "#19B5A5",
+                "turquoise-dark": "#0E8779",
+                amber: "#F4B942",
+                "amber-dark": "#B8860B",
+                light: "#E6F4F1",
+              },
+            },
+            fontFamily: {
+              sans: ["Poppins", "system-ui", "-apple-system", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="/static/app.css?v=20260920" />
+    <link rel="icon" type="image/x-icon" href="/static/brand/favicon.ico" />
+    <link rel="manifest" href="/static/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="#123B4A" />
+    <link rel="apple-touch-icon" href="/static/brand/CuentaFaro_AppIcon_192.png" />
+  </head>
+  <body class="bg-brand-light text-slate-800 antialiased">
+    <div id="app" class="min-h-screen flex flex-col"></div>
+    <div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+    <script src="/static/app.js?v=20260920u2"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/static/sw.js")
+          .catch(function () {});
+      }
+    </script>
+  </body>
+</html>

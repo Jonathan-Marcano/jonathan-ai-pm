@@ -1,57 +1,72 @@
 :root {
   /* ============================================================
      FAROFLOW — DESIGN TOKENS
-     Identidad: violeta / indigo (modern SaaS, productivity, calm)
+     Identidad: azul profundo + acentos turquesa y ámbar, fondo claro
+     (referencia visual aprobada: barra superior de áreas, menú
+     lateral contextual, luz de faro sobre el mar)
      ============================================================ */
 
-  /* Color — primario (indigo / violeta) */
-  --ff-primary-50: #f3f1fe;
-  --ff-primary-100: #e8e4fd;
-  --ff-primary-200: #d2ccfa;
-  --ff-primary-300: #b3a9f5;
-  --ff-primary-400: #8f80ee;
-  --ff-primary-500: #6f5ce3;
-  --ff-primary-600: #6049d8;
-  --ff-primary-700: #523cc0;
-  --ff-primary-800: #46349f;
-  --ff-primary-900: #3a2e7d;
+  /* Color — primario (azul profundo) */
+  --ff-primary-50: #f0f5f9;
+  --ff-primary-100: #dde9f2;
+  --ff-primary-200: #bfd6e5;
+  --ff-primary-300: #96bcd3;
+  --ff-primary-400: #619abe;
+  --ff-primary-500: #3d7fa8;
+  --ff-primary-600: #2c668f;
+  --ff-primary-700: #1f4e70;
+  --ff-primary-800: #14374f;
+  --ff-primary-900: #0b2a3d;
+  --ff-primary-950: #081f2e;
 
-  /* Color — secundario (azul de apoyo, heredado de la marca) */
-  --ff-secondary-50: #edf4ff;
-  --ff-secondary-100: #ddeaff;
-  --ff-secondary-500: #4d8dff;
-  --ff-secondary-600: #2e7bf6;
-  --ff-secondary-700: #1f66d6;
+  /* Color — acento turquesa (luz del faro) */
+  --ff-accent-50: #e9f8f6;
+  --ff-accent-100: #cdefea;
+  --ff-accent-200: #a0e2d8;
+  --ff-accent-300: #6bd0c2;
+  --ff-accent-400: #3bbcac;
+  --ff-accent-500: #22a495;
+  --ff-accent-600: #15857a;
+  --ff-accent-700: #11685f;
+
+  /* Color — cálido ámbar */
+  --ff-warm-50: #fff8e9;
+  --ff-warm-100: #ffefc9;
+  --ff-warm-200: #ffdf8e;
+  --ff-warm-300: #ffcb4e;
+  --ff-warm-400: #f8b62a;
+  --ff-warm-500: #e89b12;
+  --ff-warm-600: #c4780d;
 
   /* Color — semántico */
   --ff-success-500: #1e9c62;
   --ff-success-100: #e3f6ec;
-  --ff-warning-500: #c07f17;
-  --ff-warning-100: #fff3d9;
+  --ff-warning-500: #c4780d;
+  --ff-warning-100: #ffefc9;
   --ff-danger-500: #d64545;
   --ff-danger-100: #ffe7e6;
-  --ff-info-500: #2e7bf6;
-  --ff-info-100: #e6efff;
+  --ff-info-500: #2c668f;
+  --ff-info-100: #dde9f2;
 
-  /* Color — neutro / superficie / texto */
-  --ff-neutral-500: #5a6b85;
-  --ff-neutral-400: #7c8aa0;
-  --ff-neutral-300: #a4aeba;
-  --ff-bg: #f6f7fb;
+  /* Color — neutro / superficie / texto (fríos, gris azulado) */
+  --ff-neutral-500: #4f6a7e;
+  --ff-neutral-400: #6d8496;
+  --ff-neutral-300: #9fb2c0;
+  --ff-bg: #f3f7fb;
   --ff-surface: #ffffff;
-  --ff-surface-tint: #f2f3fa;
-  --ff-border: #e3e7f0;
-  --ff-border-strong: #ccd5e4;
-  --ff-text: #141a2e;
-  --ff-text-muted: #5a6b85;
-  --ff-text-faint: #8a94a8;
+  --ff-surface-tint: #ecf3f8;
+  --ff-border: #dfe8f0;
+  --ff-border-strong: #c3d3e0;
+  --ff-text: #0d2233;
+  --ff-text-muted: #4f6a7e;
+  --ff-text-faint: #8ba1b2;
 
   /* Color — marca (compatibilidad con kit de marca) */
-  --brand-primary: #141a2e;
-  --brand-secondary: var(--ff-secondary-500);
-  --brand-accent: var(--ff-primary-500);
+  --brand-primary: #0b2a3d;
+  --brand-secondary: var(--ff-accent-500);
+  --brand-accent: var(--ff-warm-500);
   --brand-background-light: var(--ff-bg);
-  --brand-background-dark: #0b1220;
+  --brand-background-dark: #081f2e;
   --brand-font: 'Inter', system-ui, -apple-system, sans-serif;
 
   /* Tipografía */
@@ -90,9 +105,9 @@
   --ff-radius-full: 999px;
 
   /* Sombra */
-  --ff-shadow-sm: 0 1px 2px rgba(20, 26, 46, 0.06);
-  --ff-shadow-md: 0 1px 2px rgba(20, 26, 46, 0.06), 0 6px 20px rgba(20, 26, 46, 0.07);
-  --ff-shadow-lg: 0 4px 12px rgba(20, 26, 46, 0.08), 0 18px 40px rgba(20, 26, 46, 0.12);
+  --ff-shadow-sm: 0 1px 2px rgba(8, 31, 46, 0.06);
+  --ff-shadow-md: 0 1px 2px rgba(8, 31, 46, 0.06), 0 6px 20px rgba(8, 31, 46, 0.07);
+  --ff-shadow-lg: 0 4px 12px rgba(8, 31, 46, 0.08), 0 18px 40px rgba(8, 31, 46, 0.12);
 
   /* Bordes */
   --ff-border-hairline: 1px solid var(--ff-border);

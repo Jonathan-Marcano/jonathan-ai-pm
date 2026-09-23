@@ -17,6 +17,7 @@ from .routes_integrations import router as integrations_router
 from .routes_meetings import router as meetings_router
 from .routes_system import router as system_router
 from .routes_translations import router as translations_router
+from .routes_unified import router as unified_router
 from .routes_web import router as web_router
 from .routes_work import router as work_router
 
@@ -57,10 +58,28 @@ for router in (
     meetings_router,
     captures_router,
     translations_router,
+    unified_router,
     integrations_router,
     web_router,
 ):
     app.include_router(router)
+
+
+# Área Finanzas: routers de CuentaFaro alojados bajo /api/v1/finance.
+# Conservan sus propias dependencies (session de finanzas) y excepciones.
+try:
+    from fastapi import APIRouter
+
+    from cuentafaro.api import API_ROUTERS
+    from cuentafaro.errors import configure_exception_handlers as _configure_finance_handlers
+
+    finance_router = APIRouter(prefix="/api/v1/finance")
+    for _router in API_ROUTERS:
+        finance_router.include_router(_router)
+    app.include_router(finance_router)
+    _configure_finance_handlers(app)
+except Exception as exc:  # pragma: no cover - arranque defensivo
+    logger.error("no se pudo montar el área Finanzas: %s", redact_text(str(exc)))
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

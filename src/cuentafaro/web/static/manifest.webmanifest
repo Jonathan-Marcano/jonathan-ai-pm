@@ -1,0 +1,24 @@
+{
+  "name": "CuentaFaro",
+  "short_name": "CuentaFaro",
+  "description": "Tus finanzas en claro",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#E6F4F1",
+  "theme_color": "#123B4A",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/static/brand/CuentaFaro_AppIcon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/brand/CuentaFaro_Logo_Horizontal.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

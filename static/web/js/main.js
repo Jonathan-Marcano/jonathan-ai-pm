@@ -1,11 +1,16 @@
 'use strict';
 
-import { api, invalidate, listProjects, listTasks, listMeetings, listWorkspaces } from './api.js';
+import {
+  api,
+  invalidate,
+  listProjects,
+  listTasks,
+  listMeetings,
+  listWorkspaces,
+  nameMaps,
+} from './api.js';
 import { esc, icon, toast } from './ui.js';
 import {
-  renderInicio,
-  renderMiDia,
-  renderInbox,
   renderProyectos,
   renderProyectoDetalle,
   renderTareas,
@@ -14,56 +19,245 @@ import {
   renderReunionDetalle,
   renderAsistente,
   renderIntegraciones,
-  renderConfiguracion,
 } from './views.js';
+import { renderMiDia, renderCierre } from './views-mi-dia.js';
+import { renderFinanzas } from './views-finanzas.js';
+import { renderHabitos, renderHabitoDetalle, renderSemana } from './views-habitos.js';
+import { renderBandeja, renderChat } from './views-bandeja.js';
+import { renderConfiguracion } from './views-configuracion.js';
+import { suggestCapture, KIND_LABELS } from './capture-triage.js';
 
 const ROUTES = {
-  '/inicio': { title: 'Inicio', render: renderInicio },
-  '/mi-dia': { title: 'Mi Día', render: renderMiDia },
-  '/inbox': { title: 'Inbox', render: renderInbox },
-  '/proyectos': { title: 'Proyectos', render: renderProyectos, detail: renderProyectoDetalle },
-  '/tareas': { title: 'Tareas', render: renderTareas },
-  '/calendario': { title: 'Calendario', render: renderCalendario },
-  '/reuniones': { title: 'Reuniones', render: renderReuniones, detail: renderReunionDetalle },
-  '/asistente': { title: 'Asistente', render: renderAsistente },
-  '/integraciones': { title: 'Integraciones', render: renderIntegraciones },
-  '/configuracion': { title: 'Configuración', render: renderConfiguracion },
+  '/mi-dia': { title: 'Mi Día', area: 'mi-dia', render: renderMiDia },
+  '/mi-dia/cierre': { title: 'Cierre del día', area: 'mi-dia', render: renderCierre },
+  '/proyectos': { title: 'Proyectos', area: 'trabajo', render: renderProyectos, detail: renderProyectoDetalle },
+  '/tareas': { title: 'Tareas', area: 'trabajo', render: renderTareas },
+  '/calendario': { title: 'Calendario', area: 'trabajo', render: renderCalendario },
+  '/reuniones': { title: 'Reuniones', area: 'trabajo', render: renderReuniones, detail: renderReunionDetalle },
+  '/asistente': { title: 'Asistente', area: 'trabajo', render: renderAsistente },
+  '/integraciones': { title: 'Integraciones', area: 'trabajo', render: renderIntegraciones },
+  '/finanzas': { title: 'Finanzas', area: 'finanzas', render: renderFinanzas },
+  '/habitos': { title: 'Hábitos', area: 'habitos', render: renderHabitos },
+  '/bandeja': { title: 'Bandeja', area: 'bandeja', render: renderBandeja },
+  '/chat': { title: 'Chat Bandeja', area: 'bandeja', render: renderChat },
+  '/configuracion': { title: 'Configuración', area: 'configuracion', render: renderConfiguracion },
+};
+
+const ALIASES = {
+  '/': '/mi-dia',
+  '/inicio': '/mi-dia',
+  '/inbox': '/bandeja',
+  '/config': '/configuracion',
+};
+
+const WORK_ROUTES = [
+  '/proyectos',
+  '/tareas',
+  '/calendario',
+  '/reuniones',
+  '/asistente',
+  '/integraciones',
+];
+
+// Menú lateral contextual por área.
+const AREA_NAV = {
+  'mi-dia': [
+    {
+      group: 'Hoy',
+      items: [
+        { label: 'Resumen del día', icon: 'check', href: '#/mi-dia' },
+        { label: 'Cierre del día', icon: 'clock', href: '#/mi-dia/cierre' },
+      ],
+    },
+    {
+      group: 'Atajos',
+      items: [
+        { label: 'Hábitos de hoy', icon: 'target', href: '#/habitos' },
+        { label: 'Bandeja pendiente', icon: 'send', href: '#/bandeja' },
+      ],
+    },
+  ],
+  trabajo: [
+    {
+      group: 'Trabajo',
+      items: [
+        { label: 'Proyectos', icon: 'folder', href: '#/proyectos' },
+        { label: 'Tareas', icon: 'check', href: '#/tareas' },
+        { label: 'Calendario', icon: 'calendar', href: '#/calendario' },
+        { label: 'Reuniones', icon: 'clock', href: '#/reuniones' },
+        { label: 'Asistente', icon: 'sparkles', href: '#/asistente' },
+        { label: 'Integraciones', icon: 'link', href: '#/integraciones' },
+      ],
+    },
+  ],
+  finanzas: [
+    {
+      group: 'Finanzas',
+      items: [
+        { label: 'Resumen', icon: 'sparkles', href: '#/finanzas' },
+        { label: 'Ingresos', icon: 'arrow', href: '#/finanzas/ingresos' },
+        { label: 'Egresos', icon: 'flag', href: '#/finanzas/egresos' },
+        { label: 'Cuentas', icon: 'folder', href: '#/finanzas/cuentas' },
+        { label: 'Tarjetas y deudas', icon: 'alert', href: '#/finanzas/deudas' },
+        { label: 'Presupuesto', icon: 'target', href: '#/finanzas/presupuesto' },
+        { label: 'Metas de ahorro', icon: 'check', href: '#/finanzas/metas' },
+      ],
+    },
+  ],
+  habitos: [
+    {
+      group: 'Hábitos',
+      items: [
+        { label: 'Todos los hábitos', icon: 'target', href: '#/habitos' },
+        { label: 'Vista semanal', icon: 'calendar', href: '#/habitos/semana' },
+      ],
+    },
+  ],
+  bandeja: [
+    {
+      group: 'Bandeja',
+      items: [
+        { label: 'Pendientes', icon: 'send', href: '#/bandeja', exact: true },
+        { label: 'En revisión', icon: 'clock', href: '#/bandeja?status=reviewing', match: ['received', 'reviewing'] },
+        { label: 'Aplicadas', icon: 'check', href: '#/bandeja?status=applied', exact: true },
+        { label: 'Descartadas', icon: 'trash', href: '#/bandeja?status=discarded', exact: true },
+        { label: 'Capturar por chat', icon: 'sparkles', href: '#/chat' },
+      ],
+    },
+  ],
 };
 
 const $ = (id) => document.getElementById(id);
 
-function currentRoute() {
-  const raw = window.location.hash || '#/inicio';
-  const path = raw.slice(1).split('?')[0];
-  if (ROUTES[path]) return { path, id: null };
-  const match = path.match(/^\/([a-z-]+)\/([a-z0-9_]+)$/);
+function parseRoute() {
+  let raw = window.location.hash || '#/mi-dia';
+  let path = raw.slice(1).split('?')[0] || '/mi-dia';
+  if (ALIASES[path]) {
+    const target = ALIASES[path];
+    const query = window.location.hash.split('?')[1] || '';
+    window.history.replaceState(null, '', `#${target}${query ? `?${query}` : ''}`);
+    path = target;
+  }
+
+  let match = path.match(/^\/([a-z-]+)\/([a-z0-9_]+)$/);
   if (match) {
     const base = `/${match[1]}`;
-    if (ROUTES[base] && ROUTES[base].detail) return { path: base, id: match[2] };
+    if (ROUTES[base] && ROUTES[base].detail) {
+      return { path: base, id: match[2], area: ROUTES[base].area };
+    }
+    if (base === '/finanzas' && /^[a-z]+$/.test(match[2])) {
+      return { path: '/finanzas', sub: match[2], area: 'finanzas' };
+    }
+    if (base === '/habitos' && match[2] === 'semana') {
+      return { path: '/habitos', sub: 'semana', area: 'habitos' };
+    }
+    if (base === '/habitos') {
+      return { path: '/habitos', id: match[2], area: 'habitos' };
+    }
   }
-  return { path: '/inicio', id: null };
+
+  if (ROUTES[path]) return { path, area: ROUTES[path].area };
+  if (WORK_ROUTES.some((r) => path.startsWith(r))) {
+    const base = WORK_ROUTES.find((r) => path.startsWith(r));
+    return { path: base, area: 'trabajo' };
+  }
+  if (path.startsWith('/finanzas')) return { path: '/finanzas', area: 'finanzas' };
+  if (path.startsWith('/habitos')) return { path: '/habitos', area: 'habitos' };
+  if (path.startsWith('/bandeja')) return { path: '/bandeja', area: 'bandeja' };
+  return { path: '/mi-dia', area: 'mi-dia' };
 }
 
-function setActive(path) {
-  const key = path.slice(1);
-  document.querySelectorAll('.nav-link, .mobile-item').forEach((link) => {
-    link.classList.toggle('active', link.dataset.route === key);
+const queryFor = () => (window.location.hash.indexOf('?') >= 0 ? window.location.hash.split('?')[1] : '');
+
+function setAreaActive(area) {
+  document.querySelectorAll('.area-link').forEach((link) => {
+    link.classList.toggle('active', link.dataset.area === area);
   });
+  document.querySelectorAll('.mobile-item').forEach((item) => {
+    item.classList.toggle('active', item.dataset.route === area);
+  });
+  if (area === 'configuracion') {
+    document.querySelectorAll('.nav-link-foot, [data-route="configuracion"]').forEach((l) => l.classList.add('active'));
+  } else {
+    document.querySelectorAll('[data-route="configuracion"]').forEach((l) => l.classList.remove('active'));
+  }
+}
+
+function buildSidebar(area) {
+  const nav = $('areaside-nav');
+  const groups = (AREA_NAV[area] || AREA_NAV['mi-dia']);
+  const path = window.location.hash.split('?')[0] || '#/mi-dia';
+  const query = queryFor();
+
+  const itemActive = (item) => {
+    if (item.exact) {
+      return `${item.href}${item.match ? '' : ''}` === `${path}${query ? `?${query}` : ''}`;
+    }
+    if (item.match) {
+      const status = params(query).status;
+      return status ? item.match.includes(status) : path === item.href;
+    }
+    const base = item.href.split('?')[0];
+    return path === base || path.startsWith(`${base}/`) || (item.href.includes('?') && path === item.href.split('?')[0] && item.href.split('?')[1] === query);
+  };
+
+  nav.innerHTML = groups
+    .map(
+      (group) => `
+      <span class="nav-group-label">${esc(group.group)}</span>
+      ${group.items
+        .map(
+          (item) => `
+          <a class="nav-link ${itemActive(item) ? 'active' : ''}" href="${item.href}">
+            ${icon(item.icon)}
+            <span>${esc(item.label)}</span>
+          </a>`,
+        )
+        .join('')}`,
+    )
+    .join('');
+}
+
+function params(qs) {
+  return Object.fromEntries(new URLSearchParams(qs));
 }
 
 async function route() {
-  const { path, id } = currentRoute();
-  setActive(path);
+  const { path, id, sub } = parseRoute();
+  const routeDef = ROUTES[path];
+  const area = routeDef ? routeDef.area : 'mi-dia';
+  setAreaActive(area);
+  buildSidebar(area);
+
   const view = $('view');
-  if (view) {
-    window.scrollTo({ top: 0 });
-    const fresh = document.createElement('div');
-    fresh.id = 'view';
-    fresh.className = 'view';
-    fresh.tabIndex = -1;
-    view.parentNode.replaceChild(fresh, view);
-    const renderer = id && ROUTES[path].detail ? ROUTES[path].detail : ROUTES[path].render;
-    renderer(fresh, id);
+  if (!view) return;
+  window.scrollTo({ top: 0 });
+  const fresh = document.createElement('div');
+  fresh.id = 'view';
+  fresh.className = 'view';
+  fresh.tabIndex = -1;
+  view.parentNode.replaceChild(fresh, view);
+
+  const title = routeDef ? routeDef.title : 'Mi Día';
+  document.getElementById('route-title').textContent = title;
+  document.title = `${title} · FaroFlow`;
+
+  try {
+    if (path === '/finanzas') {
+      await renderFinanzas(fresh, sub || 'resumen');
+    } else if (path === '/habitos' && sub === 'semana') {
+      await renderSemana(fresh);
+    } else if (path === '/habitos' && id) {
+      await renderHabitoDetalle(fresh, id);
+    } else if (id && routeDef && routeDef.detail) {
+      await routeDef.detail(fresh, id);
+    } else if (routeDef) {
+      await routeDef.render(fresh);
+    } else {
+      await renderMiDia(fresh);
+    }
+  } catch (err) {
+    fresh.innerHTML = `<div class="view"><div class="error">No se pudo cargar: ${esc(err.message)}</div></div>`;
   }
   closeSidebar();
 }
@@ -74,12 +268,58 @@ function closeOverlay(id) {
 }
 
 /* ---------- Captura global ---------- */
+let captureKind = null;
+let captureAmount = null;
+
+function suggestRow(suggestion) {
+  const host = $('capture-suggest');
+  if (!host) return;
+  if (!suggestion || suggestion.kind === 'unknown' && !suggestion.amount) {
+    host.hidden = true;
+    return;
+  }
+  const label = KIND_LABELS[suggestion.kind] || 'Por clasificar';
+  const reasons = (suggestion.reasons || []).join(' ');
+  const confidence = Math.round(suggestion.confidence * 100);
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="capture-suggest-chip">
+      <span class="item-sub">Faro sugiere:</span>
+      <span class="kind-chip kind-${esc(suggestion.kind)}">${esc(label)}</span>
+      <span class="capture-suggest-conf">${confidence}%</span>
+      ${suggestion.amount ? `<b>$${esc(Number(suggestion.amount).toLocaleString('es-CL'))}</b>` : ''}
+      ${suggestion.due ? `<span class="item-sub">· vence ${esc(suggestion.due)}</span>` : ''}
+      ${reasons ? `<span class="capture-suggest-reasons">${esc(reasons)}</span>` : ''}
+      <button class="btn btn-soft btn-xs" id="capture-use-suggest" type="button">Usar</button>
+    </div>`;
+}
+
+function renderCaptureSuggest() {
+  const input = $('capture-text');
+  const suggestion = suggestCapture(input.value);
+  captureKind = null;
+  captureAmount = null;
+  suggestRow(suggestion);
+  const use = $('capture-use-suggest');
+  if (use) {
+    use.addEventListener('click', () => {
+      captureKind = suggestion.kind;
+      captureAmount = suggestion.amount;
+      use.disabled = true;
+      use.textContent = 'Se usará';
+    });
+  }
+}
+
 function openCapture() {
   const overlay = $('capture-overlay');
   overlay.hidden = false;
   const input = $('capture-text');
   input.value = '';
   $('capture-char-hint').textContent = '0 / 5000';
+  captureKind = null;
+  captureAmount = null;
+  renderCaptureSuggest();
   input.focus();
 }
 
@@ -89,11 +329,22 @@ async function submitCapture() {
   if (!text) return;
   const submit = $('capture-submit');
   submit.disabled = true;
+  const body = {
+    channel: 'manual',
+    author: 'yo',
+    source_ref: `manual_${Date.now()}`,
+    original_text: text,
+  };
+  if (captureKind && captureKind !== 'unknown') body.kind = captureKind;
+  if (captureAmount && captureAmount > 0) body.amount = captureAmount;
   try {
-    await api('/api/v1/captures', { method: 'POST', body: JSON.stringify({ text }) });
-    toast('Capturado. Puedes organizarlo desde Inbox.', 'success');
+    await api('/api/v1/bandeja', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    toast('Capturado. Está en la Bandeja para revisarlo.', 'success');
     closeOverlay('capture-overlay');
-    refreshInboxCount();
+    refreshBandejaCount();
   } catch (err) {
     toast(`No se pudo capturar: ${err.message}`, 'error');
   } finally {
@@ -101,10 +352,10 @@ async function submitCapture() {
   }
 }
 
-async function refreshInboxCount() {
+async function refreshBandejaCount() {
   try {
-    const items = await api('/api/v1/captures?limit=100&capture_status=inbox');
-    const badgeEl = $('inbox-count');
+    const items = await api('/api/v1/bandeja?status=received');
+    const badgeEl = $('bandeja-count');
     if (!badgeEl) return;
     const count = (items || []).length;
     if (count > 0) {
@@ -120,13 +371,13 @@ async function refreshInboxCount() {
 
 /* ---------- Sidebar móvil ---------- */
 function openSidebar() {
-  $('sidebar').classList.add('open');
+  $('areaside').classList.add('open');
   $('scrim').hidden = false;
   $('menu-btn').setAttribute('aria-expanded', 'true');
 }
 
 function closeSidebar() {
-  $('sidebar').classList.remove('open');
+  $('areaside').classList.remove('open');
   $('scrim').hidden = true;
   $('menu-btn').setAttribute('aria-expanded', 'false');
 }
@@ -218,30 +469,10 @@ function openPalette() {
   window.setTimeout(() => $('palette-input').focus(), 30);
 }
 
-/* ---------- Workspace selector ---------- */
+/* ---------- Workspace selector (no requerido en el nuevo shell, se mantiene API) ---------- */
 async function setupWorkspaces() {
   try {
-    const workspaces = await listWorkspaces();
-    const picker = $('workspace-picker');
-    const select = $('workspace-select');
-    if (!workspaces || !workspaces.length) return;
-    if (workspaces.length === 1) {
-      picker.querySelector('label').textContent = 'Workspace';
-      select.innerHTML = `<option>${esc(workspaces[0].name)}</option>`;
-      select.disabled = true;
-      return;
-    }
-    const saved = localStorage.getItem('ff.workspace');
-    select.innerHTML = workspaces
-      .map(
-        (w) =>
-          `<option value="${esc(w.id)}" ${w.id === saved ? 'selected' : ''}>${esc(w.name)}</option>`,
-      )
-      .join('');
-    select.addEventListener('change', () => {
-      localStorage.setItem('ff.workspace', select.value);
-      route();
-    });
+    await listWorkspaces();
   } catch (_) {
     /* silencioso */
   }
@@ -249,10 +480,12 @@ async function setupWorkspaces() {
 
 /* ---------- Boot ---------- */
 function bind() {
-  window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => {
+    route();
+    refreshBandejaCount();
+  });
 
   $('capture-cta').addEventListener('click', (e) => { e.preventDefault(); openCapture(); });
-  $('sidebar-capture').addEventListener('click', (e) => { e.preventDefault(); openCapture(); });
   $('fab').addEventListener('click', (e) => { e.preventDefault(); openCapture(); });
   $('capture-cancel').addEventListener('click', () => closeOverlay('capture-overlay'));
   $('capture-close').addEventListener('click', () => closeOverlay('capture-overlay'));
@@ -261,6 +494,7 @@ function bind() {
   const captureInput = $('capture-text');
   captureInput.addEventListener('input', () => {
     $('capture-char-hint').textContent = `${captureInput.value.length} / 5000`;
+    renderCaptureSuggest();
   });
   captureInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) submitCapture();
@@ -316,12 +550,13 @@ function bind() {
   });
 
   $('menu-btn').addEventListener('click', () => {
-    if ($('sidebar').classList.contains('open')) closeSidebar();
+    if ($('areaside').classList.contains('open')) closeSidebar();
     else openSidebar();
   });
   $('scrim').addEventListener('click', closeSidebar);
 
   window.addEventListener('ff:config-changed', setupWorkspaces);
+  window.addEventListener('ff:bandeja-changed', refreshBandejaCount);
 
   const initial = localStorage.getItem('ff.user');
   if (initial) {
@@ -334,5 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bind();
   setupWorkspaces();
   route();
-  refreshInboxCount();
+  refreshBandejaCount();
 });
+
+export { invalidate, toast };

@@ -4,8 +4,8 @@
   "description": "Planifica, organiza y ejecuta.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F6F7FB",
-  "theme_color": "#6049d8",
+  "background_color": "#f3f7fb",
+  "theme_color": "#0b2a3d",
   "icons": [
     {
       "src": "/static/brand/FaroFlow_AppIcon_192.png",

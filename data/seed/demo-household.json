@@ -1,0 +1,409 @@
+{
+  "schema_version": "1.0",
+  "currency": "CLP",
+  "timezone": "America/Santiago",
+  "households": [
+    {
+      "id": "hh_demo_faro",
+      "name": "Hogar Faro (demostración)",
+      "status": "active",
+      "timezone": "America/Santiago"
+    }
+  ],
+  "members": [
+    {
+      "id": "mem_demo_jonathan",
+      "household_id": "hh_demo_faro",
+      "name": "Jonathan (demo)",
+      "role": "admin",
+      "status": "active"
+    },
+    {
+      "id": "mem_demo_esposa",
+      "household_id": "hh_demo_faro",
+      "name": "Esposa (demo)",
+      "role": "member",
+      "status": "active"
+    }
+  ],
+  "institutions": [
+    {
+      "id": "fin_demo_banco",
+      "name": "Banco Demostración",
+      "type": "bank",
+      "status": "active"
+    },
+    {
+      "id": "fin_demo_fintech",
+      "name": "Fintech Demo",
+      "type": "fintech",
+      "status": "active"
+    },
+    {
+      "id": "fin_demo_tienda",
+      "name": "Tienda Demo",
+      "type": "store",
+      "status": "active"
+    }
+  ],
+  "accounts": [
+    {
+      "id": "fac_demo_cta_corr",
+      "household_id": "hh_demo_faro",
+      "institution_id": "fin_demo_banco",
+      "name": "Cuenta corriente demo",
+      "type": "checking",
+      "currency": "CLP",
+      "balance_reported": 850000,
+      "balance_calculated": 850000,
+      "status": "active"
+    },
+    {
+      "id": "fac_demo_ahorro",
+      "household_id": "hh_demo_faro",
+      "institution_id": "fin_demo_banco",
+      "name": "Ahorro demo",
+      "type": "savings",
+      "currency": "CLP",
+      "balance_reported": 2400000,
+      "balance_calculated": 2400000,
+      "status": "active"
+    },
+    {
+      "id": "fac_demo_tarjeta",
+      "household_id": "hh_demo_faro",
+      "institution_id": "fin_demo_fintech",
+      "name": "Tarjeta de crédito demo",
+      "type": "credit_card",
+      "currency": "CLP",
+      "balance_reported": 0,
+      "balance_calculated": 0,
+      "original_amount": 5000000,
+      "status": "active"
+    },
+    {
+      "id": "fac_demo_efectivo",
+      "household_id": "hh_demo_faro",
+      "name": "Efectivo demo",
+      "type": "cash",
+      "currency": "CLP",
+      "balance_reported": 120000,
+      "balance_calculated": 120000,
+      "status": "active"
+    }
+  ],
+  "categories": [
+    {
+      "id": "cat_demo_salario",
+      "household_id": "hh_demo_faro",
+      "name": "Salario",
+      "kind": "income",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_freelance",
+      "household_id": "hh_demo_faro",
+      "name": "Trabajo adicional",
+      "kind": "income",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_alimentacion",
+      "household_id": "hh_demo_faro",
+      "name": "Alimentación",
+      "kind": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_transporte",
+      "household_id": "hh_demo_faro",
+      "name": "Transporte",
+      "kind": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_servicios",
+      "household_id": "hh_demo_faro",
+      "name": "Servicios básicos",
+      "kind": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_salud",
+      "household_id": "hh_demo_faro",
+      "name": "Salud",
+      "kind": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_entretencion",
+      "household_id": "hh_demo_faro",
+      "name": "Entretención",
+      "kind": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat_demo_transferencia",
+      "household_id": "hh_demo_faro",
+      "name": "Transferencia interna",
+      "kind": "transfer",
+      "status": "active"
+    }
+  ],
+  "income_sources": [
+    {
+      "id": "inc_demo_salario_jonathan",
+      "household_id": "hh_demo_faro",
+      "member_id": "mem_demo_jonathan",
+      "name": "Sueldo principal demo",
+      "type": "salary",
+      "expected_amount": 3500000,
+      "frequency": "monthly",
+      "status": "active"
+    },
+    {
+      "id": "inc_demo_salario_esposa",
+      "household_id": "hh_demo_faro",
+      "member_id": "mem_demo_esposa",
+      "name": "Sueldo esposa demo",
+      "type": "salary",
+      "expected_amount": 1500000,
+      "frequency": "monthly",
+      "status": "active"
+    },
+    {
+      "id": "inc_demo_bono",
+      "household_id": "hh_demo_faro",
+      "member_id": "mem_demo_jonathan",
+      "name": "Bono ocasional demo",
+      "type": "bonus",
+      "expected_amount": 500000,
+      "frequency": "irregular",
+      "status": "active"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "txn_demo_ingreso_salario_jonathan",
+      "account_id": "fac_demo_cta_corr",
+      "category_id": "cat_demo_salario",
+      "member_id": "mem_demo_jonathan",
+      "amount": 3500000,
+      "type": "income",
+      "description": "Sueldo mensual demo Jonathan",
+      "date": "2026-09-01",
+      "is_transfer": false,
+      "status": "posted"
+    },
+    {
+      "id": "txn_demo_ingreso_salario_esposa",
+      "account_id": "fac_demo_cta_corr",
+      "category_id": "cat_demo_salario",
+      "member_id": "mem_demo_esposa",
+      "amount": 1500000,
+      "type": "income",
+      "description": "Sueldo mensual demo esposa",
+      "date": "2026-09-01",
+      "is_transfer": false,
+      "status": "posted"
+    },
+    {
+      "id": "txn_demo_gasto_super",
+      "account_id": "fac_demo_cta_corr",
+      "category_id": "cat_demo_alimentacion",
+      "member_id": "mem_demo_jonathan",
+      "amount": 350000,
+      "type": "expense",
+      "description": "Supermercado demo",
+      "date": "2026-09-05",
+      "is_transfer": false,
+      "status": "posted"
+    },
+    {
+      "id": "txn_demo_gasto_transporte",
+      "account_id": "fac_demo_efectivo",
+      "category_id": "cat_demo_transporte",
+      "member_id": "mem_demo_esposa",
+      "amount": 65000,
+      "type": "expense",
+      "description": "Transporte mensual demo",
+      "date": "2026-09-10",
+      "is_transfer": false,
+      "status": "posted"
+    },
+    {
+      "id": "txn_demo_transferencia",
+      "account_id": "fac_demo_cta_corr",
+      "category_id": "cat_demo_transferencia",
+      "member_id": "mem_demo_jonathan",
+      "amount": 300000,
+      "type": "transfer",
+      "description": "Ahorro del mes demo",
+      "date": "2026-09-02",
+      "is_transfer": true,
+      "transfer_account_id": "fac_demo_ahorro",
+      "status": "posted"
+    }
+  ],
+  "budgets": [
+    {
+      "id": "bud_demo_2026_09",
+      "household_id": "hh_demo_faro",
+      "year_month": "2026-09",
+      "status": "active"
+    }
+  ],
+  "budget_categories": [
+    {
+      "id": "bcc_demo_alimentacion",
+      "budget_id": "bud_demo_2026_09",
+      "category_id": "cat_demo_alimentacion",
+      "planned_amount": 500000,
+      "actual_amount": 350000
+    },
+    {
+      "id": "bcc_demo_transporte",
+      "budget_id": "bud_demo_2026_09",
+      "category_id": "cat_demo_transporte",
+      "planned_amount": 100000,
+      "actual_amount": 65000
+    },
+    {
+      "id": "bcc_demo_servicios",
+      "budget_id": "bud_demo_2026_09",
+      "category_id": "cat_demo_servicios",
+      "planned_amount": 180000,
+      "actual_amount": 0
+    },
+    {
+      "id": "bcc_demo_salud",
+      "budget_id": "bud_demo_2026_09",
+      "category_id": "cat_demo_salud",
+      "planned_amount": 120000,
+      "actual_amount": 0
+    },
+    {
+      "id": "bcc_demo_entretencion",
+      "budget_id": "bud_demo_2026_09",
+      "category_id": "cat_demo_entretencion",
+      "planned_amount": 90000,
+      "actual_amount": 0
+    }
+  ],
+  "debts": [
+    {
+      "id": "deb_demo_tarjeta",
+      "household_id": "hh_demo_faro",
+      "account_id": "fac_demo_tarjeta",
+      "name": "Tarjeta de crédito demo",
+      "type": "credit_card",
+      "original_amount": 5000000,
+      "current_balance": 3850000,
+      "interest_rate": 2450,
+      "minimum_payment": 150000,
+      "due_day": 15,
+      "start_date": "2025-06-01",
+      "status": "active"
+    },
+    {
+      "id": "deb_demo_auto",
+      "household_id": "hh_demo_faro",
+      "name": "Crédito automóvil demo",
+      "type": "auto",
+      "original_amount": 12000000,
+      "current_balance": 7800000,
+      "interest_rate": 850,
+      "minimum_payment": 320000,
+      "due_day": 5,
+      "start_date": "2024-03-10",
+      "status": "active"
+    },
+    {
+      "id": "deb_demo_familiar",
+      "household_id": "hh_demo_faro",
+      "name": "Préstamo familiar demo",
+      "type": "personal",
+      "original_amount": 1500000,
+      "current_balance": 600000,
+      "interest_rate": 0,
+      "minimum_payment": 100000,
+      "due_day": 28,
+      "start_date": "2025-01-15",
+      "status": "active"
+    }
+  ],
+  "installments": [
+    {
+      "id": "ins_demo_tarjeta_2026_09",
+      "debt_id": "deb_demo_tarjeta",
+      "due_date": "2026-09-15",
+      "principal_amount": 120000,
+      "interest_amount": 24000,
+      "fee_amount": 6000,
+      "total_amount": 150000,
+      "status": "pending"
+    },
+    {
+      "id": "ins_demo_auto_2026_09",
+      "debt_id": "deb_demo_auto",
+      "due_date": "2026-09-05",
+      "principal_amount": 280000,
+      "interest_amount": 30000,
+      "fee_amount": 10000,
+      "total_amount": 320000,
+      "status": "pending"
+    },
+    {
+      "id": "ins_demo_familiar_2026_09",
+      "debt_id": "deb_demo_familiar",
+      "due_date": "2026-09-28",
+      "principal_amount": 100000,
+      "interest_amount": 0,
+      "fee_amount": 0,
+      "total_amount": 100000,
+      "status": "pending"
+    }
+  ],
+  "debt_payments": [
+    {
+      "id": "dpy_demo_auto_2026_08",
+      "debt_id": "deb_demo_auto",
+      "amount": 320000,
+      "type": "regular",
+      "payment_date": "2026-08-05",
+      "recorded_by": "local-user"
+    },
+    {
+      "id": "dpy_demo_tarjeta_2026_08",
+      "debt_id": "deb_demo_tarjeta",
+      "amount": 360000,
+      "type": "extraordinary",
+      "payment_date": "2026-08-20",
+      "recorded_by": "local-user"
+    }
+  ],
+  "financial_goals": [
+    {
+      "id": "gol_demo_liquidar_tarjeta",
+      "household_id": "hh_demo_faro",
+      "name": "Liquidar tarjeta demo",
+      "type": "payoff_debt",
+      "target_amount": 3850000,
+      "current_amount": 0,
+      "deadline": "2027-03-31",
+      "priority": "high",
+      "status": "active"
+    },
+    {
+      "id": "gol_demo_fondo_emergencia",
+      "household_id": "hh_demo_faro",
+      "name": "Fondo de emergencia demo",
+      "type": "emergency_fund",
+      "target_amount": 6000000,
+      "current_amount": 2400000,
+      "deadline": "2026-12-31",
+      "priority": "medium",
+      "status": "active"
+    }
+  ]
+}

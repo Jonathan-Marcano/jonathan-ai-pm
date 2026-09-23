@@ -34,6 +34,8 @@ from faroflow.models import (
     Client,
     Deliverable,
     ExternalIdentity,
+    Habit,
+    HabitCompletion,
     Meeting,
     Project,
     Task,
@@ -224,6 +226,14 @@ class DomainStore:
             )
             if identity_id:
                 raise DomainRuleError("Unlink Drive files before deleting the deliverable")
+        elif kind == "habit":
+            completion_id = self.session.scalar(
+                select(HabitCompletion.id)
+                .where(HabitCompletion.habit_id == entity_id)
+                .limit(1)
+            )
+            if completion_id:
+                raise DomainRuleError("Habit still has recorded completions")
 
     def associate_meeting(self, meeting_id: str, project_id: str) -> Meeting:
         """Confirm a project for an imported meeting and reuse that association later."""
@@ -1170,6 +1180,32 @@ class DomainStore:
             if not entity.translated_text:
                 raise DomainRuleError("A translation requires non-empty text")
 
+        if isinstance(entity, Habit):
+            if entity.goal_type == "binary" and entity.target_quantity != 1:
+                raise DomainRuleError("Binary habits must have a target_quantity of 1")
+            if entity.frequency == "weekly":
+                if entity.specific_days:
+                    raise DomainRuleError("Weekly habits cannot define specific_days")
+                if entity.weekly_target is None:
+                    entity.weekly_target = 1
+            if entity.frequency == "specific_days":
+                if not entity.specific_days:
+                    raise DomainRuleError(
+                        "specific_days frequency requires a day selection"
+                    )
+                if len(set(entity.specific_days)) != len(entity.specific_days):
+                    raise DomainRuleError("specific_days cannot repeat weekdays")
+                if any(not (1 <= day <= 7) for day in entity.specific_days):
+                    raise DomainRuleError("specific_days must be ISO weekdays 1..7")
+            else:
+                entity.specific_days = None
+            if entity.frequency not in ("weekly", "specific_days"):
+                entity.weekly_target = None
+
+        if isinstance(entity, HabitCompletion):
+            if entity.quantity < 1:
+                raise DomainRuleError("A completion requires quantity >= 1")
+
         if isinstance(entity, Meeting):
             starts_at_history = inspect(entity).attrs["starts_at"].history
             if starts_at_history.has_changes():
@@ -1246,3 +1282,6 @@ class DomainStore:
                     raise DomainRuleError(
                         "Action item and deliverable must belong to the same project"
                     )
+
+        if isinstance(entity, HabitCompletion):
+            self._required("habit", entity.habit_id)

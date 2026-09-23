@@ -20,6 +20,9 @@ COLLECTIONS = (
     ("work_log", "work_logs"),
     ("capture", "captures"),
     ("translation", "translations"),
+    ("habit", "habits"),
+    ("habit_completion", "habit_completions"),
+    ("bandeja", "bandeja_items"),
 )
 
 
@@ -34,7 +37,7 @@ def export_snapshot(session: Session) -> dict[str, Any]:
         session.scalars(select(AuditEvent).order_by(AuditEvent.occurred_at, AuditEvent.id))
     )
     return {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "exported_at": utc_now(),
         "entities": entities,
     }

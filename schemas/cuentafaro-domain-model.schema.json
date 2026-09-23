@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Jonathan-Marcano/cuentafaro/schemas/domain-model.schema.json",
+  "title": "CuentaFaro domain model",
+  "description": "Contrato de dominio de CuentaFaro (Fase 1 MVP). Montos son enteros en unidades menores de CLP; nunca float.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "currency": {
+      "const": "CLP"
+    },
+    "timezone": {
+      "const": "America/Santiago"
+    },
+    "households": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/household"
+      }
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/member"
+      }
+    },
+    "institutions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/institution"
+      }
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/account"
+      }
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/category"
+      }
+    },
+    "income_sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/income_source"
+      }
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transaction"
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/budget"
+      }
+    },
+    "budget_categories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/budget_category"
+      }
+    },
+    "debts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/debt"
+      }
+    },
+    "installments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/installment"
+      }
+    },
+    "debt_payments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/debt_payment"
+      }
+    },
+    "financial_goals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/financial_goal"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "currency",
+    "timezone",
+    "households",
+    "members",
+    "institutions",
+    "accounts",
+    "categories",
+    "income_sources",
+    "transactions"
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]+$"
+    },
+    "amount": {
+      "description": "Monto entero en unidades menores de CLP (pesos). Nunca float.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "year_month": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}$"
+    },
+    "household": {
+      "type": "object",
+      "required": ["id", "name", "status", "timezone"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "status": { "enum": ["active", "paused", "archived"] },
+        "timezone": { "type": "string" }
+      }
+    },
+    "member": {
+      "type": "object",
+      "required": ["id", "household_id", "name", "role", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "role": { "enum": ["admin", "member"] },
+        "status": { "enum": ["active", "inactive"] }
+      }
+    },
+    "institution": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "enum": ["bank", "fintech", "store", "other"] },
+        "status": { "enum": ["active", "inactive"] }
+      }
+    },
+    "account": {
+      "type": "object",
+      "required": ["id", "household_id", "name", "type", "currency", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "institution_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "enum": ["checking", "savings", "credit_card", "cash", "wallet", "loan_line"] },
+        "currency": { "const": "CLP" },
+        "balance_reported": { "$ref": "#/$defs/amount" },
+        "balance_calculated": { "$ref": "#/$defs/amount" },
+        "original_amount": { "$ref": "#/$defs/amount" },
+        "status": { "enum": ["active", "paused", "closed"] }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": ["id", "household_id", "name", "kind", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "parent_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "kind": { "enum": ["income", "expense", "transfer"] },
+        "status": { "enum": ["active", "inactive"] }
+      }
+    },
+    "income_source": {
+      "type": "object",
+      "required": ["id", "household_id", "name", "type", "expected_amount", "frequency", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "member_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "enum": ["salary", "freelance", "bonus", "other"] },
+        "expected_amount": { "$ref": "#/$defs/amount" },
+        "frequency": { "enum": ["monthly", "biweekly", "weekly", "irregular"] },
+        "status": { "enum": ["active", "inactive"] }
+      }
+    },
+    "transaction": {
+      "type": "object",
+      "required": ["id", "account_id", "amount", "type", "date", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "account_id": { "$ref": "#/$defs/id" },
+        "category_id": { "$ref": "#/$defs/id" },
+        "member_id": { "$ref": "#/$defs/id" },
+        "amount": {
+          "description": "Valor absoluto en unidades de CLP. El signo deriva del tipo.",
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "type": { "enum": ["income", "expense", "transfer", "payment", "adjustment"] },
+        "description": { "type": "string", "maxLength": 300 },
+        "date": { "$ref": "#/$defs/date" },
+        "is_transfer": { "type": "boolean", "default": false },
+        "transfer_account_id": { "$ref": "#/$defs/id" },
+        "reference": { "type": "string", "maxLength": 200 },
+        "status": { "enum": ["posted", "voided"] }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["id", "household_id", "year_month", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "year_month": { "$ref": "#/$defs/year_month" },
+        "status": { "enum": ["draft", "active", "closed"] }
+      }
+    },
+    "budget_category": {
+      "type": "object",
+      "required": ["id", "budget_id", "category_id", "planned_amount"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "budget_id": { "$ref": "#/$defs/id" },
+        "category_id": { "$ref": "#/$defs/id" },
+        "planned_amount": { "$ref": "#/$defs/amount" },
+        "actual_amount": { "$ref": "#/$defs/amount" }
+      }
+    },
+    "debt": {
+      "type": "object",
+      "required": [
+        "id",
+        "household_id",
+        "name",
+        "type",
+        "original_amount",
+        "current_balance",
+        "interest_rate",
+        "minimum_payment",
+        "due_day",
+        "status"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "account_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "enum": ["credit_card", "consumer_loan", "auto", "mortgage", "personal", "other"] },
+        "original_amount": { "$ref": "#/$defs/amount" },
+        "current_balance": { "$ref": "#/$defs/amount" },
+        "interest_rate": { "description": "Tasa anual en centésimos de porcentaje (1250 = 12.50%).", "type": "integer", "minimum": 0 },
+        "minimum_payment": { "$ref": "#/$defs/amount" },
+        "due_day": { "description": "Día del mes del vencimiento (1-31).", "type": "integer", "minimum": 1, "maximum": 31 },
+        "start_date": { "$ref": "#/$defs/date" },
+        "status": { "enum": ["active", "paid_off", "closed"] }
+      }
+    },
+    "installment": {
+      "type": "object",
+      "required": ["id", "debt_id", "due_date", "total_amount", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "debt_id": { "$ref": "#/$defs/id" },
+        "due_date": { "$ref": "#/$defs/date" },
+        "principal_amount": { "$ref": "#/$defs/amount" },
+        "interest_amount": { "$ref": "#/$defs/amount" },
+        "fee_amount": { "$ref": "#/$defs/amount" },
+        "total_amount": { "$ref": "#/$defs/amount" },
+        "status": { "enum": ["pending", "paid", "overdue"] }
+      }
+    },
+    "debt_payment": {
+      "type": "object",
+      "required": ["id", "debt_id", "amount", "type", "payment_date", "recorded_by"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "debt_id": { "$ref": "#/$defs/id" },
+        "installment_id": { "$ref": "#/$defs/id" },
+        "amount": { "$ref": "#/$defs/amount" },
+        "type": { "enum": ["regular", "extraordinary"] },
+        "payment_date": { "$ref": "#/$defs/date" },
+        "recorded_by": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "financial_goal": {
+      "type": "object",
+      "required": ["id", "household_id", "name", "type", "target_amount", "current_amount", "priority", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "household_id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "enum": ["payoff_debt", "save", "emergency_fund"] },
+        "target_amount": { "$ref": "#/$defs/amount" },
+        "current_amount": { "$ref": "#/$defs/amount" },
+        "deadline": { "$ref": "#/$defs/date" },
+        "priority": { "enum": ["low", "medium", "high", "critical"] },
+        "status": { "enum": ["active", "achieved", "abandoned"] }
+      }
+    }
+  }
+}

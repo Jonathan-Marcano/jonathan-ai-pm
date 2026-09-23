@@ -89,7 +89,7 @@ def test_snapshot_round_trip_preserves_entities_and_audit(api_client) -> None:
     exported = api_client.get("/api/v1/snapshots/export")
     assert exported.status_code == 200
     payload = exported.json()
-    assert payload["schema_version"] == "1.1"
+    assert payload["schema_version"] == "1.2"
     assert len(payload["entities"]["audit_events"]) == 3
 
     engine = build_engine("sqlite:///:memory:")
