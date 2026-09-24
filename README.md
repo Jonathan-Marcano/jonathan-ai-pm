@@ -206,6 +206,21 @@ escribiendo capturas locales (`channel: telegram`) sin red ni credenciales.
 Capturas de verificación 1536×1024: `capturas_fases/` (fuera de git por
 posible contenido personal).
 
+### Estado de las fases web (ciclo de adaptación a referencias)
+- F1 (`f80a3b3`) shell y tokens. F2 (`fbc7408`) Mi Día. F3 (`25e1e01` + checklist
+  persistente en `b70dfbc`) detalle de proyecto 70/30 con checklist de
+  aceptación. F4 (`615d2b7` + `70eb13b`) egresos 72/28 con búsqueda, filtro por
+  cuenta y nombres legibles. F5 (`19b9668` + `00d6208`) hábitos con detalle del
+  seleccionado sin salir. F6 (`d377248` + `da6261d` + `70a22b6`) bandeja
+  master-detail con búsqueda y filtro por tipo + documentación del circuito
+  Telegram→Drive. F7 capturas 1536×1024 (escritorio) y 390×844 (móvil).
+  F8 este informe.
+- Verificación: `pytest` 594 pruebas verdes; endpoints reales responden 200 y
+  los adaptadores sin autorización responden 503 por diseño.
+- Pendiente de persona: comparación visual pixel a pixel de las capturas y
+  (si se desea) autorizar credenciales reales para Telegram/Drive siguiendo la
+  sección "Circuito Telegram → Drive → importación local".
+
 ## Working agreements
 
 - GitHub is the source of truth for code, schemas, and versioned technical documentation.
