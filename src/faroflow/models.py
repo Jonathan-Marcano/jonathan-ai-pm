@@ -90,6 +90,23 @@ class Deliverable(TimestampMixin, Base):
     evidence_url: Mapped[str | None] = mapped_column(String(500))
 
 
+class DeliverableChecklistItem(TimestampMixin, Base):
+    __tablename__ = "deliverable_checklist_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "deliverable_id", "position", name="uq_deliverable_checklist_position"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    deliverable_id: Mapped[str] = mapped_column(
+        ForeignKey("deliverables.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(String(500))
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Task(TimestampMixin, Base):
     __tablename__ = "tasks"
     __table_args__ = (
@@ -438,4 +455,5 @@ MODEL_BY_KIND = {
     "habit": Habit,
     "habit_completion": HabitCompletion,
     "bandeja": BandejaItem,
+    "deliverable_checklist": DeliverableChecklistItem,
 }

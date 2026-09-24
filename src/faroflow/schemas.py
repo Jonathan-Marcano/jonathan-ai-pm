@@ -56,6 +56,7 @@ EntityKind = Literal[
     "habit",
     "habit_completion",
     "bandeja",
+    "deliverable_checklist",
 ]
 AuditAction = Literal["create", "update", "delete"]
 SnapshotVersion = Literal["1.0", "1.1", "1.2"]
@@ -149,6 +150,24 @@ class DeliverableUpdate(StrictModel):
 
 
 class DeliverableRead(Timestamps, DeliverableCreate):
+    pass
+
+
+class DeliverableChecklistCreate(StrictModel):
+    id: EntityId
+    deliverable_id: EntityId
+    text: Name
+    done: bool = False
+    position: int = 0
+
+
+class DeliverableChecklistUpdate(StrictModel):
+    text: Name | None = None
+    done: bool | None = None
+    position: int | None = None
+
+
+class DeliverableChecklistRead(Timestamps, DeliverableChecklistCreate):
     pass
 
 

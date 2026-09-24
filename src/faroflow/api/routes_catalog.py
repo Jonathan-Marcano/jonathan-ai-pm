@@ -1,12 +1,16 @@
 from datetime import date
 from typing import Annotated
 
+import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from faroflow.schemas import (
     ClientCreate,
     ClientRead,
     ClientUpdate,
+    DeliverableChecklistCreate,
+    DeliverableChecklistRead,
+    DeliverableChecklistUpdate,
     DeliverableCreate,
     DeliverableRead,
     DeliverableStatus,
@@ -24,6 +28,7 @@ from faroflow.schemas import (
 )
 from faroflow.services import DomainRuleError
 
+from ..models import DeliverableChecklistItem
 from .deps import (
     DbSession,
     PageLimit,
@@ -236,3 +241,58 @@ def review_deliverable(entity_id: str, session: DbSession):
 @router.delete("/api/v1/deliverables/{entity_id}", status_code=204, tags=["deliverables"])
 def delete_deliverable(entity_id: str, session: DbSession):
     return delete_record(session, "deliverable", entity_id)
+
+
+@router.get(
+    "/api/v1/deliverables/{entity_id}/checklist",
+    response_model=list[DeliverableChecklistRead],
+    tags=["deliverables"],
+)
+def list_deliverable_checklist(entity_id: str, session: DbSession):
+    get_record(session, "deliverable", entity_id)
+    rows = (
+        session.query(DeliverableChecklistItem)
+        .filter(DeliverableChecklistItem.deliverable_id == entity_id)
+        .order_by(DeliverableChecklistItem.position, DeliverableChecklistItem.created_at)
+        .all()
+    )
+    return rows
+
+
+@router.post(
+    "/api/v1/deliverables/{entity_id}/checklist",
+    response_model=DeliverableChecklistRead,
+    tags=["deliverables"],
+)
+def create_deliverable_checklist_item(
+    entity_id: str, payload: DeliverableChecklistCreate, session: DbSession
+):
+    get_record(session, "deliverable", entity_id)
+    if payload.deliverable_id != entity_id:
+        raise HTTPException(status_code=422, detail="deliverable_id must match the URL")
+    if payload.position <= 0:
+        last = (
+            session.query(sa.func.max(DeliverableChecklistItem.position))
+            .filter(DeliverableChecklistItem.deliverable_id == entity_id)
+            .scalar()
+        )
+        payload = payload.model_copy(update={"position": int(last or 0) + 1})
+    return create_record(session, "deliverable_checklist", payload)
+
+
+@router.patch(
+    "/api/v1/deliverables/checklist/{item_id}",
+    response_model=DeliverableChecklistRead,
+    tags=["deliverables"],
+)
+def update_deliverable_checklist_item(
+    item_id: str, payload: DeliverableChecklistUpdate, session: DbSession
+):
+    return update_record(session, "deliverable_checklist", item_id, payload)
+
+
+@router.delete(
+    "/api/v1/deliverables/checklist/{item_id}", status_code=204, tags=["deliverables"]
+)
+def delete_deliverable_checklist_item(item_id: str, session: DbSession):
+    return delete_record(session, "deliverable_checklist", item_id)

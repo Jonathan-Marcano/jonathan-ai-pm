@@ -986,6 +986,9 @@ button { font-family: inherit; }
 .flujo-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .flujo-total { font-size: var(--ff-text-sm); color: var(--ff-text-muted); }
 .flujo-total b { color: var(--ff-text); font-size: var(--ff-text-lg); }
+.flujo-toolbar .js-search { display: grid; place-items: center; color: var(--ff-text-faint); }
+.flujo-search { width: 100%; max-width: 260px; }
+.flujo-toolbar .flujo-search:is(select) { width: auto; max-width: 220px; }
 
 /* Detalle de proyecto / reunión */
 .detail-head h1 { font-size: var(--ff-text-2xl); }
@@ -1129,6 +1132,8 @@ button { font-family: inherit; }
   padding: 12px 6px;
   border-bottom: 1px solid var(--ff-border);
 }
+.check-item .item-main { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.check-item .item-main .btn { flex: none; }
 .check-item:last-child { border-bottom: none; }
 .check-box {
   width: 22px;

@@ -994,9 +994,23 @@ export async function renderProyectoDetalle(el, projectId) {
       const rows = (deliverables || []).length
         ? `<div class="list">${(deliverables || []).map((d) => deliverableCell(d, d.id === (selected && selected.id))).join('')}</div>`
         : emptyBlock('Sin entregables registrados.');
+      const checklist = selected ? (checklistCache.get(selected.id) || []) : [];
+      const criteriaPkg = checklist.length
+        ? checklist.map((c) => `
+            <label class="check-item check-criterion ${c.done ? 'done' : ''}">
+              <button class="check-box" data-check-toggle="${esc(c.id)}" aria-label="${c.done ? 'Quitar marca de cumplido' : 'Marcar como cumplido'}" type="button">${icon('check')}</button>
+              <div class="item-main">
+                <div class="item-title">${esc(c.text)}</div>
+                <button class="btn btn-ghost btn-xs" data-check-remove="${esc(c.id)}" title="Eliminar criterio" type="button">${icon('trash')}</button>
+              </div>
+            </label>`).join('')
+        : (selected && selected.acceptance_criteria
+          ? `<p>${esc(selected.acceptance_criteria)}</p>`
+          : '');
       const detail = selected
         ? `<div class="deliverable-detail card" data-deliverable-detail="1">
             <div class="detail-actions">
+              <button class="btn btn-ghost btn-sm" data-check-add="${esc(selected.id)}" type="button">${icon('plus')} Añadir criterio</button>
               <button class="btn btn-primary btn-sm" data-deliverable-advance="${esc(selected.id)}" data-status="${esc(selected.status)}">
                 ${icon('arrow')} ${selected.status === 'planned' ? 'Registrar avance' : selected.status === 'in_progress' ? 'Enviar a revisión' : 'Registrar avance'}
               </button>
@@ -1005,7 +1019,7 @@ export async function renderProyectoDetalle(el, projectId) {
             <div class="item-sub">Vence ${esc(fmtDate(selected.due_at))} · ${badge(selected.status)}</div>
             <div class="dv-criteria">
               <b>Criterios de aceptación</b>
-              <p>${esc(selected.acceptance_criteria || 'Sin criterios definidos todavía.')}</p>
+              ${criteriaPkg || '<p>Sin criterios definidos todavía.</p>'}
             </div>
             ${selected.drive_url ? `<p class="dv-link">${icon('drive')} <a href="${esc(selected.drive_url)}" target="_blank" rel="noopener">Abrir documento en Drive</a></p>` : ''}
             ${selected.evidence_url ? `<p class="dv-link">${icon('doc')} <a href="${esc(selected.evidence_url)}" target="_blank" rel="noopener">Ver evidencia</a></p>` : ''}
@@ -1096,6 +1110,14 @@ export async function renderProyectoDetalle(el, projectId) {
     ];
     const current = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'resumen';
     let selectedDeliverable = (deliverables || [])[0] ? (deliverables || [])[0].id : null;
+    const checklistCache = new Map();
+    const loadChecklist = async (deliverableId) => {
+      if (checklistCache.has(deliverableId)) return checklistCache.get(deliverableId);
+      const items = await api(`/api/v1/deliverables/${encodeURIComponent(deliverableId)}/checklist`).catch(() => []);
+      checklistCache.set(deliverableId, items || []);
+      return checklistCache.get(deliverableId);
+    };
+    loadChecklist(selectedDeliverable).catch(() => {});
 
     const renderTabBody = (key) => {
       const body = el.querySelector('#project-tab-body');
@@ -1209,7 +1231,73 @@ export async function renderProyectoDetalle(el, projectId) {
         if (delSel) {
           selectedDeliverable = delSel.dataset.deliverableSelect;
           el.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'entregables'));
+          await loadChecklist(selectedDeliverable);
           renderTabBody('entregables');
+          return;
+        }
+        const checkToggle = event.target.closest('[data-check-toggle]');
+        if (checkToggle) {
+          const item = checklistCache.get(selectedDeliverable)?.find((c) => c.id === checkToggle.dataset.checkToggle);
+          if (!item) return;
+          try {
+            await api(`/api/v1/deliverables/checklist/${encodeURIComponent(item.id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ done: !item.done }),
+            });
+            item.done = !item.done;
+            toast(item.done ? 'Criterio cumplido' : 'Criterio marcado como pendiente', 'success');
+            renderTabBody('entregables');
+          } catch (err) {
+            toast(`No se pudo actualizar: ${err.message}`, 'error');
+          }
+          return;
+        }
+        const checkAdd = event.target.closest('[data-check-add]');
+        if (checkAdd) {
+          const deliverableId = checkAdd.dataset.checkAdd;
+          const form = await openForm({
+            title: 'Añadir criterio de aceptación',
+            submitLabel: 'Añadir',
+            fields: [
+              { name: 'text', label: 'Criterio', required: true, placeholder: 'Ej. Los datos migrados coinciden con la fuente' },
+            ],
+          });
+          if (!form) return;
+          try {
+            const created = await api(`/api/v1/deliverables/${encodeURIComponent(deliverableId)}/checklist`, {
+              method: 'POST',
+              body: JSON.stringify({
+                id: genEntityId('dcl', form.text),
+                deliverable_id: deliverableId,
+                text: form.text,
+                done: false,
+                position: 0,
+              }),
+            });
+            const items = checklistCache.get(deliverableId) || [];
+            items.push(created);
+            checklistCache.set(deliverableId, items);
+            toast('Criterio añadido', 'success');
+            renderTabBody('entregables');
+          } catch (err) {
+            toast(`No se pudo añadir: ${err.message}`, 'error');
+          }
+          return;
+        }
+        const checkRemove = event.target.closest('[data-check-remove]');
+        if (checkRemove) {
+          const itemId = checkRemove.dataset.checkRemove;
+          try {
+            await api(`/api/v1/deliverables/checklist/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+            checklistCache.set(
+              selectedDeliverable,
+              (checklistCache.get(selectedDeliverable) || []).filter((c) => c.id !== itemId),
+            );
+            toast('Criterio eliminado', 'success');
+            renderTabBody('entregables');
+          } catch (err) {
+            toast(`No se pudo eliminar: ${err.message}`, 'error');
+          }
           return;
         }
         const advance = event.target.closest('[data-deliverable-advance]');
