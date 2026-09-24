@@ -45,7 +45,10 @@ export async function renderBandeja(el) {
   el.innerHTML = `
     <div class="page-head">
       <h1>Bandeja</h1>
-      <p class="page-sub">Capturas manuales y (futuras) de Telegram. Clasifica con confirmación explícita.</p>
+      <p class="page-sub">Capturas manuales y de Telegram. Clasifica una a una con tu criterio.</p>
+      <div class="page-head-actions">
+        <button class="btn btn-primary" data-capture-open type="button">${icon('plus')} Capturar</button>
+      </div>
     </div>
     ${skeleton(5)}`;
   try {
@@ -63,54 +66,76 @@ export async function renderBandeja(el) {
 
     const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
     const tab = query.get('status') || 'pending';
+    const selectedId = query.get('item') || '';
+    const itemsById = new Map((items || []).map((i) => [i.id, i]));
+    const selected = selectedId ? itemsById.get(selectedId) : undefined;
+    const selectedIsPending = !!selected && PENDING_STATUSES.includes(selected.status);
 
-    el.innerHTML = `
-      <div class="page-head">
-        <h1>Bandeja</h1>
-        <p class="page-sub">Capturas manuales y (futuras) de Telegram. Clasifica con confirmación explícita.</p>
-      </div>
-      <section class="card bandeja-compose" style="margin-bottom:16px">
-        <div class="card-head"><h2>${icon('plus')} Nueva captura manual</h2></div>
-        <div class="card-body">
-          <textarea id="bj-compose" class="capture-textarea" rows="3" maxlength="4000" placeholder="Ejemplo: «Pagué 15.000 CLP en el supermercado»"></textarea>
-          <div class="quick-actions" style="margin-top:10px">
-            <span class="item-sub">Tipo:</span>
-            ${Object.entries(KIND_LABELS)
-              .filter(([k]) => k !== 'unknown')
-              .map(
-                ([k, label]) =>
-                  `<button class="btn btn-sm ${k === 'task' ? 'btn-soft' : 'btn-ghost'}" data-bj-kind="${esc(k)}">${esc(label)}</button>`,
-              )
-              .join('')}
-          </div>
-          <div class="modal-actions">
-            <button class="btn btn-accent" id="bj-send">${icon('send')} Enviar a la bandeja</button>
-          </div>
+    const syncHtml = `
+      <section class="sync-strip">
+        <div class="sync-icon">${icon('send')}</div>
+        <div class="sync-info">
+          <b>${esc(pending.length)} ${pending.length === 1 ? 'captura pendiente' : 'capturas pendientes'}</b>
+          <span>Faro sugiere; tú decides el destino de cada una.</span>
         </div>
-      </section>
+        <div class="sync-actions">
+          <button class="btn btn-ghost btn-sm" id="bj-refresh" type="button">${icon('clock')} Refrescar</button>
+        </div>
+      </section>`;
 
+    const tabsHtml = `
       <div class="tabs" role="tablist" aria-label="Estado de la bandeja">
         <button class="tab ${tab === 'pending' ? 'active' : ''}" data-tab="pending">Pendientes (${pending.length})</button>
         <button class="tab ${tab === 'applied' ? 'active' : ''}" data-tab="applied">Aplicadas (${applied.length})</button>
         <button class="tab ${tab === 'discarded' ? 'active' : ''}" data-tab="discarded">Descartadas (${discarded.length})</button>
         <button class="tab ${tab === 'error' ? 'active' : ''}" data-tab="error">Errores (${errors.length})</button>
-      </div>
+      </div>`;
 
-      <section class="card">
-        <div class="card-body no-pad">
-          ${renderList(tab, pending, applied, discarded, errors)}
+    el.innerHTML = `
+      <div class="page-head">
+        <h1>Bandeja</h1>
+        <p class="page-sub">${esc(pending.length)} ${pending.length === 1 ? 'captura pendiente' : 'capturas pendientes'} por clasificar.</p>
+        <div class="page-head-actions">
+          <button class="btn btn-primary" data-capture-open type="button">${icon('plus')} Capturar</button>
         </div>
-      </section>`;
+      </div>
+      ${syncHtml}
+      <div class="split-bandeja">
+        <aside class="bandeja-list-host ${selected ? 'is-hidden' : ''}" id="bj-list-host">
+          ${tabsHtml}
+          <section class="card">
+            <div class="card-body no-pad">
+              ${renderList(tab, pending, applied, discarded, errors, selectedId)}
+            </div>
+          </section>
+        </aside>
+        <section class="bandeja-detail-host ${selected ? '' : 'is-hidden'}" id="bj-detail-host" aria-live="polite">
+          <section class="card">
+            <div class="card-body">
+              ${renderDetail(selected, { selectedIsPending })}
+            </div>
+          </section>
+        </section>
+      </div>`;
 
-    bindCompose(el);
     bindTabs(el);
-    bindItems(el, { projects, habits, households, accounts });
+    bindItems(el, { projects, habits, households, accounts, itemsById });
   } catch (err) {
     el.innerHTML = `<div class="page-head"><h1>Bandeja</h1></div>${errorBlock(`No disponible: ${esc(err.message)}`)}`;
   }
 }
 
-function renderList(tab, pending, applied, discarded, errors) {
+const KIND_ICONS = {
+  task: 'check',
+  expense: 'coin',
+  income: 'arrow',
+  habit: 'target',
+  note: 'doc',
+  reference: 'send',
+  unknown: 'info',
+};
+
+function renderList(tab, pending, applied, discarded, errors, selectedId) {
   const map = { pending, applied, discarded, error: errors };
   const list = map[tab] || [];
   if (!list.length) {
@@ -120,82 +145,90 @@ function renderList(tab, pending, applied, discarded, errors) {
         : 'No hay elementos en este estado.',
     )}</div>`;
   }
-  return `<div class="list" style="padding:0 18px">
+  return `<div class="bandeja-list">
     ${list
       .map(
-        (item) => `
-        <div class="item">
-          <div class="item-main">
-            <div class="item-title">${esc(item.original_text)}</div>
-            <div class="item-sub">
-              ${statusBadge(item.status)}
-              <span class="kind-chip kind-${esc(item.kind || 'unknown')}">${esc(KIND_LABELS[item.kind] || item.kind)}</span>
-              <span>· ${esc(item.channel || '')}${item.author ? ` · ${esc(item.author)}` : ''}</span>
-              <span>· ${esc(fmtDate(item.original_at))} ${esc(fmtTime(item.original_at))}</span>
-              ${item.amount ? ` · <b>$${esc(Number(item.amount).toLocaleString('es-CL'))}</b>` : ''}
-              ${item.destination_module ? ` → ${esc(item.destination_module)}` : ''}
-            </div>
-            ${item.status === 'applied' || item.status === 'discarded' ? `
-              <div class="item-sub decision-trail">
-                ${icon('clock')} Resuelto ${esc(fmtDate(item.resolved_at))} ${esc(fmtTime(item.resolved_at))}
-                ${item.destination_ref ? ` · → ${esc(item.destination_ref)}` : ''}
-                ${item.decision_note ? ` · <span class="decision-note">«${esc(item.decision_note)}»</span>` : ''}
-              </div>` : ''}
-            ${item.error ? `<div class="item-sub text-danger">${esc(item.error)}</div>` : ''}
-          </div>
-          <div class="item-actions">
-            ${item.status === 'error' ? `<button class="btn btn-ghost btn-xs" data-bj-retry="${esc(item.id)}">Reintentar</button>` : ''}
-            ${PENDING_STATUSES.includes(item.status) ? `
-              <button class="btn btn-primary btn-xs" data-bj-apply="${esc(item.id)}">${icon('check')} Clasificar</button>
-              <button class="btn btn-ghost btn-xs" data-bj-refine="${esc(item.id)}">${icon('edit')} Editar</button>
-              <button class="btn btn-danger-soft btn-xs" data-bj-discard="${esc(item.id)}">${icon('trash')} Descartar</button>` : ''}
-          </div>
-        </div>`,
+        (item) => {
+          const isPending = PENDING_STATUSES.includes(item.status);
+          const active = item.id === selectedId;
+          const kindIcon = KIND_ICONS[item.kind] || 'info';
+          return `
+        <div class="bandeja-item ${active ? 'active' : ''}">
+          <button class="bandeja-row" data-bj-select="${esc(item.id)}" type="button">
+            <span class="bandeja-icon">${icon(kindIcon)}</span>
+            <span class="bandeja-content">
+              <span class="bandeja-title">${esc(item.original_text)}</span>
+              <span class="bandeja-meta">
+                ${statusBadge(item.status)}
+                <span class="kind-chip kind-${esc(item.kind || 'unknown')}">${esc(KIND_LABELS[item.kind] || item.kind)}</span>
+                ${item.amount ? `<b>$${esc(Number(item.amount).toLocaleString('es-CL'))}</b>` : ''}
+                <span>${esc(fmtDate(item.original_at))} ${esc(fmtTime(item.original_at))}</span>
+                ${item.author ? `· ${esc(item.author)}` : ''}
+              </span>
+              ${item.status === 'applied' || item.status === 'discarded' ? `
+                <span class="bandeja-meta">${icon('check')} Resuelto ${esc(fmtDate(item.resolved_at))} ${esc(fmtTime(item.resolved_at))}</span>` : ''}
+            </span>
+          </button>
+        </div>`;
+        },
       )
       .join('')}
   </div>`;
 }
 
-function bindCompose(el) {
-  const text = el.querySelector('#bj-compose');
-  if (!text) return;
-  const send = el.querySelector('#bj-send');
-  let kind = 'task';
-  el.querySelectorAll('[data-bj-kind]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      kind = btn.dataset.bjKind;
-      el.querySelectorAll('[data-bj-kind]').forEach((b) => {
-        b.className = `btn btn-sm ${b === btn ? 'btn-soft' : 'btn-ghost'}`;
-      });
-    });
-  });
-  send.addEventListener('click', async () => {
-    const originalText = text.value.trim();
-    if (!originalText) {
-      toast('Escribe el contenido de la captura', 'error');
-      return;
-    }
-    try {
-      await receiveBandeja({
-        channel: 'manual',
-        author: 'yo',
-        source_ref: `manual_${Date.now()}`,
-        original_text: originalText,
-        kind,
-      });
-      toast('Captura recibida en la bandeja', 'success');
-      text.value = '';
-      setTimeout(() => renderBandeja(el), 250);
-    } catch (err) {
-      toast(`No se pudo capturar: ${err.message}`, 'error');
-    }
-  });
-  text.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) send.click();
-  });
+function renderDetail(item, { selectedIsPending }) {
+  if (!item) {
+    return `${emptyBlock('Selecciona una captura de la lista para revisarla aquí.')}`;
+  }
+  const suggestion = suggestCapture(item.original_text || '');
+  const resolved = item.status === 'applied' || item.status === 'discarded';
+  return `
+    <div class="detail-back">
+      <button class="btn btn-ghost btn-sm bandeja-back" data-bj-back type="button">${icon('arrow')} Volver a la lista</button>
+    </div>
+    <div class="detail-head">
+      <div class="detail-title">«${esc(item.original_text)}»</div>
+      <div class="bandeja-meta">
+        ${statusBadge(item.status)}
+        <span class="kind-chip kind-${esc(item.kind || 'unknown')}">${esc(KIND_LABELS[item.kind] || item.kind)}</span>
+        ${item.amount ? `<b class="detail-amount">$${esc(Number(item.amount).toLocaleString('es-CL'))}</b>` : ''}
+        ${item.channel ? `· ${esc(item.channel)}` : ''}
+        ${item.author ? `· ${esc(item.author)}` : ''}
+      </div>
+    </div>
+    ${selectedIsPending && suggestion && suggestion.kind !== 'unknown' ? `
+      <div class="capture-suggest-chip">
+        <span class="item-sub">Faro sugiere:</span>
+        <span class="kind-chip kind-${esc(suggestion.kind)}">${esc(KIND_LABELS[suggestion.kind] || suggestion.kind)}</span>
+        <span class="capture-suggest-conf">${Math.round(suggestion.confidence * 100)}%</span>
+        ${suggestion.amount ? `<b>$${esc(Number(suggestion.amount).toLocaleString('es-CL'))}</b>` : ''}
+        ${(suggestion.reasons || []).length ? `<span class="capture-suggest-reasons">${esc(suggestion.reasons.join(' '))}</span>` : ''}
+      </div>` : ''}
+    ${resolved ? `
+      <div class="detail-resolved">
+        ${icon('check')} Resuelto ${esc(fmtDate(item.resolved_at))} ${esc(fmtTime(item.resolved_at))}
+        ${item.destination_module ? `→ <b>${esc(item.destination_module)}</b>` : ''}
+        ${item.destination_ref ? `· ${esc(item.destination_ref)}` : ''}
+        ${item.decision_note ? `<div class="decision-note">«${esc(item.decision_note)}»</div>` : ''}
+      </div>` : ''}
+    ${item.error ? `<div class="bandeja-meta text-danger">${esc(item.error)}</div>` : ''}
+    <div class="detail-actions">
+      ${item.status === 'error' ? `<button class="btn btn-ghost" data-bj-retry="${esc(item.id)}">Reintentar</button>` : ''}
+      ${selectedIsPending ? `
+        <button class="btn btn-primary" data-bj-apply="${esc(item.id)}">${icon('check')} Clasificar</button>
+        <button class="btn btn-ghost" data-bj-refine="${esc(item.id)}">${icon('edit')} Editar</button>
+        <button class="btn btn-danger-soft" data-bj-discard="${esc(item.id)}">${icon('trash')} Descartar</button>` : ''}
+    </div>`;
 }
 
 function bindTabs(el) {
+  const refresh = el.querySelector('#bj-refresh');
+  if (refresh) {
+    refresh.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('ff:bandeja-changed'));
+      renderBandeja(el);
+    });
+  }
   el.querySelectorAll('[data-tab]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const status = btn.dataset.tab === 'pending' ? '' : btn.dataset.tab;
@@ -643,6 +676,19 @@ function bindItems(el, refs) {
   if (el.dataset.bound) return;
   el.dataset.bound = '1';
   el.addEventListener('click', async (event) => {
+    const selectBtn = event.target.closest('[data-bj-select]');
+    if (selectBtn) {
+      const base = window.location.hash.split('?')[0] || '';
+      window.location.hash = `${base}?item=${encodeURIComponent(selectBtn.dataset.bjSelect)}`;
+      setTimeout(() => renderBandeja(el), 240);
+      return;
+    }
+    const backBtn = event.target.closest('[data-bj-back]');
+    if (backBtn) {
+      window.location.hash = window.location.hash.split('?')[0] || '#/bandeja';
+      setTimeout(() => renderBandeja(el), 240);
+      return;
+    }
     const applyBtn = event.target.closest('[data-bj-apply]');
     if (applyBtn) {
       try {

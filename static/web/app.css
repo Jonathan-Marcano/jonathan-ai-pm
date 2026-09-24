@@ -1326,16 +1326,14 @@ button { font-family: inherit; }
 .bandeja-list { display: flex; flex-direction: column; gap: 8px; }
 .bandeja-item {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  align-items: stretch;
   border: 1px solid var(--ff-border);
   border-radius: var(--ff-radius-md);
   background: var(--ff-surface);
   transition: border-color var(--ff-transition-fast), background var(--ff-transition-fast), box-shadow var(--ff-transition-fast);
 }
 .bandeja-item:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-sm); }
-.bandeja-item.selected { background: var(--ff-selection); border-color: var(--ff-accent-300); }
+.bandeja-item.active { background: var(--ff-selection); border-color: var(--ff-accent-300); }
 .bandeja-item-main {
   flex: 1;
   min-width: 0;
@@ -1364,6 +1362,48 @@ button { font-family: inherit; }
 .sync-strip .sync-icon { flex: none; display: flex; align-items: center; justify-content: center; color: var(--ff-accent-700); }
 
 .detail-panel .card-body { display: flex; flex-direction: column; gap: 16px; }
+
+.split-bandeja { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+.bandeja-list-host, .bandeja-detail-host { min-width: 0; }
+.bandeja-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 12px 14px;
+  cursor: pointer;
+  border-radius: var(--ff-radius-md);
+  color: inherit;
+  font: inherit;
+}
+.bandeja-row:hover .bandeja-title { color: var(--ff-accent-700); }
+.bandeja-item .bandeja-row:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-sm); }
+.bandeja-item.active { background: var(--ff-selection); border-color: var(--ff-accent-300); }
+.bandeja-item .bandeja-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.detail-back { margin: -6px 0 14px; }
+.bandeja-back { display: none; }
+.detail-head { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--ff-border); }
+.detail-title { font-size: var(--ff-text-lg); font-weight: var(--ff-weight-bold); color: var(--ff-text); line-height: 1.4; overflow-wrap: anywhere; }
+.detail-amount { font-size: var(--ff-text-lg); }
+.detail-resolved {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-md);
+  background: var(--ff-surface-tint);
+  font-size: var(--ff-text-sm);
+  color: var(--ff-text-muted);
+}
+.detail-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+.detail-actions .btn { margin-right: 0; }
 
 /* ---------- Donut (Finanzas) ---------- */
 .donut-wrap { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
@@ -1730,6 +1770,7 @@ button { font-family: inherit; }
   .masonry { columns: 1; }
 
   /* Bandeja: lista y detalle alternables */
+  .split-bandeja { grid-template-columns: 1fr; }
   .bandeja-list-host.is-hidden, .bandeja-detail-host.is-hidden { display: none; }
   .bandeja-back { display: inline-flex; }
 
