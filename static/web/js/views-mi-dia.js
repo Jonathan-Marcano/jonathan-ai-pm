@@ -1,6 +1,13 @@
 'use strict';
 
-import { api } from './api.js';
+import {
+  api,
+  nameMaps,
+  listDeliverables,
+  listBandeja,
+  dashboard,
+  upcomingPayments,
+} from './api.js';
 import {
   esc,
   fmtDate,
@@ -10,29 +17,42 @@ import {
   money,
   icon,
   badge,
-  prio,
   toast,
   skeleton,
   emptyBlock,
   errorBlock,
+  lighthouseArt,
+  progressBar,
+  promptCompletionNote,
 } from './ui.js';
 
-function kpi(value, label, iconName, href, tone = '') {
-  return `<a class="kpi" href="#${href}">
-    <span class="kpi-icon ${tone}">${icon(iconName)}</span>
-    <span class="kpi-meta"><span class="kpi-value">${value}</span><br /><span class="kpi-label">${esc(label)}</span></span>
-  </a>`;
+const WEEKDAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+function esDate(d) {
+  return `${WEEKDAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`;
 }
 
-function sectionList(items, renderItem, emptyMessage, actionHref, actionLabel) {
-  if (!items.length) {
-    return emptyBlock(emptyMessage, actionHref ? `<a class="btn btn-soft btn-sm" href="#${actionHref}">${esc(actionLabel || 'Ver todas')}</a>` : '');
+function greetShort() {
+  const first = greetName();
+  const h = new Date().getHours();
+  const period = h < 6 || h >= 20 ? 'Buenas noches' : h < 12 ? 'Buenos días' : 'Buenas tardes';
+  return first ? `${period}, ${first}` : period;
+}
+
+function greetName() {
+  try {
+    const raw = localStorage.getItem('ff.user');
+    return raw && raw.trim() ? raw.trim().split(/\s+/)[0] : null;
+  } catch (_) {
+    return null;
   }
-  const rows = items.map(renderItem).join('');
-  return `<div class="list">${rows}</div>`;
 }
 
-function kindChip(kind) {
+function kindChip(kind, amount = null) {
   const labels = {
     task: 'Tarea',
     expense: 'Gasto',
@@ -42,227 +62,433 @@ function kindChip(kind) {
     reference: 'Referencia',
     unknown: 'Por clasificar',
   };
-  return `<span class="kind-chip kind-${esc(kind || 'unknown')}">${esc(labels[kind] || kind || 'unknown')}</span>`;
+  const label = labels[kind] || kind || 'unknown';
+  const amountHtml = amount ? ` ${money(amount, 'CLP')}` : '';
+  return `<span class="kind-chip kind-${esc(kind || 'unknown')}">${esc(label)}${amountHtml}</span>`;
+}
+
+function cardHead(iconName, title, badgeText, actionHref, actionLabel) {
+  return `
+    <div class="card-head">
+      <h2>${icon(iconName)} ${esc(title)}</h2>
+      ${badgeText ? `<span class="card-meta"><span class="card-badge">${esc(badgeText)}</span></span>` : ''}
+      ${actionHref ? `<a class="card-action" href="${actionHref}">${esc(actionLabel || 'Ver todo')}</a>` : ''}
+    </div>`;
+}
+
+function listOrEmpty(items, renderItem, emptyMessage, actionHref, actionLabel) {
+  if (!items.length) {
+    return emptyBlock(emptyMessage, actionHref ? `<a class="btn btn-soft btn-sm" href="${actionHref}">${esc(actionLabel || 'Ver todo')}</a>` : '');
+  }
+  return `<div class="list">${items.map(renderItem).join('')}</div>`;
 }
 
 export async function renderMiDia(el) {
-  el.innerHTML = `<div class="page-head">
-      <div class="page-greeting"><h1>Mi Día</h1><span class="date-line">· ${esc(fmtDayMonth(new Date()))}</span></div>
-      <p class="page-sub">Tu día en un vistazo: trabajo, finanzas, hábitos y bandeja.</p>
+  el.innerHTML = `
+    <div class="hero md-hero">
+      <div class="hero-body">
+        <div class="hero-date">${esc(esDate(new Date()))}</div>
+        <h1>${esc(greetShort())}</h1>
+        <p>${esc(dailySubtitle())}</p>
+      </div>
+      <div class="hero-side">
+        <a class="btn btn-primary btn-lg" href="#/mi-dia/preparar">${icon('sparkles')} Preparar mi día</a>
+      </div>
+      <div class="hero-art">${lighthouseArt()}</div>
     </div>
-    ${skeleton(8)}`;
+    ${skeleton(9)}`;
+
   try {
-    const home = await api('/api/v1/home');
+    const [home, maps, brief, deliverables, captures] = await Promise.all([
+      api('/api/v1/home'),
+      nameMaps(),
+      api('/api/v1/briefs/morning').catch(() => null),
+      listDeliverables(),
+      listBandeja({ limit: 30 }).catch(() => []),
+    ]);
     const today = home.date || todayISO();
     const fin = home.finance || { available: false };
+    const habits = home.habits || [];
+    const projects = maps.project || {};
 
-    const habitsDone = (home.habits || []).filter((h) => h.completed_today).length;
-    const habitsTotal = (home.habits || []).filter((h) => h.due_today).length;
+    /* --- Tarjetas ------------------------------------------------------------------ */
 
-    const kpiRow = `
-      <div class="kpi-row">
-        ${kpi(esc(home.work.count), 'tareas vencidas', 'flag', '/tareas?status=overdue', 'tone-danger')}
-        ${kpi(esc(home.meetings.count), 'reuniones hoy', 'calendar', '/reuniones', 'tone-primary')}
-        ${kpi(esc(home.projects.count), 'proyectos en riesgo', 'warn', '/proyectos', 'tone-warm')}
-        ${kpi(esc(home.bandeja.count), 'capturas pendientes', 'send', '/bandeja', 'tone-primary')}
-        ${kpi(habitsTotal ? `${habitsDone}/${habitsTotal}` : '—', 'hábitos con objetivo hoy', 'target', '/habitos', 'tone-accent')}
-        ${fin.available
-          ? kpi(money(fin.total_balance, 'CLP'), 'patrimonio financiero', 'sparkles', '/finanzas', 'tone-accent')
-          : kpi('—', 'finanzas sin configurar', 'info', '/finanzas', 'tone-primary')}
-      </div>`;
-
-    const quick = `
-      <div class="quick-actions">
-        <button class="btn btn-soft btn-sm" data-capture-open="1">${icon('plus')} Capturar</button>
-        <a class="btn btn-ghost btn-sm" href="#/mi-dia/cierre">${icon('clock')} Cierre del día</a>
-      </div>`;
-
-    const workCard = `
+    /* 1 · Prioridades: foco real (top 3 ejecutables) — no vencidas, no patrimonio */
+    const focus = (brief && brief.focus_tasks) || [];
+    const prioridades = `
       <section class="card">
-        <div class="card-head"><h2>${icon('flag')} Trabajo</h2><a class="card-action" href="#/tareas">Ver todas</a></div>
+        ${cardHead('flag', 'Tus 3 prioridades', `${focus.length} en foco`, '#/tareas', 'Ver tareas')}
         <div class="card-body">
-          ${sectionList(
-            home.work.items,
-            (t) => `
-              <div class="item">
-                <div class="item-main">
-                  <div class="item-title">${esc(t.title)}</div>
-                  <div class="item-sub">${badge(t.status)} · vence ${esc(fmtDate(t.due_at))}</div>
-                </div>
-                <div class="item-side"><a class="btn btn-soft btn-xs" href="#/tareas?status=overdue">Revisar${icon('arrow')}</a></div>
-              </div>`,
-            'Sin tareas vencidas hoy.',
-            '/tareas',
-            'Ver tareas',
-          )}
+          ${focus.length
+            ? `<div class="p-list">${focus
+                .slice(0, 3)
+                .map(
+                  (t) => `
+                  <div class="prio-row">
+                    <button class="prio-check" type="button" data-prio="${esc(t.id)}" aria-label="Marcar como completada">${icon('check')}</button>
+                    <div class="prio-main">
+                      <div class="prio-title">${esc(t.title)}</div>
+                      <span class="tag-chip">${esc(projects[t.project_id] || 'Sin proyecto')}</span>
+                    </div>
+                  </div>`,
+                )
+                .join('')}</div>`
+            : emptyBlock('Sin prioridades en foco ahora mismo.', '<a class="btn btn-soft btn-sm" href="#/tareas">Ir a tareas</a>')}
         </div>
       </section>`;
 
-    const meetingsCard = `
+    /* 2 · Agenda de hoy */
+    const agenda = `
       <section class="card">
-        <div class="card-head"><h2>${icon('calendar')} Reuniones de hoy</h2><a class="card-action" href="#/reuniones">Agenda</a></div>
+        ${cardHead('calendar', 'Agenda de hoy', `${home.meetings.count} ${home.meetings.count === 1 ? 'reunión' : 'reuniones'}`, '#/reuniones', 'Agenda')}
         <div class="card-body">
-          ${sectionList(
+          ${listOrEmpty(
             home.meetings.items,
             (m) => `
-              <a class="agenda-row" href="#/reuniones/${esc(m.id)}">
-                <span class="agenda-time">${esc(fmtTime(m.starts_at))}</span>
-                <span class="item-title">${esc(m.title)}</span>
-                <span class="item-sub">${m.project_id ? esc(m.project_id) : ''}</span>
+              <a class="item" href="#/reuniones/${esc(m.id)}">
+                <div class="agenda-time">${esc(fmtTime(m.starts_at))}</div>
+                <div class="item-main">
+                  <div class="item-title">${esc(m.title)}</div>
+                  <div class="item-sub">${m.project_id ? esc(projects[m.project_id] || 'reunión') : 'reunión'}</div>
+                </div>
+                <div class="item-side">${icon('arrow')}</div>
               </a>`,
             'Sin reuniones programadas para hoy.',
-            '/reuniones',
+            '#/reuniones',
             'Ver reuniones',
           )}
         </div>
       </section>`;
 
-    const projectsCard = `
+    /* 3 · Proyectos y entregables (progreso real) */
+    const deliverablesByProject = (deliverables || []).reduce((acc, d) => {
+      (acc[d.project_id] ||= { total: 0, accepted: 0 });
+      acc[d.project_id].total += 1;
+      if (d.status === 'accepted') acc[d.project_id].accepted += 1;
+      return acc;
+    }, {});
+    const projectRows = Object.keys(deliverablesByProject)
+      .map((pid) => ({ pid, ...deliverablesByProject[pid] }))
+      .filter((p) => projects[p.pid])
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 3);
+    const proyectos = `
       <section class="card">
-        <div class="card-head"><h2>${icon('folder')} Proyectos en riesgo</h2><a class="card-action" href="#/proyectos">Proyectos</a></div>
+        ${cardHead('folder', 'Proyectos y entregables', `${projectRows.length} con avance`, '#/proyectos', 'Proyectos')}
         <div class="card-body">
-          ${sectionList(
-            home.projects.items,
-            (p) => `
-              <a class="item" href="#/proyectos/${esc(p.id)}">
-                <div class="item-main">
-                  <div class="item-title">${esc(p.title)}</div>
-                  <div class="item-sub">${badge(p.health)}</div>
-                </div>
-                <span class="item-side arrow">${icon('arrow')}</span>
-              </a>`,
-            'Ningún proyecto en riesgo.',
-            '/proyectos',
-            'Ver proyectos',
-          )}
+          ${projectRows.length
+            ? `<div class="p-list">${projectRows
+                .map(
+                  (p) => `
+                  <a class="item" href="#/proyectos/${esc(p.pid)}">
+                    <div class="item-main">
+                      <div class="item-title">${esc(projects[p.pid])}</div>
+                      <div class="item-sub">${esc(p.accepted)}/${esc(p.total)} entregables aceptados</div>
+                    </div>
+                    <div class="item-side proj-progress">${progressBar((p.accepted / p.total) * 100)}${icon('arrow')}</div>
+                  </a>`,
+                )
+                .join('')}</div>`
+            : emptyBlock('Sin entregables registrados aún.', '<a class="btn btn-soft btn-sm" href="#/proyectos">Ver proyectos</a>')}
         </div>
       </section>`;
 
-    const bandejaCard = `
-      <section class="card">
-        <div class="card-head"><h2>${icon('send')} Bandeja</h2><a class="card-action" href="#/bandeja">Revisar</a></div>
-        <div class="card-body">
-          ${sectionList(
-            home.bandeja.items,
-            (r) => `
-              <div class="item">
-                <div class="item-main">
-                  <div class="item-title">${esc(r.title)}</div>
-                  <div class="item-sub">${badge(r.status)} · ${esc(fmtDate(r.original_at))}</div>
-                </div>
-                <div class="item-side">${kindChip(r.kind)}</div>
-              </div>`,
-            'Bandeja al día, sin pendientes.',
-            '/bandeja',
-            'Ir a la bandeja',
-          )}
-        </div>
-      </section>`;
+    /* 4 · Tu mes financiero (ingresos, egresos y balance del período) */
+    const finanzas = await finanzasCard(fin);
 
-    const habitsCard = `
+    /* 5 · Hábitos de hoy */
+    const dueHabits = habits.filter((h) => h.due_today);
+    const doneHabits = habits.filter((h) => h.completed_today);
+    const habitsBadge = habits.length
+      ? `${doneHabits.length}/${dueHabits.length || habits.length} cumplidos`
+      : '';
+    const habitos = `
       <section class="card">
-        <div class="card-head"><h2>${icon('target')} Hábitos de hoy</h2><a class="card-action" href="#/habitos">Hábitos</a></div>
+        ${cardHead('target', 'Hábitos de hoy', habitsBadge, '#/habitos', 'Hábitos')}
         <div class="card-body">
-          ${(home.habits && home.habits.length)
-            ? `<div class="p-list">${home.habits
+          ${habits.length
+            ? `<div class="p-list">${habits
                 .map(
                   (h) => `
-                  <li class="item">
-                    <div class="item-main">
-                      <div class="item-title">${esc(h.name)}</div>
-                      <div class="item-sub">${h.due_today ? '' : 'hoy no corresponde · '}racha ${esc(h.current_streak)} días${h.goal_type === 'quantity' ? ' · cantidad' : ''}</div>
+                  <div class="md-habit-row">
+                    <button class="md-habit-check ${h.completed_today ? 'is-done' : ''}" type="button" data-habit-toggle="${esc(h.id)}" data-state="${h.completed_today ? 'done' : 'open'}" aria-label="${h.completed_today ? 'Quitar cumplimiento' : 'Marcar como cumplido'}">${icon('check')}</button>
+                    <div class="md-habit-main">
+                      <div class="md-habit-name">${esc(h.name)}</div>
+                      <div class="md-habit-sub">${h.due_today ? 'para hoy' : 'hoy no corresponde'} · racha ${esc(h.current_streak)} días</div>
                     </div>
-                    <div class="item-side">
-                      ${h.goal_type === 'quantity'
-                        ? '<span class="btn btn-soft btn-xs">Cantidad</span>'
-                        : `<button class="btn btn-xs ${h.completed_today ? 'btn-danger-soft' : 'btn-success-soft'}" data-habit-toggle="${esc(h.id)}" data-state="${h.completed_today ? 'done' : 'open'}">
-                            ${icon(h.completed_today ? 'x' : 'check')} ${h.completed_today ? 'Quitar' : 'Cumplido hoy'}
-                          </button>`}
-                      <a class="btn btn-ghost btn-xs" href="#/habitos/${esc(h.id)}">${icon('arrow')}</a>
-                    </div>
-                  </li>`,
+                    <span class="md-habit-status ${h.completed_today ? 'is-done' : h.due_today ? 'is-pending' : 'is-idle'}">${h.completed_today ? 'Cumplido' : h.due_today ? 'Pendiente' : 'Hoy no toca'}</span>
+                  </div>`,
                 )
                 .join('')}</div>`
             : emptyBlock('Aún no tienes hábitos activos.', '<a class="btn btn-soft btn-sm" href="#/habitos">Crear hábito</a>')}
         </div>
       </section>`;
 
-    const financeCard = `
+    /* 6 · Bandeja de capturas */
+    const pendientes = (captures || []).filter((r) =>
+      ['received', 'reviewing', 'confirmed'].includes(r.status),
+    );
+    const bandeja = `
       <section class="card">
-        <div class="card-head"><h2>${icon('sparkles')} Finanzas</h2><a class="card-action" href="#/finanzas">Resumen</a></div>
+        ${cardHead('send', 'Bandeja de capturas', `${home.bandeja.count} ${home.bandeja.count === 1 ? 'pendiente' : 'pendientes'}`, '#/bandeja', 'Revisar')}
         <div class="card-body">
-          ${fin.available
-            ? `<div class="p-list">
-                <li class="item">
-                  <div class="item-main"><b>Patrimonio</b></div>
-                  <div class="item-side"><b class="fin-kpi-value pos">${money(fin.total_balance, 'CLP')}</b></div>
-                </li>
-                <li class="item">
-                  <div class="item-main">Deudas activas</div>
-                  <div class="item-side">${esc(fin.active_debts)}</div>
-                </li>
-                <li class="item">
-                  <div class="item-main">Pagos próximos (30 días)</div>
-                  <div class="item-side">${esc(fin.upcoming_payments)}</div>
-                </li>
-              </div>`
-            : emptyBlock('Configura tu hogar financiero para ver el resumen.', '<a class="btn btn-soft btn-sm" href="#/finanzas">Configurar</a>')}
+          ${listOrEmpty(
+            pendientes.slice(0, 3),
+            (r) => `
+              <a class="item" href="#/bandeja">
+                <div class="item-main">
+                  <div class="item-title">${esc(r.original_text || r.title || 'Captura')}</div>
+                  <div class="item-sub">${esc(fmtDate(r.original_at))}</div>
+                </div>
+                <div class="item-side">${kindChip(r.kind, r.amount)}${icon('arrow')}</div>
+              </a>`,
+            'Bandeja al día, sin pendientes.',
+            '#/bandeja',
+            'Ir a la bandeja',
+          )}
+        </div>
+      </section>`;
+
+    /* --- Pie: captura rápida -------------------------------------------------------- */
+    const quickCapture = `
+      <section class="card quick-capture-card">
+        <div class="quick-capture">
+          <span class="quick-caption">${icon('send')} Capturar como</span>
+          <div class="quick-cap-group">
+            <button class="btn btn-soft" type="button" data-capture-open="1">${icon('check')} Tarea</button>
+            <button class="btn btn-soft" type="button" data-capture-open="1">${icon('coin')} Gasto</button>
+            <button class="btn btn-soft" type="button" data-capture-open="1">${icon('target')} Hábito</button>
+            <button class="btn btn-ghost quick-capture-input" type="button" data-capture-open="1">${icon('plus')} Captura rápida…</button>
+            <a class="btn btn-ghost" href="#/mi-dia/cierre">${icon('moon')} Cerrar mi día</a>
+          </div>
         </div>
       </section>`;
 
     el.innerHTML = `
-      <div class="page-head">
-        <div class="page-greeting"><h1>Mi Día</h1><span class="date-line">· ${esc(fmtDayMonth(new Date()))}</span></div>
-        <p class="page-sub">Tu día en un vistazo: trabajo, finanzas, hábitos y bandeja.</p>
-        ${quick}
+      <div class="hero md-hero">
+        <div class="hero-body">
+          <div class="hero-date">${esc(esDate(new Date()))}</div>
+          <h1>${esc(greetShort())}</h1>
+          <p>${esc(dailySubtitle())}</p>
+        </div>
+        <div class="hero-side">
+          <a class="btn btn-primary btn-lg" href="#/mi-dia/preparar">${icon('sparkles')} Preparar mi día</a>
+        </div>
+        <div class="hero-art">${lighthouseArt()}</div>
       </div>
-      ${kpiRow}
-      <div class="masonry">
-        <div class="stack">
-          ${workCard}
-        </div>
-        <div class="stack">
-          ${habitsCard}
-          ${meetingsCard}
-        </div>
-        <div class="stack">
-          ${bandejaCard}
-          ${financeCard}
-        </div>
-        <div class="stack">
-          ${projectsCard}
-        </div>
-      </div>`;
+      <div class="dash-grid md-grid">
+        ${prioridades}
+        ${agenda}
+        ${proyectos}
+        ${finanzas}
+        ${habitos}
+        ${bandeja}
+      </div>
+      ${quickCapture}`;
 
     if (!el.dataset.bound) {
       el.dataset.bound = '1';
       el.addEventListener('click', async (event) => {
-        const btn = event.target.closest('[data-habit-toggle]');
-        if (!btn) return;
-        const habitId = btn.dataset.habitToggle;
-        const done = btn.dataset.state === 'done';
-        try {
-          if (done) {
-            await api(`/api/v1/habits/${encodeURIComponent(habitId)}/unmark`, {
-              method: 'POST',
-              body: JSON.stringify({ local_date: today }),
-            });
-            toast('Cumplimiento desmarcado', 'success');
-          } else {
-            await api(`/api/v1/habits/${encodeURIComponent(habitId)}/mark`, {
-              method: 'POST',
-              body: JSON.stringify({ local_date: today, quantity: 1 }),
-            });
-            toast('Hábito cumplido hoy', 'success');
+        const habitBtn = event.target.closest('[data-habit-toggle]');
+        if (habitBtn) {
+          const habitId = habitBtn.dataset.habitToggle;
+          const done = habitBtn.dataset.state === 'done';
+          try {
+            if (done) {
+              await api(`/api/v1/habits/${encodeURIComponent(habitId)}/unmark`, {
+                method: 'POST',
+                body: JSON.stringify({ local_date: today }),
+              });
+              toast('Cumplimiento desmarcado', 'success');
+            } else {
+              await api(`/api/v1/habits/${encodeURIComponent(habitId)}/mark`, {
+                method: 'POST',
+                body: JSON.stringify({ local_date: today, quantity: 1 }),
+              });
+              toast('Hábito cumplido hoy', 'success');
+            }
+          } catch (err) {
+            toast(`No se pudo actualizar: ${err.message}`, 'error');
           }
-        } catch (err) {
-          toast(`No se pudo actualizar: ${err.message}`, 'error');
+          renderMiDia(el);
+          return;
         }
-        renderMiDia(el);
+        const prioBtn = event.target.closest('[data-prio]');
+        if (prioBtn) {
+          const taskId = prioBtn.dataset.prio;
+          const note = await promptCompletionNote('Completar prioridad');
+          if (note === null) return;
+          try {
+            await api(`/api/v1/tasks/${encodeURIComponent(taskId)}/complete`, {
+              method: 'POST',
+              body: JSON.stringify({ completion_note: note }),
+            });
+            toast('Prioridad completada', 'success');
+          } catch (err) {
+            toast(`No se pudo completar: ${err.message}`, 'error');
+          }
+          renderMiDia(el);
+        }
       });
     }
   } catch (err) {
-    el.innerHTML = `<div class="page-head"><h1>Mi Día</h1></div>${errorBlock(`Mi Día no disponible: ${esc(err.message)}`)}`;
+    el.innerHTML = `<div class="hero md-hero"><div class="hero-body"><h1>Mi Día</h1></div></div>${errorBlock(`Mi Día no disponible: ${esc(err.message)}`)}`;
+  }
+}
+
+function dailySubtitle() {
+  const h = new Date().getHours();
+  if (h < 6) return 'Un vistazo a lo importante antes de descansar.';
+  if (h < 12) return 'Un vistazo y arranca el día con lo importante.';
+  if (h < 20) return 'Mantén el foco: todo lo importante está aquí.';
+  return 'Cierra el día con honestidad y descansa.';
+}
+
+async function finanzasCard(fin) {
+  const head = cardHead('coin', 'Tu mes financiero', fin.available && fin.household_name ? esc(fin.household_name) : '', '#/finanzas', 'Ver finanzas');
+  if (!fin.available) {
+    return `
+      <section class="card">
+        ${head}
+        <div class="card-body">${emptyBlock('Configura tu hogar financiero para ver el resumen del mes.', '<a class="btn btn-soft btn-sm" href="#/finanzas">Configurar</a>')}</div>
+      </section>`;
+  }
+  if (!fin.household_id) {
+    return `
+      <section class="card">
+        ${head}
+        <div class="card-body">${emptyBlock('Resumen financiero no disponible todavía.')}</div>
+      </section>`;
+  }
+  const now = new Date();
+  const dash = await dashboard(fin.household_id, now.getFullYear(), now.getMonth() + 1).catch(() => null);
+  if (!dash) {
+    return `
+      <section class="card">
+        ${head}
+        <div class="card-body">${emptyBlock('Resumen del mes no disponible todavía.')}</div>
+      </section>`;
+  }
+  const upcoming = await upcomingPayments(fin.household_id, 30).catch(() => null);
+  const payments = [
+    ...((upcoming && upcoming.pending_installments) || []).map((p) => ({
+      name: 'Cuota de deuda',
+      amount: p.total_amount,
+      due: p.due_date,
+    })),
+    ...((upcoming && upcoming.recurring_minimums) || []).map((p) => ({
+      name: p.debt_name,
+      amount: p.minimum_payment,
+      due: p.due_date,
+    })),
+  ].sort((a, b) => String(a.due).localeCompare(String(b.due)));
+  const next = payments[0];
+  return `
+    <section class="card">
+      ${head}
+      <div class="card-body">
+        <div class="fin-month-grid">
+          <div class="fin-month-cell">
+            <span class="kpi-label">Ingresos</span>
+            <b class="fin-month-val pos">${money(dash.income, 'CLP')}</b>
+          </div>
+          <div class="fin-month-cell">
+            <span class="kpi-label">Egresos</span>
+            <b class="fin-month-val neg">${money(dash.expenses, 'CLP')}</b>
+          </div>
+          <div class="fin-month-cell">
+            <span class="kpi-label">Balance</span>
+            <b class="fin-month-val ${dash.balance >= 0 ? 'pos' : 'neg'}">${money(dash.balance, 'CLP')}</b>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-main">
+            <div class="item-title">${next ? esc(next.name) : 'Sin pagos próximos'}</div>
+            <div class="item-sub">${next ? esc(fmtDate(next.due)) : 'No hay pagos en los próximos 30 días.'}</div>
+          </div>
+          <div class="item-side">${next ? `<b class="fin-month-val">${money(next.amount, 'CLP')}</b>` : ''}</div>
+        </div>
+        <div class="fin-links">
+          <a href="#/finanzas/ingresos">Ingresos</a>
+          <a href="#/finanzas/egresos">Egresos</a>
+        </div>
+      </div>
+    </section>`;
+}
+
+export async function renderPreparar(el) {
+  el.innerHTML = `<div class="page-head">
+      <div class="page-greeting"><h1>Preparar mi día</h1><span class="date-line">· ${esc(fmtDate(new Date().toISOString()))}</span></div>
+      <p class="page-sub">Recuento de la mañana: reuniones, prioridades y lo que necesita atención.</p>
+    </div>
+    ${skeleton(4)}`;
+  try {
+    const brief = await api('/api/v1/briefs/morning');
+    const counts = brief.counts || {};
+    const chips = `
+      <div class="page-grid four">
+        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Reuniones hoy</span><div class="kpi-value">${esc(counts.meetings ?? '—')}</div></div></div>
+        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Tareas vencidas</span><div class="kpi-value">${esc(counts.overdue_tasks ?? '—')}</div></div></div>
+        <div class="card stat-card"><div class="card-body"><span class="kpi-label">En foco</span><div class="kpi-value">${esc(counts.focus_tasks ?? '—')}</div></div></div>
+        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Proyectos en riesgo</span><div class="kpi-value">${esc(counts.at_risk_projects ?? '—')}</div></div></div>
+      </div>`;
+
+    const meetings = (brief.meetings || [])
+      .map(
+        (m) => `
+        <li class="item">
+          <div class="item-main"><div class="item-title">${esc(m.title)}</div></div>
+          <div class="item-side"><span class="agenda-time">${esc(fmtTime(m.starts_at))}</span></div>
+        </li>`,
+      )
+      .join('');
+
+    const focus = (brief.focus_tasks || [])
+      .map(
+        (t) => `
+        <li class="item">
+          <div class="item-main"><div class="item-title">${esc(t.title)}</div></div>
+          <div class="item-side"><span class="item-sub">vence ${esc(fmtDate(t.due_at))}</span></div>
+        </li>`,
+      )
+      .join('');
+
+    const atRisk = (brief.at_risk_projects || [])
+      .map(
+        (p) => `
+        <li class="item">
+          <a class="item-main" href="#/proyectos/${esc(p.id)}"><div class="item-title">${esc(p.name)}</div></a>
+          <div class="item-side">${badge(p.health)}</div>
+        </li>`,
+      )
+      .join('');
+
+    el.innerHTML = `
+      <div class="page-head">
+        <div class="page-greeting"><h1>Preparar mi día</h1><span class="date-line">· ${esc(fmtDayMonth(new Date()))}</span></div>
+        <p class="page-sub">Recuento de la mañana: reuniones, prioridades y lo que necesita atención.</p>
+      </div>
+      ${chips}
+      <div class="split-60-40">
+        <div class="split-main">
+          <section class="card">
+            <div class="card-head"><h2>${icon('calendar')} Reuniones de hoy</h2><a class="card-action" href="#/reuniones">Agenda</a></div>
+            <div class="card-body">${meetings ? `<ul class="p-list">${meetings}</ul>` : emptyBlock('Sin reuniones programadas hoy.')}</div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>${icon('check')} Tareas en foco</h2><a class="card-action" href="#/tareas">Tareas</a></div>
+            <div class="card-body">${focus ? `<ul class="p-list">${focus}</ul>` : emptyBlock('Nada pendiente en foco hoy.')}</div>
+          </section>
+        </div>
+        <div class="split-side">
+          <section class="card">
+            <div class="card-head"><h2>${icon('warn')} Proyectos en riesgo</h2><a class="card-action" href="#/proyectos">Proyectos</a></div>
+            <div class="card-body">${atRisk ? `<ul class="p-list">${atRisk}</ul>` : emptyBlock('Ningún proyecto en riesgo.')}</div>
+          </section>
+        </div>
+      </div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="page-head"><h1>Preparar mi día</h1></div>${errorBlock(`No disponible: ${esc(err.message)}`)}`;
   }
 }
 
