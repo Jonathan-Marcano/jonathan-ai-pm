@@ -236,3 +236,6 @@ Thumbs.db
 backups/
 *.snapshot.json
 *.backup.json
+
+# Capturas de verificación visual (pueden contener datos personales)
+capturas_fases/
