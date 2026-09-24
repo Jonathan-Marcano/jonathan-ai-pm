@@ -155,9 +155,13 @@ Adaptación funcional de las seis vistas principales a las referencias de
   (Movimientos/Por categoría/Recurrentes), donut real por categoría, próximos
   pagos y aviso de capturas pendientes.
 - **Hábitos** (`Fase 5`): 3 indicadores, semana real lun–dom, registro reciente
-  con hora·hábito·origen.
-- **Bandeja** (`Fase 6`): master-detail 40/60 con lista seleccionable y panel de
-  revisión, "Volver" en móvil y captura manual como botón `data-capture-open`.
+  con hora·hábito·origen, y detalle del hábito seleccionado en la columna
+  derecha sin salir de la vista.
+- **Bandeja** (`Fase 6`): master-detail 40/60 con lista seleccionable, búsqueda
+  por texto y filtro por tipo, panel de revisión, "Volver" en móvil y captura
+  manual como botón `data-capture-open`.
+- **Entregables** (`Fase 3`): checklist de criterios de aceptación persistente por
+  entregable (añadir / marcar cumplido / eliminar), creado desde el panel.
 
 ### Diferencias conocidas vs. las referencias
 - Implementación funcional completa; la validación visual pixel a pixel queda
@@ -166,6 +170,38 @@ Adaptación funcional de las seis vistas principales a las referencias de
   solo muestran título, fecha y estado.
 - El donut de egresos usa proporciones reales de datos; si no hay datos en el
   mes se muestra el estado vacío en lugar de una gráfica simulada.
+- Los submódulos de Finanzas *pagos*, *proyecciones*, *reportes*, *asistente* e
+  *importación* no están implementados como rutas propias; el menú lateral solo
+  expone los módulos realmente funcionales (resumen, ingresos, egresos, cuentas,
+  deudas, presupuesto, metas) para no crear enlaces rotos.
+
+### Circuito Telegram → Drive → importación local
+La captura puede entrar por dos vías reales, ambas **solo lectura** y
+pendientes de autorización:
+
+1. **Telegram (P4-02)** — el adaptador lee actualizaciones del Bot API
+   (`TELEGRAM_BOT_API_URL/bot<token>/getUpdates`) de forma acotada a los chats
+   permitidos y las convierte en mensajes entrantes deduplicados. Aún no se
+   autoriza el envío saliente (P4-03 exige confirmación explícita).
+2. **Google Drive** — metadatos de archivos (id, nombre, enlace, mime,
+   versión) bajo `drive.metadata.readonly`, enlazados a entregables; nunca se
+   descarga contenido ni se escribe.
+
+El flujo local: mensaje o archivo → bandeja pendiente → clasificación manual
+(a Fase 3, Finanzas o Hábitos) → registro operacional con rastro de decisión.
+La UI también ofrece **Capturar por chat**, que simula el canal Telegram
+escribiendo capturas locales (`channel: telegram`) sin red ni credenciales.
+
+**Activación (requiere credenciales personales; nunca commitearlas):**
+- Las variables de entorno `.env` (ver `.env.example`): `GOOGLE_DRIVE_ENABLED`,
+  `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_CALENDAR_ENABLED`, y un proveedor de token
+  para el bot de Telegram (el token se inyecta por callable, no se almacena).
+- El gate de mutaciones `INTEGRATION_OPERATIONS_ENABLED` + `INTEGRATION_OPERATION_KEY`
+  (mín. 32 caracteres) protege los endpoints de sincronización/ingesta/reenvío.
+- Hasta entonces, `POST /api/v1/integrations/messaging/inbound`,
+  `/api/v1/integrations/drive/refresh` y `/api/v1/integrations/calendar/sync`
+  responden **503 "integration is not configured"** por diseño; el resto de la
+  app funciona con datos locales.
 
 Capturas de verificación 1536×1024: `capturas_fases/` (fuera de git por
 posible contenido personal).
