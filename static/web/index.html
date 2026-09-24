@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b2a3d" />
+  <meta name="theme-color" content="#08234a" />
   <meta name="description" content="FaroFlow: Mi día, Trabajo, Finanzas, Hábitos y Bandeja en una sola aplicación local." />
   <title>FaroFlow</title>
   <link rel="icon" href="/static/favicon.ico" />
@@ -15,35 +15,57 @@
 <body>
   <div class="app">
 
-    <!-- ==================== BARRA SUPERIOR DE ÁREAS ==================== -->
+    <!-- ==================== BARRA SUPERIOR DE ÁREAS (blanca, ~76px) ==================== -->
     <header class="topnav" id="topnav">
       <div class="topnav-inner">
         <a href="#/mi-dia" class="brand" id="brand" aria-label="Ir a Mi día">
           <img src="/static/brand/FaroFlow_Isotipo.png" alt="" class="brand-mark" />
-          <span class="brand-name">FaroFlow</span>
+          <span class="brand-block">
+            <span class="brand-name">FaroFlow</span>
+            <span class="brand-sub">Tu vida, más clara</span>
+          </span>
         </a>
 
         <nav class="area-nav" id="area-nav" aria-label="Áreas">
-          <a href="#/mi-dia" class="area-link" data-area="mi-dia">Mi día</a>
-          <a href="#/proyectos" class="area-link" data-area="trabajo">Trabajo</a>
-          <a href="#/finanzas" class="area-link" data-area="finanzas">Finanzas</a>
-          <a href="#/habitos" class="area-link" data-area="habitos">Hábitos</a>
-          <a href="#/bandeja" class="area-link" data-area="bandeja">Bandeja<span class="area-badge" id="bandeja-count" hidden></span></a>
+          <a href="#/mi-dia" class="area-link" data-area="mi-dia">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.6v1.8M10 15.6v1.8M2.6 10h1.8M15.6 10h1.8M4.8 4.8l1.3 1.3M13.9 13.9l1.3 1.3M4.8 15.2l1.3-1.3M13.9 6.1l1.3-1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+            <span>Mi día</span>
+          </a>
+          <a href="#/proyectos" class="area-link" data-area="trabajo">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+            <span>Trabajo</span>
+          </a>
+          <a href="#/finanzas" class="area-link" data-area="finanzas">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 3l1.5 3.6 3.6 1.5-3.6 1.5L10 13.2 8.5 9.6 4.9 8.1l3.6-1.5L10 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/><path d="M14.5 13.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8.8-1.7Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg>
+            <span>Finanzas</span>
+          </a>
+          <a href="#/habitos" class="area-link" data-area="habitos">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
+            <span>Hábitos</span>
+          </a>
+          <a href="#/bandeja" class="area-link" data-area="bandeja">
+            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="m4 10 13-6-4 13-2-5-7-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="m11 12 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+            <span>Bandeja</span>
+            <span class="area-badge" id="bandeja-count" hidden></span>
+          </a>
         </nav>
 
         <div class="topnav-actions">
-          <button class="search-trigger btn btn-ghost btn-sm" id="search-trigger" type="button">
+          <div class="topnav-search">
             <svg viewBox="0 0 20 20" class="ff-icon search-icon" aria-hidden="true"><circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-            <span class="search-trigger-text">Buscar</span>
-            <kbd class="kbd">⌘K</kbd>
-          </button>
-          <button class="btn btn-primary btn-sm capture-cta" id="capture-cta" type="button">
+            <input id="search-trigger" type="search" autocomplete="off" placeholder="Buscar proyecto, tarea…" aria-label="Buscar" />
+          </div>
+          <button class="btn btn-primary btn-sm" id="capture-cta" type="button">
             <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
             <span>Capturar</span>
           </button>
-          <a class="icon-btn config-link" href="#/configuracion" data-route="configuracion" aria-label="Configuración" title="Configuración">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
-          </a>
+          <div class="topnav-user" id="topnav-user">
+            <span class="user-avatar" id="user-avatar">U</span>
+            <div class="user-meta">
+              <b id="user-name">Usuario local</b>
+              <small>operación manual</small>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -57,27 +79,15 @@
             <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="2.4" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M4.9 15.1l1.4-1.4M13.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
             <span>Configuración</span>
           </a>
-          <div class="areaside-user">
-            <span class="user-avatar" id="user-avatar">U</span>
-            <div class="user-meta">
-              <b id="user-name">Usuario local</b>
-              <small>operación manual</small>
-            </div>
-          </div>
         </div>
       </aside>
 
       <div class="scrim" id="scrim" hidden></div>
 
       <div class="content">
-        <header class="topbar">
-          <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false">
-            <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
-          </button>
-          <div class="topbar-title">
-            <h1 id="route-title"></h1>
-          </div>
-        </header>
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir menú" aria-expanded="false">
+          <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg>
+        </button>
         <main id="view" class="view" tabindex="-1"></main>
       </div>
     </div>
@@ -85,7 +95,7 @@
     <!-- ==================== NAVEGACIÓN MÓVIL ==================== -->
     <nav class="mobile-nav" aria-label="Navegación móvil">
       <a href="#/mi-dia" class="mobile-item" data-route="mi-dia">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6.5V10l2.4 1.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.6v1.8M10 15.6v1.8M2.6 10h1.8M15.6 10h1.8M4.8 4.8l1.3 1.3M13.9 13.9l1.3 1.3M4.8 15.2l1.3-1.3M13.9 6.1l1.3-1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
         <span>Mi día</span>
       </a>
       <a href="#/proyectos" class="mobile-item" data-route="trabajo">
@@ -96,11 +106,11 @@
         <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
       </button>
       <a href="#/habitos" class="mobile-item" data-route="habitos">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 6v8M6 10h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>
         <span>Hábitos</span>
       </a>
       <a href="#/bandeja" class="mobile-item" data-route="bandeja">
-        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="M3 5.5h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M3 10h4l1.5 2h3L13 10h4" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+        <svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true"><path d="m4 10 13-6-4 13-2-5-7-2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="m11 12 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
         <span>Bandeja</span>
       </a>
     </nav>

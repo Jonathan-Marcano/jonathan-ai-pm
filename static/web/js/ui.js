@@ -106,11 +106,47 @@ const ICONS = {
   search: '<circle cx="9" cy="9" r="5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
   warn: '<path d="M10 3.5 17 16.5H3L10 3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/><path d="M10 8.5v3.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="10" cy="14.2" r="0.9" fill="currentColor"/>',
   x: '<path d="M5 5l10 10M15 5 5 15" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/>',
+  sun: '<circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M10 2.6v1.8M10 15.6v1.8M2.6 10h1.8M15.6 10h1.8M4.8 4.8l1.3 1.3M13.9 13.9l1.3 1.3M4.8 15.2l1.3-1.3M13.9 6.1l1.3-1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>',
+  moon: '<path d="M17 11.2A7 7 0 0 1 8.8 3 7 7 0 1 0 17 11.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/>',
+  coin: '<circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M6.8 7.4h6.4M8.4 7.4v5.6M11.6 7.4v5.6M6.8 10.4h6.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>',
+  home: '<path d="m3.5 9.5 6.5-5 6.5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M5.5 8.5V16a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+  list: '<path d="M6 5.5h10M6 10h10M6 14.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="3.6" cy="5.5" r="0.9" fill="currentColor"/><circle cx="3.6" cy="10" r="0.9" fill="currentColor"/><circle cx="3.6" cy="14.5" r="0.9" fill="currentColor"/>',
 };
 
 export function icon(name) {
   const body = ICONS[name] || ICONS.info;
   return `<svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true">${body}</svg>`;
+}
+
+/* Ilustración decorativa del faro (bajo contraste, para héroes). */
+export function lighthouseArt() {
+  return `
+<svg viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="lf-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EAFBF9"/>
+      <stop offset="1" stop-color="#F5FBFA"/>
+    </linearGradient>
+    <linearGradient id="lf-sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#B9F0EC"/>
+      <stop offset="1" stop-color="#7CE0D8"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="190" rx="14" fill="url(#lf-sky)"/>
+  <circle cx="252" cy="44" r="17" fill="#FFEFC9"/>
+  <path d="M0 118 Q50 102 100 116 T200 114 T320 110 V190 H0 Z" fill="#E2F8F5"/>
+  <path d="M0 132 Q45 126 95 130 T200 130 T320 126 V190 H0 Z" fill="url(#lf-sea)"/>
+  <path d="M116 148 Q122 114 140 102 Q136 126 152 148 Z" fill="#BFD6E5"/>
+  <rect x="126" y="80" width="20" height="42" rx="4" fill="#FFFFFF" stroke="#C6D9DE"/>
+  <rect x="128" y="72" width="16" height="11" rx="3" fill="#00AAA5"/>
+  <rect x="129" y="62" width="14" height="12" rx="2" fill="#00AAA5"/>
+  <path d="M136 70 L210 22 L200 86 Z" fill="#FFDF8E" opacity="0.5"/>
+  <circle cx="136" cy="66" r="4.5" fill="#FFCE5C"/>
+  <path d="M38 152 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M182 162 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.65" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M62 170 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M232 154 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>`;
 }
 
 export function badge(status) {
@@ -201,7 +237,8 @@ export function errorBlock(message) {
 }
 
 export function setPageTitle(title) {
-  document.getElementById('route-title').textContent = title;
+  const routeTitle = document.getElementById('route-title');
+  if (routeTitle) routeTitle.textContent = title;
   document.title = `${title} · FaroFlow`;
 }
 

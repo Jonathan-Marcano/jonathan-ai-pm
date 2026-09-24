@@ -20,7 +20,7 @@ import {
   renderAsistente,
   renderIntegraciones,
 } from './views.js';
-import { renderMiDia, renderCierre } from './views-mi-dia.js';
+import { renderMiDia, renderPreparar, renderCierre } from './views-mi-dia.js';
 import { renderFinanzas } from './views-finanzas.js';
 import { renderHabitos, renderHabitoDetalle, renderSemana } from './views-habitos.js';
 import { renderBandeja, renderChat } from './views-bandeja.js';
@@ -29,6 +29,7 @@ import { suggestCapture, KIND_LABELS } from './capture-triage.js';
 
 const ROUTES = {
   '/mi-dia': { title: 'Mi Día', area: 'mi-dia', render: renderMiDia },
+  '/mi-dia/preparar': { title: 'Preparar mi día', area: 'mi-dia', render: renderPreparar },
   '/mi-dia/cierre': { title: 'Cierre del día', area: 'mi-dia', render: renderCierre },
   '/proyectos': { title: 'Proyectos', area: 'trabajo', render: renderProyectos, detail: renderProyectoDetalle },
   '/tareas': { title: 'Tareas', area: 'trabajo', render: renderTareas },
@@ -66,7 +67,8 @@ const AREA_NAV = {
       group: 'Hoy',
       items: [
         { label: 'Resumen del día', icon: 'check', href: '#/mi-dia' },
-        { label: 'Cierre del día', icon: 'clock', href: '#/mi-dia/cierre' },
+        { label: 'Preparar mi día', icon: 'sparkles', href: '#/mi-dia/preparar' },
+        { label: 'Cierre del día', icon: 'moon', href: '#/mi-dia/cierre' },
       ],
     },
     {
@@ -239,7 +241,6 @@ async function route() {
   view.parentNode.replaceChild(fresh, view);
 
   const title = routeDef ? routeDef.title : 'Mi Día';
-  document.getElementById('route-title').textContent = title;
   document.title = `${title} · FaroFlow`;
 
   try {
@@ -516,9 +517,25 @@ function bind() {
     });
   });
 
-  $('search-trigger').addEventListener('click', (e) => {
+  const searchTrigger = $('search-trigger');
+  searchTrigger.addEventListener('click', (e) => {
     e.preventDefault();
     openPalette();
+  });
+  searchTrigger.addEventListener('focus', (e) => {
+    e.preventDefault();
+    openPalette();
+  });
+  searchTrigger.addEventListener('input', () => {
+    const value = searchTrigger.value.trim();
+    if (value) {
+      openPalette();
+      const paletteInput = $('palette-input');
+      if (paletteInput) {
+        paletteInput.value = value;
+        paletteSearch(value);
+      }
+    }
   });
 
   const paletteInput = $('palette-input');

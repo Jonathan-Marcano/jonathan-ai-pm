@@ -1,83 +1,96 @@
 :root {
   /* ============================================================
      FAROFLOW — DESIGN TOKENS
-     Identidad: azul profundo + acentos turquesa y ámbar, fondo claro
-     (referencia visual aprobada: barra superior de áreas, menú
-     lateral contextual, luz de faro sobre el mar)
+     Identidad FaroFlow: faro turquesa sobre el mar, fondo claro.
+     Paleta de referencia:
+       - texto principal   #08234A (azul marino profundo)
+       - texto secundario  #607C99 (azul grisáceo)
+       - turquesa          #00AAA5
+       - turquesa oscuro   #007F83
+       - fondo app         #F5FBFA
+       - tarjetas          #FFFFFF
+       - bordes            #DFECEF
+       - selección/activo  #E2F8F5 (menta)
+     Tipografía: Inter. Formas: radios 12–14, separaciones 14–18,
+     padding 20–24, filas de tabla 56–64.
      ============================================================ */
 
-  /* Color — primario (azul profundo) */
-  --ff-primary-50: #f0f5f9;
-  --ff-primary-100: #dde9f2;
-  --ff-primary-200: #bfd6e5;
-  --ff-primary-300: #96bcd3;
-  --ff-primary-400: #619abe;
-  --ff-primary-500: #3d7fa8;
-  --ff-primary-600: #2c668f;
-  --ff-primary-700: #1f4e70;
-  --ff-primary-800: #14374f;
-  --ff-primary-900: #0b2a3d;
-  --ff-primary-950: #081f2e;
+  /* Color — azul marino profundo (texto y primarios) */
+  --ff-primary-50: #eef4fb;
+  --ff-primary-100: #dce8f6;
+  --ff-primary-200: #bcd2ea;
+  --ff-primary-300: #8fb3d9;
+  --ff-primary-400: #5f90c2;
+  --ff-primary-500: #3b74ab;
+  --ff-primary-600: #235b93;
+  --ff-primary-700: #14487c;
+  --ff-primary-800: #0c3360;
+  --ff-primary-900: #08234a;
+  --ff-primary-950: #051a38;
 
-  /* Color — acento turquesa (luz del faro) */
-  --ff-accent-50: #e9f8f6;
-  --ff-accent-100: #cdefea;
-  --ff-accent-200: #a0e2d8;
-  --ff-accent-300: #6bd0c2;
-  --ff-accent-400: #3bbcac;
-  --ff-accent-500: #22a495;
-  --ff-accent-600: #15857a;
-  --ff-accent-700: #11685f;
+  /* Color — turquesa (luz del faro) */
+  --ff-accent-50: #eafbf9;
+  --ff-accent-100: #e2f8f5;
+  --ff-accent-200: #b9f0ec;
+  --ff-accent-300: #7ce0d8;
+  --ff-accent-400: #38c4bb;
+  --ff-accent-500: #00aaa5;
+  --ff-accent-600: #009490;
+  --ff-accent-700: #007f83;
+  --ff-accent-800: #075e63;
 
-  /* Color — cálido ámbar */
-  --ff-warm-50: #fff8e9;
-  --ff-warm-100: #ffefc9;
-  --ff-warm-200: #ffdf8e;
-  --ff-warm-300: #ffcb4e;
-  --ff-warm-400: #f8b62a;
-  --ff-warm-500: #e89b12;
-  --ff-warm-600: #c4780d;
+  /* Color — cálido ámbar (alertas suaves) */
+  --ff-warm-50: #fff9ed;
+  --ff-warm-100: #fff1d6;
+  --ff-warm-200: #ffe3a8;
+  --ff-warm-300: #ffd071;
+  --ff-warm-400: #f4b640;
+  --ff-warm-500: #df9c1f;
+  --ff-warm-600: #b57c11;
 
   /* Color — semántico */
-  --ff-success-500: #1e9c62;
-  --ff-success-100: #e3f6ec;
-  --ff-warning-500: #c4780d;
-  --ff-warning-100: #ffefc9;
+  --ff-success-500: #128a56;
+  --ff-success-100: #e2f6ec;
+  --ff-warning-500: var(--ff-warm-500);
+  --ff-warning-100: var(--ff-warm-100);
   --ff-danger-500: #d64545;
-  --ff-danger-100: #ffe7e6;
-  --ff-info-500: #2c668f;
-  --ff-info-100: #dde9f2;
+  --ff-danger-100: #ffe9e8;
+  --ff-info-500: #235b93;
+  --ff-info-100: #dce8f6;
 
-  /* Color — neutro / superficie / texto (fríos, gris azulado) */
-  --ff-neutral-500: #4f6a7e;
-  --ff-neutral-400: #6d8496;
-  --ff-neutral-300: #9fb2c0;
-  --ff-bg: #f3f7fb;
+  /* Color — neutro / superficie / texto */
+  --ff-neutral-500: #607c99;
+  --ff-neutral-400: #7d97b0;
+  --ff-neutral-300: #9fb4c8;
+  --ff-bg: #f5fbfa;
   --ff-surface: #ffffff;
-  --ff-surface-tint: #ecf3f8;
-  --ff-border: #dfe8f0;
-  --ff-border-strong: #c3d3e0;
-  --ff-text: #0d2233;
-  --ff-text-muted: #4f6a7e;
-  --ff-text-faint: #8ba1b2;
+  --ff-surface-tint: #eef6f5;
+  --ff-border: #dfecef;
+  --ff-border-strong: #c6d9de;
+  --ff-text: #08234a;
+  --ff-text-muted: #607c99;
+  --ff-text-faint: #9ab0c4;
+  --ff-selection: #e2f8f5;
 
   /* Color — marca (compatibilidad con kit de marca) */
-  --brand-primary: #0b2a3d;
-  --brand-secondary: var(--ff-accent-500);
-  --brand-accent: var(--ff-warm-500);
+  --brand-primary: #08234a;
+  --brand-secondary: #00aaa5;
+  --brand-accent: #ffce5c;
   --brand-background-light: var(--ff-bg);
-  --brand-background-dark: #081f2e;
-  --brand-font: 'Inter', system-ui, -apple-system, sans-serif;
+  --brand-background-dark: #051a38;
+  --brand-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Tipografía */
   --ff-font: var(--brand-font);
-  --ff-text-xs: 11px;
-  --ff-text-sm: 12.5px;
-  --ff-text-md: 14px;
-  --ff-text-lg: 16px;
-  --ff-text-xl: 20px;
+  --ff-text-xs: 12px;
+  --ff-text-sm: 14px;
+  --ff-text-md: 15px;
+  --ff-text-lg: 17px;
+  --ff-text-xl: 21px;
   --ff-text-2xl: 24px;
-  --ff-text-3xl: 30px;
+  --ff-text-3xl: 32px;
+  --ff-text-4xl: 42px;
+  --ff-text-hero: 46px;
   --ff-weight-regular: 400;
   --ff-weight-medium: 500;
   --ff-weight-semibold: 600;
@@ -98,16 +111,16 @@
   --ff-space-10: 64px;
 
   /* Radio */
-  --ff-radius-sm: 6px;
-  --ff-radius-md: 10px;
-  --ff-radius-lg: 14px;
-  --ff-radius-xl: 20px;
+  --ff-radius-sm: 8px;
+  --ff-radius-md: 12px;
+  --ff-radius-lg: 16px;
+  --ff-radius-xl: 24px;
   --ff-radius-full: 999px;
 
-  /* Sombra */
-  --ff-shadow-sm: 0 1px 2px rgba(8, 31, 46, 0.06);
-  --ff-shadow-md: 0 1px 2px rgba(8, 31, 46, 0.06), 0 6px 20px rgba(8, 31, 46, 0.07);
-  --ff-shadow-lg: 0 4px 12px rgba(8, 31, 46, 0.08), 0 18px 40px rgba(8, 31, 46, 0.12);
+  /* Sombra (suave, baja) */
+  --ff-shadow-sm: 0 1px 2px rgba(8, 35, 74, 0.05);
+  --ff-shadow-md: 0 2px 6px rgba(8, 35, 74, 0.06), 0 10px 28px rgba(8, 35, 74, 0.07);
+  --ff-shadow-lg: 0 4px 14px rgba(8, 35, 74, 0.09), 0 22px 48px rgba(8, 35, 74, 0.12);
 
   /* Bordes */
   --ff-border-hairline: 1px solid var(--ff-border);
