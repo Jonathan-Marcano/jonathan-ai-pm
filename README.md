@@ -141,6 +141,35 @@ Seed data under `data/seed/` is intentionally fictional.
   candidates and outbound notices, and an `OutboundPolicy` gate refuses any send without an
   explicit preview-confirmation; WhatsApp capture and notifications are next.
 
+## Interfaz web (referencias 1536×1024)
+
+Adaptación funcional de las seis vistas principales a las referencias de
+`~/Downloads/FaroFlow_*.png`, sin datos ficticios (todo lee las APIs reales):
+
+- **Mi Día** (`Fase 2`): grid 2 columnas, prioridades reales (`focus_tasks`),
+  finanzas del mes y captura rápida al pie.
+- **Trabajo — detalle de proyecto** (`Fase 3`): 70/30 con 4 indicadores, tabs
+  (Resumen/Entregables/Tareas/Reuniones/Archivos/Actividad), entregables con
+  avance y revisión, preparación de reunión, compromisos→tarea y registro de tiempo.
+- **Finanzas — Egresos** (`Fase 4`): 72/28, 3 tarjetas del mes, tabs
+  (Movimientos/Por categoría/Recurrentes), donut real por categoría, próximos
+  pagos y aviso de capturas pendientes.
+- **Hábitos** (`Fase 5`): 3 indicadores, semana real lun–dom, registro reciente
+  con hora·hábito·origen.
+- **Bandeja** (`Fase 6`): master-detail 40/60 con lista seleccionable y panel de
+  revisión, "Volver" en móvil y captura manual como botón `data-capture-open`.
+
+### Diferencias conocidas vs. las referencias
+- Implementación funcional completa; la validación visual pixel a pixel queda
+  pendiente de la persona (el agente no ve las imágenes).
+- `Meetings` no exponen descripción ni lugar en la API: las tarjetas de reunión
+  solo muestran título, fecha y estado.
+- El donut de egresos usa proporciones reales de datos; si no hay datos en el
+  mes se muestra el estado vacío en lugar de una gráfica simulada.
+
+Capturas de verificación 1536×1024: `capturas_fases/` (fuera de git por
+posible contenido personal).
+
 ## Working agreements
 
 - GitHub is the source of truth for code, schemas, and versioned technical documentation.
