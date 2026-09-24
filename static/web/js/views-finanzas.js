@@ -1001,6 +1001,8 @@ async function renderEgresos(el, household) {
 
     const catById = new Map((categories || []).map((c) => [c.id, c]));
     const catsOfType = (categories || []).filter((c) => c.kind === 'expense');
+    const accById = new Map((accounts || []).map((a) => [a.id, a]));
+    const accName = (id) => (accById.get(id || '') || {}).name || '—';
     const total = (txns || []).reduce((sum, t) => sum + t.amount, 0);
     const planned = (dash.budget || []).reduce((a, b) => a + (b.planned || 0), 0);
     const used = (dash.budget || []).reduce((a, b) => a + (b.actual || 0), 0);
@@ -1027,20 +1029,30 @@ async function renderEgresos(el, household) {
       ${catsOfType.map((c) => `<button class="chip" data-fin-cat="${esc(c.id)}" type="button">${esc(c.name)}</button>`).join('')}
     </div>`;
 
+    const accountFilter = (accounts || []).length > 1 ? `<select class="form-control flujo-search" id="flujo-account" aria-label="Filtrar por cuenta">
+      <option value="">Todas las cuentas</option>
+      ${accounts.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')}
+    </select>` : '';
+
     const movimientosHtml = `
       <div style="padding:16px 18px 0"><div class="flujo-toolbar">
         <span class="flujo-total"><b id="flujo-count">${esc(txns.length)} movimientos</b> · total <b>${money(total)}</b></span>
       </div></div>
+      <div class="flujo-toolbar" style="padding:2px 18px 0">
+        <span class="js-search">${icon('search')}</span>
+        <input type="search" class="form-control flujo-search" id="flujo-q" placeholder="Buscar por descripción…" autocomplete="off" />
+        ${accountFilter}
+      </div>
       ${chips}
       ${txns.length ? `<div class="table-wrap" style="padding:0 0 6px"><table class="table">
         <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="num">Monto</th><th></th></tr></thead>
         <tbody id="flujo-tbody">
           ${txns.map((t) => `
-            <tr data-fin-row="${esc(t.category_id || '')}">
+            <tr data-fin-row="${esc(t.category_id || '')}" data-fin-acc="${esc(t.account_id || '')}" data-fin-search="${esc(String(t.description || '').toLowerCase())}">
               <td>${esc(fmtDate(t.date))}</td>
               <td>${esc(t.description || '—')}</td>
               <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
-              <td>${esc(String(t.account_id || '').slice(0, 8))}</td>
+              <td>${accName(t.account_id)}</td>
               <td class="num text-danger">−${money(t.amount)}</td>
               <td>${t.status === 'voided' ? badge('voided') : `<button class="btn btn-ghost btn-xs" data-fin-void="${esc(t.id)}">${icon('trash')}</button>`}</td>
             </tr>`).join('')}
@@ -1175,23 +1187,35 @@ async function renderEgresos(el, household) {
     });
 
     const chipWrap = el.querySelector('#flujo-chips');
+    const qInput = el.querySelector('#flujo-q');
+    const accSelect = el.querySelector('#flujo-account');
+    const applyFilters = () => {
+      const cat = (chipWrap?.querySelector('.chip.active[data-fin-cat]') || {}).dataset?.finCat || '';
+      const acc = accSelect?.value || '';
+      const q = (qInput?.value || '').trim().toLowerCase();
+      const rows = el.querySelectorAll('#flujo-tbody tr');
+      let shown = 0;
+      rows.forEach((row) => {
+        const visible =
+          (!cat || row.dataset.finRow === cat) &&
+          (!acc || row.dataset.finAcc === acc) &&
+          (!q || (row.dataset.finSearch || '').includes(q));
+        row.hidden = !visible;
+        if (visible) shown += 1;
+      });
+      const countEl = el.querySelector('#flujo-count');
+      if (countEl) countEl.textContent = `${shown} movimientos`;
+    };
     if (chipWrap) {
       chipWrap.addEventListener('click', (e) => {
         const chip = e.target.closest('.chip[data-fin-cat]');
         if (!chip) return;
         chipWrap.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
-        const cat = chip.dataset.finCat;
-        const rows = el.querySelectorAll('#flujo-tbody tr');
-        let shown = 0;
-        rows.forEach((row) => {
-          const visible = !cat || row.dataset.finRow === cat;
-          row.hidden = !visible;
-          if (visible) shown += 1;
-        });
-        const countEl = el.querySelector('#flujo-count');
-        if (countEl) countEl.textContent = `${shown} movimientos`;
+        applyFilters();
       });
     }
+    if (qInput) qInput.addEventListener('input', applyFilters);
+    if (accSelect) accSelect.addEventListener('change', applyFilters);
 
     const upBtn = el.querySelector('#fin-egresos-upcoming');
     if (upBtn) {
