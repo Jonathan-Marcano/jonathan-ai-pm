@@ -10,6 +10,7 @@ from faroflow.classification import (
     ClassifierNotConfigured,
     build_capture_classifier,
 )
+from faroflow.config import get_settings
 from faroflow.db import get_session
 from faroflow.services import DomainRuleError, DomainStore
 
@@ -23,6 +24,32 @@ def request_session(request: Request, session: RawDbSession) -> Session:
 
 
 DbSession = Annotated[Session, Depends(request_session)]
+
+
+def require_integration_operation_key(request: Request) -> None:
+    """Gate protected integration operations behind an explicit shared key.
+
+    When ``INTEGRATION_OPERATIONS_ENABLED`` is false the gate is open so local single-user
+    runs behave as before. When enabled, every protected endpoint requires the matching
+    ``X-Integration-Key`` header; the key never leaves the server except in the header check.
+    """
+    settings = get_settings()
+    if not settings.integration_operations_enabled:
+        return
+    expected = (
+        settings.integration_operation_key.get_secret_value()
+        if settings.integration_operation_key
+        else ""
+    )
+    provided = request.headers.get("X-Integration-Key") or ""
+    if not expected or provided != expected:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="A valid integration operation key is required",
+        )
+
+
+ProtectedIntegrationOp = Annotated[None, Depends(require_integration_operation_key)]
 
 
 def capture_classifier() -> ClassifierAdapter:

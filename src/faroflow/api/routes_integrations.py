@@ -41,6 +41,7 @@ from .deps import (
     DbSession,
     PageLimit,
     PageOffset,
+    ProtectedIntegrationOp,
     domain_http_error,
     set_page_links,
     store,
@@ -94,6 +95,7 @@ def confirm_project(
     meeting_id: str,
     payload: MeetingProjectAssociate,
     session: DbSession,
+    _op: ProtectedIntegrationOp,
 ):
     try:
         return store(session).associate_meeting(meeting_id, payload.project_id)
@@ -128,7 +130,7 @@ def list_mappings(
     status_code=204,
     tags=["integrations"],
 )
-def delete_mapping(mapping_id: str, session: DbSession):
+def delete_mapping(mapping_id: str, session: DbSession, _op: ProtectedIntegrationOp):
     state = IntegrationStateStore(session)
     try:
         state.delete_project_mapping(mapping_id)
@@ -168,6 +170,7 @@ def link_drive_file(
     deliverable_id: str,
     payload: DriveFileLinkCreate,
     session: DbSession,
+    _op: ProtectedIntegrationOp,
 ):
     try:
         identity = store(session).link_drive_file(
@@ -192,7 +195,9 @@ def link_drive_file(
     status_code=204,
     tags=["integrations"],
 )
-def unlink_drive_file(deliverable_id: str, session: DbSession):
+def unlink_drive_file(
+    deliverable_id: str, session: DbSession, _op: ProtectedIntegrationOp
+):
     try:
         store(session).unlink_drive_file(deliverable_id)
     except DomainRuleError as exc:
@@ -208,6 +213,7 @@ def unlink_drive_file(deliverable_id: str, session: DbSession):
 )
 def refresh_drive_metadata(
     session: DbSession,
+    _op: ProtectedIntegrationOp,
     external_ids: Annotated[list[str] | None, Query()] = None,
 ):
     try:
@@ -225,6 +231,7 @@ def refresh_drive_metadata(
 )
 def sync_calendar(
     session: DbSession,
+    _op: ProtectedIntegrationOp,
     starts_at: Annotated[datetime, Query()],
     ends_at: Annotated[datetime, Query()],
     project_id: Annotated[str | None, Query()] = None,
@@ -253,6 +260,7 @@ def sync_calendar(
 )
 def ingest_messaging(
     session: DbSession,
+    _op: ProtectedIntegrationOp,
     conversation_ids: Annotated[list[str], Query(min_length=1)],
     since: Annotated[datetime, Query()],
 ):
@@ -333,7 +341,9 @@ def list_sync_run_errors(run_id: str, session: DbSession):
     response_model=SyncRunRead,
     tags=["integrations"],
 )
-def retry_sync_run(run_id: str, session: DbSession):
+def retry_sync_run(
+    run_id: str, session: DbSession, _op: ProtectedIntegrationOp
+):
     run = _require_run(session, run_id)
     if run.resource_kind == "calendar":
         if run.window_starts_at is None or run.window_ends_at is None:
