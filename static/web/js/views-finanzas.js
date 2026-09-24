@@ -38,6 +38,7 @@ import {
   emptyBlock,
   errorBlock,
   openForm,
+  progressBar,
 } from './ui.js';
 
 const state = {
@@ -72,7 +73,7 @@ export async function renderFinanzas(el, sub = 'resumen') {
     }
     const household = households[0];
     if (sub === 'ingresos') return renderFlujo(el, household, 'income');
-    if (sub === 'egresos') return renderFlujo(el, household, 'expense');
+    if (sub === 'egresos') return renderEgresos(el, household);
     if (sub === 'cuentas') return renderCuentas(el, household);
     if (sub === 'deudas') return renderDeudas(el, household);
     if (sub === 'presupuesto') return renderPresupuesto(el, household);
@@ -268,20 +269,20 @@ function renderUpcoming(up) {
 /* ---------- Ingresos / Egresos ---------- */
 
 async function renderFlujo(el, household, type) {
-  const ingress = type === 'income';
+  const ingresosView = type === 'income' ? 'Ingresos' : 'Egresos';
   el.innerHTML = `
     <div class="page-head">
-      <h1>Finanzas · ${ingress ? 'Ingresos' : 'Egresos'}</h1>
-      <p class="page-sub">Movimientos de ${ingress ? 'ingreso' : 'egreso'} registrados.</p>
+      <h1>${ingresosView}</h1>
+      <p class="page-sub">Movimientos de ${ingresosView.toLowerCase()} registrados en el período.</p>
       <div class="page-head-actions">
         ${monthPicker('mr-8')}
         <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
       </div>
     </div>
-    ${skeleton(5)}`;
+    ${skeleton(6)}`;
   const { year, month } = monthParts();
   try {
-    const [accounts, categories, members, txns] = await Promise.all([
+    const [accounts, categories, members, txns, up, goals, dash] = await Promise.all([
       listAccounts(),
       listCategoriesByHousehold(household.id),
       api(`/api/v1/finance/households/${encodeURIComponent(household.id)}/members`),
@@ -291,44 +292,141 @@ async function renderFlujo(el, household, type) {
         month,
         type,
       }),
+      upcomingPayments(household.id, 30),
+      listGoalsByHousehold(household.id),
+      dashboard(household.id, year, month),
     ]);
     const catById = new Map((categories || []).map((c) => [c.id, c]));
-    el.innerHTML = `
-      <div class="page-head">
-        <h1>Finanzas · ${ingress ? 'Ingresos' : 'Egresos'}</h1>
-        <p class="page-sub">${esc(MONTHS[month - 1])} ${esc(String(year))} · ${esc(txns.length)} movimientos.</p>
-        <div class="page-head-actions">
-          ${monthPicker('mr-8')}
-          <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
+    const catsOfType = (categories || []).filter((c) => c.kind === type);
+    const total = (txns || []).reduce((sum, t) => sum + t.amount, 0);
+    const upcomingCount = (up?.pending_installments?.length || 0) + (up?.recurring_minimums?.length || 0);
+    const planned = (dash.budget || []).reduce((a, b) => a + (b.planned || 0), 0);
+    const used = (dash.budget || []).reduce((a, b) => a + (b.actual || 0), 0);
+    const budgetPct = planned ? Math.round((used / planned) * 100) : 0;
+
+    const monthLabel = `${MONTHS[month - 1]} ${esc(String(year))}`;
+
+    const metas = (goals || []).filter((g) => g.status === 'active').slice(0, 3);
+    const metasHtml = `
+      <section class="card">
+        <div class="card-head"><h2>${icon('target')} Metas de ahorro</h2><a class="card-action" href="#/finanzas/metas">Ver todas</a></div>
+        <div class="card-body">
+          ${metas.length
+            ? `<div class="p-list">${metas.map((g) => {
+                const p = g.target_amount ? Math.round((g.current_amount / g.target_amount) * 100) : 0;
+                return `<li class="item">
+                  <div class="item-main"><div class="item-title">${esc(g.name)}</div>
+                  <div class="item-sub">${money(g.current_amount)} de ${money(g.target_amount)} · ${p}%</div></div>
+                  <div class="item-side">${progressBar(p)}</div>
+                </li>`;
+              }).join('')}</div>`
+            : emptyBlock('Sin metas de ahorro activas.', '<a class="btn btn-soft btn-sm" href="#/finanzas/metas">Crear meta</a>')}
         </div>
-      </div>
+      </section>`;
+
+    const upcomingHtml = `
+      <section class="card">
+        <div class="card-head"><h2>${icon('clock')} Pagos próximos (30 días)</h2><a class="card-action" href="#/finanzas/deudas">Deudas</a></div>
+        <div class="card-body no-pad">${renderUpcoming(up)}</div>
+      </section>`;
+
+    const budgetHtml = `
+      <section class="card">
+        <div class="card-head"><h2>${icon('sparkles')} Presupuesto del período</h2><a class="card-action" href="#/finanzas/presupuesto">Editar</a></div>
+        <div class="card-body no-pad">
+          ${(dash.budget || []).length ? `<div class="bar-list" style="padding:14px 18px">
+            ${dash.budget.map((b) => {
+              const u = b.planned ? Math.round((b.actual / b.planned) * 100) : 0;
+              return `<div class="bar-row"><span class="bar-name">${esc(b.category_name || 'Categoría')}</span>
+                <div class="bar-track"><div class="bar-fill ${u > 100 ? 'over' : ''}" style="width:${Math.min(100, u)}%"></div></div>
+                <span class="bar-amt">${money(b.actual)} / ${money(b.planned)}</span></div>`;
+            }).join('')}
+          </div>` : `<div class="card-body">${emptyBlock('Sin presupuesto definido.', '<a class="btn btn-soft btn-sm" href="#/finanzas/presupuesto">Crear</a>')}</div>`}
+        </div>
+      </section>`;
+
+    const kpiCards = `
+      <div class="kpi-row">
+        <div class="kpi"><span class="kpi-icon ${ingresosView === 'Ingresos' ? 'tone-success' : 'tone-danger'}">${icon(ingresosView === 'Ingresos' ? 'arrow' : 'flag')}</span><div class="kpi-meta"><span class="kpi-label">${ingresosView} del período</span><span class="kpi-value">${money(total)}</span><span class="kpi-meta">${esc(monthLabel)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-meta">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-meta">de ${money(planned)} (${budgetPct}%)</span></div></div>
+      </div>`;
+
+    const chips = `<div class="filterbar chips" id="flujo-chips">
+      <button class="chip active" data-fin-cat="" type="button">Todos</button>
+      ${catsOfType.map((c) => `<button class="chip" data-fin-cat="${esc(c.id)}" type="button">${esc(c.name)}</button>`).join('')}
+    </div>`;
+
+    const table = `
       <section class="card">
         <div class="card-body no-pad">
-          ${txns.length ? `<div class="table-wrap"><table class="table">
+          <div style="padding:16px 18px 0"><div class="flujo-toolbar">
+            <span class="flujo-total"><b>${esc(monthLabel)}</b> · <span id="flujo-count">${esc(txns.length)} movimientos</span> · total <b>${money(total)}</b></span>
+          </div></div>
+          ${chips}
+          ${txns.length ? `<div class="table-wrap" style="padding:0 0 6px"><table class="table">
             <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="num">Monto</th><th></th></tr></thead>
-            <tbody>
+            <tbody id="flujo-tbody">
               ${txns.map((t) => `
-                <tr>
+                <tr data-fin-row="${esc(t.category_id || '')}">
                   <td>${esc(fmtDate(t.date))}</td>
                   <td>${esc(t.description || '—')}</td>
                   <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
                   <td>${esc(t.account_id.slice(0, 8))}</td>
-                  <td class="num ${ingress ? 'text-success' : 'text-danger'}">${ingress ? '+' : '−'}${money(t.amount)}</td>
+                  <td class="num ${ingresosView === 'Ingresos' ? 'text-success' : 'text-danger'}">${ingresosView === 'Ingresos' ? '+' : '−'}${money(t.amount)}</td>
                   <td>${t.status === 'voided' ? badge('voided') : `<button class="btn btn-ghost btn-xs" data-fin-void="${esc(t.id)}">${icon('trash')}</button>`}</td>
                 </tr>`).join('')}
             </tbody>
           </table></div>` : `<div class="card-body">${emptyBlock(
-            `Sin ${ingress ? 'ingresos' : 'egresos'} en este período.`,
+            `Sin ${ingresosView.toLowerCase()} en este período.`,
             '<button class="btn btn-soft btn-sm" id="fin-new2">Registrar movimiento</button>',
           )}</div>`}
         </div>
       </section>`;
 
+    el.innerHTML = `
+      <div class="page-head">
+        <h1>${ingresosView}</h1>
+        <p class="page-sub">${esc(monthLabel)} · ${esc(txns.length)} movimientos.</p>
+        <div class="page-head-actions">
+          ${monthPicker('mr-8')}
+          <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
+        </div>
+      </div>
+      ${kpiCards}
+      <div class="split-60-40">
+        <div class="split-main">${table}</div>
+        <div class="split-side">
+          ${metasHtml}
+          ${upcomingHtml}
+          ${budgetHtml}
+        </div>
+      </div>`;
+
     bindMonth(el, () => renderFlujo(el, household, type));
     bindNew(el, { household, accounts, categories, members, type, again: () => renderFlujo(el, household, type) });
     bindVoid(el, () => renderFlujo(el, household, type));
+
+    const chipWrap = el.querySelector('#flujo-chips');
+    if (chipWrap) {
+      chipWrap.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip[data-fin-cat]');
+        if (!chip) return;
+        chipWrap.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+        const cat = chip.dataset.finCat;
+        const rows = el.querySelectorAll('#flujo-tbody tr');
+        let shown = 0;
+        rows.forEach((row) => {
+          const visible = !cat || row.dataset.finRow === cat;
+          row.hidden = !visible;
+          if (visible) shown += 1;
+        });
+        const countEl = el.querySelector('#flujo-count');
+        if (countEl) countEl.textContent = `${shown} movimientos`;
+      });
+    }
   } catch (err) {
-    el.innerHTML = `<div class="page-head"><h1>Finanzas · ${ingress ? 'Ingresos' : 'Egresos'}</h1></div>${errorBlock(`No disponible: ${err.message}`)}`;
+    el.innerHTML = `<div class="page-head"><h1>Finanzas · ${ingresosView}</h1></div>${errorBlock(`No disponible: ${err.message}`)}`;
   }
 }
 
@@ -831,4 +929,278 @@ function bindContribute(el, accounts, again) {
       toast(`No se pudo aportar: ${err.message}`, 'error');
     }
   });
+}
+
+/* ---------- Egresos ---------- */
+
+const DONUT_COLORS = [
+  '#00AAA5', '#007F83', '#3BC0BA', '#71C9C4', '#A8DCD8',
+  '#F2A65A', '#F7C88F', '#E2F8F5', '#82C95B', '#5A8BB9',
+];
+
+export function donutChart(parts) {
+  const total = parts.reduce((s, p) => s + (p.amount || 0), 0);
+  if (!total || !parts.length) {
+    return `<div class="donut empty">—</div><div class="item-sub">${esc('Sin datos para este período.')}</div>`;
+  }
+  let acc = 0;
+  const stops = parts.map((p, i) => {
+    const from = (acc / total) * 360;
+    acc += p.amount || 0;
+    const to = (acc / total) * 360;
+    const color = p.color || DONUT_COLORS[i % DONUT_COLORS.length];
+    return `${color} ${from.toFixed(1)}deg ${to.toFixed(1)}deg`;
+  });
+  const legend = parts.map((p, i) => {
+    const color = p.color || DONUT_COLORS[i % DONUT_COLORS.length];
+    const pct = Math.round(((p.amount || 0) / total) * 100);
+    return `<div class="donut-row">
+      <span class="swatch" style="background:${color}"></span>
+      <span class="donut-name">${esc(p.label)}</span>
+      <span class="donut-pct">${pct}%</span>
+      <span class="donut-amt">${money(p.amount)}</span>
+    </div>`;
+  });
+  return `<div class="donut-wrap">
+    <div class="donut" style="background:conic-gradient(${stops.join(', ')})"><div class="donut-center"><b>${money(total)}</b></div></div>
+    <div class="donut-legend">${legend.join('')}</div>
+  </div>`;
+}
+
+async function renderEgresos(el, household) {
+  if (!state.month) state.month = currentMonth();
+  const { year, month } = monthParts();
+  const monthLabel = `${MONTHS[month - 1]} ${String(year)}`;
+  el.innerHTML = `
+    <nav class="crumbs" aria-label="Ubicación">
+      <a href="#/finanzas">Finanzas</a><span class="crumb-sep">/</span><span>Egresos</span>
+    </nav>
+    <h1>Egresos</h1>
+    <div class="page-sub">${esc(monthLabel)}</div>
+    <div class="page-head-actions">
+      ${monthPicker('mr-8')}
+      <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
+    </div>
+    ${skeleton(6)}`;
+  try {
+    const [accounts, categories, members, txns, up, dash, debts] = await Promise.all([
+      listAccounts(),
+      listCategoriesByHousehold(household.id),
+      api(`/api/v1/finance/households/${encodeURIComponent(household.id)}/members`),
+      listTransactions({ household_id: household.id, year, month, type: 'expense' }),
+      upcomingPayments(household.id, 30),
+      dashboard(household.id, year, month),
+      listDebtsByHousehold(household.id),
+    ]);
+    let bandeja = [];
+    try {
+      bandeja = (await api('/api/v1/bandeja')) || [];
+    } catch (_err) {
+      bandeja = [];
+    }
+
+    const catById = new Map((categories || []).map((c) => [c.id, c]));
+    const catsOfType = (categories || []).filter((c) => c.kind === 'expense');
+    const total = (txns || []).reduce((sum, t) => sum + t.amount, 0);
+    const planned = (dash.budget || []).reduce((a, b) => a + (b.planned || 0), 0);
+    const used = (dash.budget || []).reduce((a, b) => a + (b.actual || 0), 0);
+    const budgetPct = planned ? Math.round((used / planned) * 100) : 0;
+    const incomePct = dash.income ? Math.round((total / dash.income) * 100) : 0;
+
+    const pendingCaptures = bandeja.filter(
+      (b) => (b.destination_module === 'finance' || ['expense', 'income'].includes(b.kind)) && ['received', 'reviewing'].includes(b.status),
+    ).length;
+
+    const upcomingRows = [];
+    for (const i of up.pending_installments || []) {
+      upcomingRows.push({ due: i.due_date, name: `Cuota de deuda (${String(i.debt_id || '').slice(0, 6)})`, amount: i.total_amount, days: i.days_left });
+    }
+    for (const r of up.recurring_minimums || []) {
+      upcomingRows.push({ due: r.due_date, name: `${r.debt_name} — pago mínimo`, amount: r.minimum_payment, days: null });
+    }
+    upcomingRows.sort((a, b) => (a.due < b.due ? -1 : 1));
+
+    const activeDebts = (debts || []).filter((d) => d.status === 'active').sort((a, b) => (a.due_day || 31) - (b.due_day || 31));
+
+    const chips = `<div class="filterbar chips" id="flujo-chips">
+      <button class="chip active" data-fin-cat="" type="button">Todos</button>
+      ${catsOfType.map((c) => `<button class="chip" data-fin-cat="${esc(c.id)}" type="button">${esc(c.name)}</button>`).join('')}
+    </div>`;
+
+    const movimientosHtml = `
+      <div style="padding:16px 18px 0"><div class="flujo-toolbar">
+        <span class="flujo-total"><b id="flujo-count">${esc(txns.length)} movimientos</b> · total <b>${money(total)}</b></span>
+      </div></div>
+      ${chips}
+      ${txns.length ? `<div class="table-wrap" style="padding:0 0 6px"><table class="table">
+        <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="num">Monto</th><th></th></tr></thead>
+        <tbody id="flujo-tbody">
+          ${txns.map((t) => `
+            <tr data-fin-row="${esc(t.category_id || '')}">
+              <td>${esc(fmtDate(t.date))}</td>
+              <td>${esc(t.description || '—')}</td>
+              <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
+              <td>${esc(String(t.account_id || '').slice(0, 8))}</td>
+              <td class="num text-danger">−${money(t.amount)}</td>
+              <td>${t.status === 'voided' ? badge('voided') : `<button class="btn btn-ghost btn-xs" data-fin-void="${esc(t.id)}">${icon('trash')}</button>`}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>` : `<div class="card-body">${emptyBlock(
+        'Sin egresos en este período.',
+        '<button class="btn btn-soft btn-sm" id="fin-new2">Registrar movimiento</button>',
+      )}</div>`}`;
+
+    const categorias = [...(dash.expense_categories || [])].sort((a, b) => b.amount - a.amount);
+    const categoriasHtml = `
+      <div class="card-body no-pad">
+        ${categorias.length ? `${
+          (() => {
+            const parts = categorias.map((c) => ({ label: c.name, amount: c.amount }));
+            return `<div style="padding:18px">${donutChart(parts)}</div>
+              <div class="bar-list" style="padding:0 18px 14px">
+                ${categorias.map((c) => `
+                  <div class="bar-row">
+                    <span class="bar-name">${esc(c.name)}</span>
+                    <div class="bar-track"><div class="bar-fill" style="width:${Math.round((c.amount / (dash.expenses || 1)) * 100)}%"></div></div>
+                    <span class="bar-amt">${money(c.amount)}</span>
+                  </div>`).join('')}
+              </div>`;
+          })()
+        }` : `<div class="card-body">${emptyBlock('Sin egresos categorizados este mes.')}</div>`}
+      </div>`;
+
+    const recurrentesHtml = `
+      <div class="card-body no-pad">
+        ${activeDebts.length ? `<div class="list" style="padding:0 18px">
+          ${activeDebts.map((d) => `
+            <div class="item">
+              <div class="item-main">
+                <div class="item-title">${esc(d.name)}</div>
+                <div class="item-sub">${esc(d.type)} · pago mínimo ${money(d.minimum_payment)} · día ${esc(d.due_day || 1)}</div>
+              </div>
+              <div class="item-side">${money(d.current_balance)}</div>
+            </div>`).join('')}
+        </div>` : emptyBlock('Sin deudas activas recurrentes.')}
+        ${upcomingRows.length ? `<div class="tab-head" style="margin:6px 18px 0">
+          <button class="btn btn-ghost btn-sm" id="fin-egresos-upcoming">${icon('clock')} Próximos pagos (${esc(upcomingRows.length)})</button>
+        </div>` : ''}
+      </div>`;
+
+    const tabs = [['movimientos', 'Movimientos'], ['categorias', 'Por categoría'], ['recurrentes', 'Recurrentes']];
+    let currentTab = 'movimientos';
+
+    const renderTabBody = () => {
+      const body = el.querySelector('#egresos-tab-body');
+      if (!body) return;
+      if (currentTab === 'movimientos') body.innerHTML = `<section class="card"><div class="card-body no-pad">${movimientosHtml}</div></section>`;
+      else if (currentTab === 'categorias') body.innerHTML = `<section class="card"><div class="card-body">${categoriasHtml}</div></section>`;
+      else if (currentTab === 'recurrentes') body.innerHTML = `<section class="card"><div class="card-body">${recurrentesHtml}</div></section>`;
+    };
+
+    const upcomingSide = `
+      <section class="card">
+        <div class="card-head"><h2>${icon('clock')} Próximos pagos</h2><a class="card-action" href="#/finanzas/deudas">Deudas</a></div>
+        <div class="card-body no-pad">
+          ${upcomingRows.length ? `<div class="list" style="padding:0 18px">
+            ${upcomingRows.slice(0, 6).map((r) => `
+              <div class="item">
+                <div class="item-main"><div class="item-title">${esc(r.name)}</div>
+                <div class="item-sub">vence ${esc(fmtDate(r.due))}${r.days !== null ? ` · en ${esc(r.days)} días` : ''}</div></div>
+                <div class="item-side">${money(r.amount)}</div>
+              </div>`).join('')}
+          </div>` : `<div class="card-body">${emptyBlock('Nada pendiente en 30 días.')}</div>`}
+        </div>
+      </section>`;
+
+    const capturesSide = pendingCaptures
+      ? `<section class="card tone-soft"><div class="card-body">
+          <div class="advice">
+            ${icon('alert')}
+            <div><b>Tienes ${esc(pendingCaptures)} ${pendingCaptures === 1 ? 'captura pendiente' : 'capturas pendientes'} por clasificar</b>
+            <div class="item-sub">Revisa en la bandeja qué mueven tus finanzas.</div></div>
+            <a class="btn btn-primary btn-sm" href="#/bandeja">Ir a la bandeja</a>
+          </div>
+        </div></section>`
+      : '';
+
+    el.innerHTML = `
+      <nav class="crumbs" aria-label="Ubicación">
+        <a href="#/finanzas">Finanzas</a><span class="crumb-sep">/</span><span>Egresos</span>
+      </nav>
+      <div class="detail-head">
+        <div>
+          <h1>Egresos</h1>
+          <div class="page-sub">${esc(monthLabel)} · ${esc(txns.length)} movimientos.</div>
+        </div>
+        <div class="page-head-actions">
+          ${monthPicker('mr-8')}
+          <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-meta"><span class="kpi-label">Total de egresos</span><span class="kpi-value">${money(total)}</span><span class="kpi-label">${incomePct}% del ingreso del mes</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-label">de ${money(planned)} · ${budgetPct}%</span></div></div>
+        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-label">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+      </div>
+      <div class="split-72-28">
+        <div class="split-main">
+          <div class="tabs" role="tablist" aria-label="Secciones de egresos">
+            ${tabs.map(([key, label]) => `<button class="tab ${key === 'movimientos' ? 'active' : ''}" data-eg-tab="${key}" role="tab" aria-selected="${key === 'movimientos' ? 'true' : 'false'}">${esc(label)}</button>`).join('')}
+          </div>
+          <div id="egresos-tab-body"></div>
+        </div>
+        <div class="split-side">
+          <section class="card"><div class="card-head"><h2>${icon('folder')} Egresos por categoría</h2></div><div class="card-body">
+            ${categorias.length ? donutChart(categorias.map((c) => ({ label: c.name, amount: c.amount }))) : emptyBlock('Sin egresos este mes.')}
+          </div></section>
+          ${upcomingSide}
+          ${capturesSide}
+        </div>
+      </div>`;
+    renderTabBody();
+
+    bindMonth(el, () => renderEgresos(el, household));
+    bindNew(el, { household, accounts, categories, members, type: 'expense', again: () => renderEgresos(el, household) });
+    bindVoid(el, () => renderEgresos(el, household));
+
+    el.querySelector('.tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-eg-tab]');
+      if (!btn) return;
+      currentTab = btn.dataset.egTab;
+      el.querySelectorAll('.tab').forEach((t) => {
+        t.classList.toggle('active', t === btn);
+        t.setAttribute('aria-selected', t === btn ? 'true' : 'false');
+      });
+      renderTabBody();
+    });
+
+    const chipWrap = el.querySelector('#flujo-chips');
+    if (chipWrap) {
+      chipWrap.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip[data-fin-cat]');
+        if (!chip) return;
+        chipWrap.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+        const cat = chip.dataset.finCat;
+        const rows = el.querySelectorAll('#flujo-tbody tr');
+        let shown = 0;
+        rows.forEach((row) => {
+          const visible = !cat || row.dataset.finRow === cat;
+          row.hidden = !visible;
+          if (visible) shown += 1;
+        });
+        const countEl = el.querySelector('#flujo-count');
+        if (countEl) countEl.textContent = `${shown} movimientos`;
+      });
+    }
+
+    const upBtn = el.querySelector('#fin-egresos-upcoming');
+    if (upBtn) {
+      upBtn.addEventListener('click', () => {
+        const side = el.querySelector('.split-side');
+        if (side) side.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  } catch (err) {
+    el.innerHTML = `<nav class="crumbs" aria-label="Ubicación"><a href="#/finanzas">Finanzas</a><span class="crumb-sep">/</span><span>Egresos</span></nav><h1>Egresos</h1>${errorBlock(`No disponible: ${err.message}`)}`;
+  }
 }

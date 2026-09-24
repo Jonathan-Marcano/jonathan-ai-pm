@@ -1838,3 +1838,19 @@ button { font-family: inherit; }
   .detail-actions .btn { flex: 1; justify-content: center; }
 }
 .badge-ontrack { color: var(--ff-accent-700); background: var(--ff-accent-100); }
+
+/* ================= Finanzas: egresos ================= */
+
+.split-72-28 { display: grid; grid-template-columns: minmax(0, 72fr) minmax(280px, 28fr); gap: 20px; align-items: start; }
+
+.donut-pct { font-size: var(--ff-text-xs); color: var(--ff-text-muted); font-variant-numeric: tabular-nums; }
+
+.card.tone-soft { background: var(--ff-accent-100); border-color: var(--ff-accent-200); }
+.advice { display: flex; align-items: flex-start; gap: 12px; }
+.advice > .ff-icon { width: 22px; height: 22px; flex: none; margin-top: 2px; color: var(--ff-accent-600); }
+.advice b { color: var(--ff-text); }
+.advice .btn { margin-left: auto; flex: none; }
+
+@media (max-width: 960px) {
+  .split-72-28 { grid-template-columns: minmax(0, 1fr); }
+}
