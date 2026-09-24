@@ -37,6 +37,9 @@ const KIND_LABELS = {
 
 const PENDING_STATUSES = ['received', 'reviewing', 'confirmed'];
 
+let bjQuery = '';
+let bjKind = '';
+
 function statusBadge(status) {
   return badge(status);
 }
@@ -103,6 +106,15 @@ export async function renderBandeja(el) {
       <div class="split-bandeja">
         <aside class="bandeja-list-host ${selected ? 'is-hidden' : ''}" id="bj-list-host">
           ${tabsHtml}
+          <div class="flujo-toolbar" style="padding:0 18px 8px">
+            <label class="flujo-toolbar-grow"><span class="js-search" aria-hidden="true">${icon('search')}</span>
+              <input type="search" class="form-control flujo-search" id="bj-q" placeholder="Buscar captura…" value="${esc(bjQuery)}" autocomplete="off" aria-label="Buscar captura" />
+            </label>
+            <select class="form-control flujo-search" id="bj-kind" aria-label="Filtrar por tipo">
+              <option value="">Todos los tipos</option>
+              ${Object.entries(KIND_LABELS).map(([k, label]) => `<option value="${k}" ${bjKind === k ? 'selected' : ''}>${esc(label)}</option>`).join('')}
+            </select>
+          </div>
           <section class="card">
             <div class="card-body no-pad">
               ${renderList(tab, pending, applied, discarded, errors, selectedId)}
@@ -120,6 +132,7 @@ export async function renderBandeja(el) {
 
     bindTabs(el);
     bindItems(el, { projects, habits, households, accounts, itemsById });
+    bindFilters(el, { pending, applied, discarded, errors, selectedId });
   } catch (err) {
     el.innerHTML = `<div class="page-head"><h1>Bandeja</h1></div>${errorBlock(`No disponible: ${esc(err.message)}`)}`;
   }
@@ -137,12 +150,20 @@ const KIND_ICONS = {
 
 function renderList(tab, pending, applied, discarded, errors, selectedId) {
   const map = { pending, applied, discarded, error: errors };
-  const list = map[tab] || [];
+  const full = map[tab] || [];
+  const q = bjQuery.trim().toLowerCase();
+  const list = full.filter(
+    (item) =>
+      (!bjKind || item.kind === bjKind) &&
+      (!q || (item.original_text || '').toLowerCase().includes(q) || (item.decision_note || '').toLowerCase().includes(q)),
+  );
   if (!list.length) {
     return `<div class="card-body">${emptyBlock(
-      tab === 'pending'
-        ? 'Bandeja al día: nada pendiente por clasificar.'
-        : 'No hay elementos en este estado.',
+      full.length
+        ? 'Ninguna captura coincide con la búsqueda o el filtro.'
+        : tab === 'pending'
+          ? 'Bandeja al día: nada pendiente por clasificar.'
+          : 'No hay elementos en este estado.',
     )}</div>`;
   }
   return `<div class="bandeja-list">
@@ -219,6 +240,28 @@ function renderDetail(item, { selectedIsPending }) {
         <button class="btn btn-ghost" data-bj-refine="${esc(item.id)}">${icon('edit')} Editar</button>
         <button class="btn btn-danger-soft" data-bj-discard="${esc(item.id)}">${icon('trash')} Descartar</button>` : ''}
     </div>`;
+}
+
+function bindFilters(el, { pending, applied, discarded, errors, selectedId }) {
+  const q = el.querySelector('#bj-q');
+  const kind = el.querySelector('#bj-kind');
+  const rerender = () => {
+    const tab = el.querySelector('.tab.active')?.dataset.tab || 'pending';
+    const host = el.querySelector('#bj-list-host .card-body');
+    if (host) host.innerHTML = renderList(tab, pending, applied, discarded, errors, selectedId);
+  };
+  if (q) {
+    q.addEventListener('input', () => {
+      bjQuery = q.value;
+      rerender();
+    });
+  }
+  if (kind) {
+    kind.addEventListener('change', () => {
+      bjKind = kind.value;
+      rerender();
+    });
+  }
 }
 
 function bindTabs(el) {

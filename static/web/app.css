@@ -987,6 +987,8 @@ button { font-family: inherit; }
 .flujo-total { font-size: var(--ff-text-sm); color: var(--ff-text-muted); }
 .flujo-total b { color: var(--ff-text); font-size: var(--ff-text-lg); }
 .flujo-toolbar .js-search { display: grid; place-items: center; color: var(--ff-text-faint); }
+.flujo-toolbar-grow { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px; }
+.flujo-toolbar-grow .flujo-search { max-width: none; }
 .flujo-search { width: 100%; max-width: 260px; }
 .flujo-toolbar .flujo-search:is(select) { width: auto; max-width: 220px; }
 
