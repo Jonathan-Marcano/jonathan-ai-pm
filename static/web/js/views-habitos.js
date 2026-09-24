@@ -281,6 +281,7 @@ export async function renderHabitos(el) {
     const series = await Promise.all(activeRows.map((h) => habitSeries(h.id)));
     const today = todayISO();
     const week = currentWeek();
+    const selectedId = el.dataset.selectedHabit || activeRows[0]?.id || null;
 
     let doneToday = 0;
     let dueToday = 0;
@@ -331,7 +332,7 @@ export async function renderHabitos(el) {
             .map((h, i) => {
               const s = series[i];
               return `
-              <div class="habit-card" style="padding:6px 0 12px;border-bottom:1px solid var(--ff-border);${i ? 'margin-top:10px' : ''}">
+              <div class="habit-card" data-hbt-select="${esc(h.id)}" style="padding:6px 0 12px;border-bottom:1px solid var(--ff-border);${i ? 'margin-top:10px' : ''}${h.id === selectedId ? 'outline:2px solid var(--ff-accent-500);outline-offset:4px;border-radius:var(--ff-radius-lg)' : ''}">
                 <div class="habit-head">
                   <div class="habit-name">${esc(h.name)}</div>
                   <div class="habit-goal">${esc(goalLabel(h))}${h.status === 'paused' ? ' · en pausa' : ''}</div>
@@ -355,7 +356,37 @@ export async function renderHabitos(el) {
         </div>
       </section>`;
 
-    const sideHtml = `
+    const selHabit = selectedId ? activeRows.find((h) => h.id === selectedId) : null;
+    const selSeries = selHabit ? series[activeRows.findIndex((h) => h.id === selectedId)] : null;
+
+    const weekDone = daySummary.reduce((a, d) => a + d.done, 0);
+    const weekDue = daySummary.reduce((a, d) => a + d.due, 0);
+
+    const habitDetail = selHabit && selSeries ? `
+      <section class="card">
+        <div class="card-head"><h2>${icon('target')} ${esc(selHabit.name)}</h2>${badge(selHabit.status)}</div>
+        <div class="card-body">
+          <p class="page-sub">${esc(goalLabel(selHabit))}${selHabit.description ? ` · ${esc(selHabit.description)}` : ''}</p>
+          <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="kpi"><span class="kpi-label">Racha actual</span><span class="kpi-value">${esc(selSeries.current_streak)}</span></div>
+            <div class="kpi"><span class="kpi-label">Racha máxima</span><span class="kpi-value">${esc(selSeries.longest_streak)}</span></div>
+            <div class="kpi"><span class="kpi-label">14 días</span><span class="kpi-value">${Math.round((selSeries.completion_rate_14d || 0) * 100)}%</span></div>
+          </div>
+          <div class="bar-list" style="padding:10px 0 0">
+            <div class="bar-row">
+              <span class="bar-name">Semana real</span>
+              <div class="bar-track"><div class="bar-fill" style="width:${weekDue ? Math.round((weekDone / weekDue) * 100) : 0}%"></div></div>
+              <span class="bar-amt">${esc(weekDone)}/${esc(weekDue)}</span>
+            </div>
+          </div>
+          <div class="habit-detail-actions" style="margin-top:12px">
+            <button class="btn btn-success-soft btn-sm" data-hbt-toggle="${esc(selHabit.id)}" data-hbt-toggle-target="list">${icon('check')} ${selSeries.completed_today ? 'Quitar de hoy' : 'Marcar hoy'}</button>
+            <a class="btn btn-soft btn-sm" href="#/habitos/${esc(selHabit.id)}">${icon('arrow')} Ver detalle</a>
+          </div>
+        </div>
+      </section>` : '';
+
+    const sideHtml = `${habitDetail}
       <section class="card">
         <div class="card-head"><h2>${icon('calendar')} Semana real</h2></div>
         <div class="card-body">
@@ -487,6 +518,32 @@ async function bind(el) {
         toast('Hábito archivado', 'success');
       } catch (err) {
         toast(`No se pudo archivar: ${err.message}`, 'error');
+      }
+      setTimeout(() => renderHabitos(el), 250);
+      return;
+    }
+
+    const selBtn = event.target.closest('[data-hbt-select]');
+    if (selBtn && !event.target.closest('[data-hbt-edit], [data-hbt-status], [data-hbt-delete], .habit-actions a, .day-cell')) {
+      el.dataset.selectedHabit = selBtn.dataset.hbtSelect;
+      setTimeout(() => renderHabitos(el), 50);
+      return;
+    }
+
+    const listToggle = event.target.closest('[data-hbt-toggle][data-hbt-toggle-target="list"]');
+    if (listToggle) {
+      const habitId = listToggle.dataset.hbtToggle;
+      try {
+        const s = await habitSeries(habitId);
+        if (s.completed_today) {
+          await unmarkHabit(habitId, { local_date: s.today });
+          toast('Desmarcado', 'success');
+        } else {
+          await markHabit(habitId, { local_date: s.today, quantity: s.habit.goal_type === 'quantity' ? s.habit.target_quantity : 1 });
+          toast('Marcado como cumplido', 'success');
+        }
+      } catch (err) {
+        toast(`No se pudo actualizar: ${err.message}`, 'error');
       }
       setTimeout(() => renderHabitos(el), 250);
       return;
