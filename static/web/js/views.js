@@ -78,7 +78,7 @@ async function homeData() {
 }
 
 function kpiCard(value, label, iconName, href, tone = '') {
-  return `<a class="kpi" href="#${href}">
+  return `<a class="kpi" href="${href}">
     <span class="kpi-icon ${tone}">${icon(iconName)}</span>
     <span class="kpi-meta"><span class="kpi-value">${value}</span><br /><span class="kpi-label">${esc(label)}</span></span>
   </a>`;
@@ -701,7 +701,7 @@ function inboxItem(c, maps) {
 export async function renderProyectos(el) {
   setPageTitle('Proyectos');
   el.innerHTML = `
-    <div class="page-head"><h1>Proyectos</h1><p class="page-sub">Portafolio de trabajo, clientes y estados.</p></div>
+    <div class="page-head"><h1>Pulso de Proyectos</h1><p class="page-sub">Portafolio de trabajo, clientes y estados.</p></div>
     ${skeleton(4)}`;
   try {
     const [workspaces, projects, clients, deliverables, tasks, maps] = await Promise.all([
@@ -797,16 +797,15 @@ export async function renderProyectos(el) {
       .join('');
 
     el.innerHTML = `
-      <div class="page-head"><h1>Proyectos</h1><p class="page-sub">Portafolio de trabajo.</p>
+      <div class="page-head"><h1>Pulso de Proyectos</h1><p class="page-sub">Portafolio de trabajo.</p>
         <div class="page-head-actions">
           <button class="btn btn-primary btn-sm" data-create="project">${icon('plus')} Nuevo proyecto</button>
         </div>
       </div>
       <section class="kpi-row">
         ${kpiCard(counts.active, 'Activos', 'folder', '#/proyectos', 'kpi-icon--success')}
-        ${kpiCard(counts.paused, 'En espera', 'folder', '#/proyectos')}
         ${kpiCard(counts.blocked, 'Con riesgo', 'alert', '#/proyectos', 'kpi-icon--warning')}
-        ${counts.due_soon ? kpiCard(counts.due_soon, 'Vencen pronto', 'flag', '#/proyectos') : ''}
+        ${kpiCard(counts.paused, 'En espera', 'folder', '#/proyectos')}
         ${kpiCard(counts.completed, 'Completados', 'check', '#/proyectos')}
       </section>
       <div class="filterbar">
@@ -891,37 +890,68 @@ export async function renderProyectos(el) {
    PROYECTO — DETALLE  (FASE UI-5)
    ============================================================ */
 
+function formatMinutes(total) {
+  const m = Math.max(0, Math.round(total || 0));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest ? `${h} h ${rest} min` : `${h} h`;
+}
+
 export async function renderProyectoDetalle(el, projectId) {
   setPageTitle('Proyecto');
   el.innerHTML = skeleton(6);
   try {
-    const [project, deliverables, tasks, meetings, driveLinks, audit, maps] =
+    const [project, deliverables, tasks, meetings, driveLinks, audit, maps, allActionItems] =
       await Promise.all([
         api(`/api/v1/projects/${encodeURIComponent(projectId)}`),
         api(`/api/v1/deliverables?project_id=${encodeURIComponent(projectId)}`),
         api(`/api/v1/tasks?project_id=${encodeURIComponent(projectId)}`),
         api(`/api/v1/meetings?project_id=${encodeURIComponent(projectId)}`),
-        api('/api/v1/integrations/drive-links'),
-        api(`/api/v1/audit-events?entity_id=${encodeURIComponent(projectId)}&limit=20`),
+        api('/api/v1/integrations/drive-links').catch(() => []),
+        api(`/api/v1/audit-events?entity_id=${encodeURIComponent(projectId)}&limit=20`).catch(() => []),
         nameMaps(),
+        api('/api/v1/action-items').catch(() => []),
       ]);
-    const clientId = (project || {}).client_id;
+    const clientId = project.client_id;
     const client = clientId ? maps.client[clientId] : '';
     const workspace = clientId ? maps.workspace[maps.clientWorkspace[clientId]] : '';
 
     const openTasks = (tasks || []).filter((t) => !['done', 'cancelled'].includes(t.status));
-    const overdue = openTasks.filter((t) => t.due_at && t.due_at < todayISO());
-    const blocked = openTasks.filter((t) => t.status === 'blocked');
+    const doneCount = (tasks || []).filter((t) => t.status === 'done').length;
+    const blocked = openTasks.filter((t) => t.status === 'blocked').length;
+    const acceptedDeliverables = (deliverables || []).filter((d) => d.status === 'accepted').length;
     const openDeliverables = (deliverables || []).filter((d) => d.status !== 'accepted' && d.status !== 'cancelled');
-    const soonDeliverables = openDeliverables.filter(
-      (d) => d.due_at >= todayISO() && d.due_at <= addDaysISO(todayISO(), 7),
-    );
     const upcomingMeetings = (meetings || [])
       .filter((m) => m.status === 'scheduled')
       .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
     const pastMeetings = (meetings || [])
       .filter((m) => m.status !== 'scheduled')
       .sort((a, b) => String(b.starts_at).localeCompare(String(a.starts_at)));
+    const nextMeeting = upcomingMeetings[0];
+
+    const meetingIds = new Set((meetings || []).map((m) => m.id));
+    const commitments = (allActionItems || []).filter(
+      (ai) => meetingIds.has(ai.meeting_id) && ai.status !== 'completed',
+    );
+
+    const logsBundle = await Promise.all(
+      openTasks.map((t) =>
+        api(`/api/v1/tasks/${encodeURIComponent(t.id)}/work-logs`)
+          .catch(() => [])
+          .then((logs) => ({ taskId: t.id, logs: logs || [] })),
+      ),
+    );
+    const logsByTask = Object.fromEntries(logsBundle.map((b) => [b.taskId, b.logs]));
+    const todayIso = todayISO();
+    let totalMinutes = 0;
+    let todayMinutes = 0;
+    for (const b of logsBundle) {
+      for (const log of b.logs) {
+        totalMinutes += log.minutes || 0;
+        if (String(log.started_at || '').slice(0, 10) === todayIso) todayMinutes += log.minutes || 0;
+      }
+    }
 
     const deliverableIds = new Set((deliverables || []).map((d) => d.id));
     const links = (driveLinks || []).filter((l) => deliverableIds.has(l.deliverable_id));
@@ -929,32 +959,64 @@ export async function renderProyectoDetalle(el, projectId) {
     const tasksHtml = `<div class="tab-head">
       <button class="btn btn-soft btn-sm" data-create="project-task">${icon('plus')} Nueva tarea</button>
     </div>${openTasks.length
-      ? `<div class="task-list">${openTasks.map((t) => `
-        <div class="item">
+      ? `<div class="check-list">${openTasks.map((t) => `
+        <div class="check-item">
+          <button class="check-box" data-tact="complete" data-id="${esc(t.id)}" aria-label="Completar ${esc(t.title)}">${icon('check')}</button>
           <div class="item-main">
             <div class="item-title">${esc(t.title)}</div>
-            <div class="item-sub">${t.due_at ? `Vence ${esc(fmtDate(t.due_at))}` : 'Sin fecha'}</div>
+            <div class="item-sub">${t.due_at ? `Vence ${esc(fmtDate(t.due_at))}` : 'Sin fecha'} · ${esc(humanStatus(t.status))}</div>
           </div>
-          <div class="item-side">${prio(t.priority)}${badge(t.status)}</div>
-          <div class="item-actions">
-            ${t.status !== 'done' ? `<button class="btn btn-success-soft btn-xs" data-tact="complete" data-id="${esc(t.id)}">${icon('check')} Completar</button>` : ''}
-            ${t.status !== 'in_progress' && t.status !== 'done' ? `<button class="btn btn-soft btn-xs" data-tact="start" data-id="${esc(t.id)}">${icon('play')} Iniciar</button>` : ''}
+          <div class="item-side">
+            ${prio(t.priority)}
+            ${t.status !== 'in_progress' ? `<button class="btn btn-ghost btn-xs" data-tact="start" data-id="${esc(t.id)}" title="Iniciar">${icon('play')}</button>` : ''}
           </div>
         </div>`).join('')}</div>`
       : emptyBlock('Sin tareas abiertas. Todo listo por ahora.')}`;
 
-    const deliverablesHtml = `<div class="tab-head">
-      <button class="btn btn-soft btn-sm" data-create="project-deliverable">${icon('plus')} Nuevo entregable</button>
-    </div>${(deliverables || []).length
-      ? `<div class="list">${openDeliverables.concat((deliverables || []).filter((d) => d.status === 'accepted' || d.status === 'cancelled')).map((d) => `
-        <div class="item">
+    function deliverableCell(d, selected) {
+      const criteria = (d.acceptance_criteria || '').trim();
+      const desc = criteria || d.title;
+      return `
+        <div class="deliverable-card ${selected ? 'selected' : ''}" data-deliverable-select="${esc(d.id)}">
           <div class="item-main">
             <div class="item-title">${esc(d.title)}</div>
-            <div class="item-sub">Vence ${esc(fmtDate(d.due_at))}${d.drive_url ? ` · ${icon('drive')} en Drive` : ''}</div>
+            <div class="item-sub">${esc(desc.slice(0, 120))}${desc.length > 120 ? '…' : ''}</div>
           </div>
-          <div class="item-side">${badge(d.status)}</div>
-        </div>`).join('')}</div>`
-      : emptyBlock('Sin entregables registrados.')}`;
+          <div class="item-side">
+            <span class="badge badge-${esc(d.status)}"><span class="badge-dot"></span>${esc(humanStatus(d.status))}</span>
+            ${d.evidence_url ? `<a class="btn btn-ghost btn-xs" href="${esc(d.evidence_url)}" target="_blank" rel="noopener">${icon('doc')} Evidencia</a>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function deliverablesHtml(selectedId) {
+      const selected = (deliverables || []).find((d) => d.id === selectedId) || (deliverables || [])[0];
+      const rows = (deliverables || []).length
+        ? `<div class="list">${(deliverables || []).map((d) => deliverableCell(d, d.id === (selected && selected.id))).join('')}</div>`
+        : emptyBlock('Sin entregables registrados.');
+      const detail = selected
+        ? `<div class="deliverable-detail card" data-deliverable-detail="1">
+            <div class="detail-actions">
+              <button class="btn btn-primary btn-sm" data-deliverable-advance="${esc(selected.id)}" data-status="${esc(selected.status)}">
+                ${icon('arrow')} ${selected.status === 'planned' ? 'Registrar avance' : selected.status === 'in_progress' ? 'Enviar a revisión' : 'Registrar avance'}
+              </button>
+            </div>
+            <div class="item-title">${esc(selected.title)}</div>
+            <div class="item-sub">Vence ${esc(fmtDate(selected.due_at))} · ${badge(selected.status)}</div>
+            <div class="dv-criteria">
+              <b>Criterios de aceptación</b>
+              <p>${esc(selected.acceptance_criteria || 'Sin criterios definidos todavía.')}</p>
+            </div>
+            ${selected.drive_url ? `<p class="dv-link">${icon('drive')} <a href="${esc(selected.drive_url)}" target="_blank" rel="noopener">Abrir documento en Drive</a></p>` : ''}
+            ${selected.evidence_url ? `<p class="dv-link">${icon('doc')} <a href="${esc(selected.evidence_url)}" target="_blank" rel="noopener">Ver evidencia</a></p>` : ''}
+          </div>`
+        : emptyBlock('Selecciona un entregable para ver su detalle.');
+      return `<div class="tab-head">
+        <button class="btn btn-soft btn-sm" data-create="project-deliverable">${icon('plus')} Nuevo entregable</button>
+      </div>
+      ${rows}
+      ${detail}`;
+    }
 
     const meetingsHtml = (upcomingMeetings.length || pastMeetings.length)
       ? `<div class="list">${upcomingMeetings.concat(pastMeetings).slice(0, 12).map((m) => `
@@ -990,79 +1052,143 @@ export async function renderProyectoDetalle(el, projectId) {
         </li>`).join('')}</div>`
       : emptyBlock('Sin actividad registrada.');
 
-    const attention = [];
-    if (overdue.length) attention.push({ icon: 'warn', label: `${plural(overdue.length, 'tarea vencida', 'tareas vencidas')}.`, cta: 'Ver', tab: 'tasks' });
-    if (blocked.length) attention.push({ icon: 'alert', label: `${plural(blocked.length, 'tarea bloqueada', 'tareas bloqueadas')}. Revisa qué las detiene.`, cta: 'Ver', tab: 'tasks' });
-    if ((deliverables || []).some((d) => d.status === 'blocked')) attention.push({ icon: 'doc', label: 'Hay entregables bloqueados.', cta: 'Revisar', tab: 'deliverables' });
-    if (pastMeetings.some((m) => m.status === 'completed' && !m.reviewed_at)) attention.push({ icon: 'flag', label: 'Reuniones completadas por revisar.', cta: 'Revisar', tab: 'meetings' });
-    const requirements = attention.length
-      ? `<section class="card"><div class="card-head"><h2>${icon('warn')} Requiere atención</h2></div>
-          <div class="card-body"><div class="p-list">${attention.map((a) => `
-            <li class="insight">${icon(a.icon)}
-              <div class="insight-body">${esc(a.label)}</div>
-              <button class="btn btn-soft btn-xs" data-tab="${esc(a.tab)}">${esc(a.cta)}</button>
-            </li>`).join('')}</div></div></section>`
-      : '';
+    const nextDue = [...openDeliverables].sort((a, b) => String(a.due_at).localeCompare(String(b.due_at)))[0]?.due_at;
+    const soonDeliverables = openDeliverables.filter(
+      (d) => d.due_at >= todayISO() && d.due_at <= addDaysISO(todayISO(), 7),
+    );
 
     const resumenHtml = `
-      ${requirements}
-      ${upcomingMeetings.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>${icon('calendar')} Próximas reuniones</h2></div>
-        <div class="card-body"><div class="list">${upcomingMeetings.slice(0, 4).map((m) => `
-          <a class="item item-row" href="#/reuniones/${esc(m.id)}">
-            <div class="item-main"><div class="item-title">${esc(m.title)}</div>
-            <div class="item-sub">${esc(fmtDate(m.starts_at))} · ${esc(fmtTime(m.starts_at))}</div></div>
-            ${badge(m.status)}
-          </a>`).join('')}</div></div></section>` : ''}
-      ${soonDeliverables.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>${icon('flag')} Próximos vencimientos</h2></div>
+      <section class="card">
+        <div class="card-head"><h2>${icon('folder')} Panorama del proyecto</h2></div>
+        <div class="card-body">
+          <div class="p-list">
+            <div class="item"><div class="item-main"><span class="item-sub">Cliente</span></div><div class="item-side"><b>${esc(client || '—')}</b></div></div>
+            ${workspace ? `<div class="item"><div class="item-main"><span class="item-sub">Espacio de trabajo</span></div><div class="item-side">${esc(workspace)}</div></div>` : ''}
+            <div class="item"><div class="item-main"><span class="item-sub">Estado</span></div><div class="item-side">${badge(project.status)}${project.health && project.health !== 'unknown' ? badge(project.health) : ''}</div></div>
+            <div class="item"><div class="item-main"><span class="item-sub">Siguiente vencimiento</span></div><div class="item-side">${nextDue ? esc(fmtDate(nextDue)) : '<span class="text-muted">sin fechas</span>'}</div></div>
+            <div class="item"><div class="item-main"><span class="item-sub">Creado</span></div><div class="item-side"><span class="text-muted">${esc(fmtDate(project.created_at))}</span></div></div>
+            <div class="item"><div class="item-main"><span class="item-sub">Tiempo registrado</span></div><div class="item-side"><b>${esc(formatMinutes(totalMinutes))}</b></div></div>
+          </div>
+        </div>
+      </section>
+      ${nextMeeting ? `<section class="card" style="margin-top:16px">
+        <div class="card-head"><h2>${icon('calendar')} Próxima reunión</h2><a class="card-action" href="#/reuniones/${esc(nextMeeting.id)}">Abrir</a></div>
+        <div class="card-body">
+          <div class="item">
+            <div class="item-main"><div class="item-title">${esc(nextMeeting.title)}</div>
+            <div class="item-sub">${esc(fmtFullDate(nextMeeting.starts_at))} · ${esc(fmtTime(nextMeeting.starts_at))}</div></div>
+          </div>
+        </div>
+      </section>` : ''}
+      ${soonDeliverables.length ? `<section class="card" style="margin-top:16px"><div class="card-head"><h2>${icon('flag')} Vencimientos próximos</h2></div>
         <div class="card-body"><div class="list">${soonDeliverables.map((d) => `
           <div class="item"><div class="item-main"><div class="item-title">${esc(d.title)}</div>
           <div class="item-sub">Vence ${esc(fmtDate(d.due_at))}</div></div>${badge(d.status)}</div>`).join('')}</div></div></section>` : ''}
-      <section class="card" style="margin-top:16px"><div class="card-head"><h2>${icon('clock')} Actividad reciente</h2></div>
-        <div class="card-body">${activityHtml}</div></section>`;
+      ${!nextMeeting && !soonDeliverables.length ? emptyBlock('Sin movimientos próximos. Proyecto estable.') : ''}`;
 
     const tabs = [
       ['resumen', 'Resumen'],
+      ['entregables', `Entregables${(deliverables || []).length ? ` (${(deliverables || []).length})` : ''}`],
       ['tareas', `Tareas${openTasks.length ? ` (${openTasks.length})` : ''}`],
-      ['entregables', `Entregables${openDeliverables.length ? ` (${openDeliverables.length})` : ''}`],
       ['reuniones', 'Reuniones'],
       ['archivos', 'Archivos'],
       ['actividad', 'Actividad'],
     ];
+    const current = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'resumen';
+    let selectedDeliverable = (deliverables || [])[0] ? (deliverables || [])[0].id : null;
 
-    const tabContent = {
-      resumen: resumenHtml,
-      tareas: tasksHtml,
-      entregables: deliverablesHtml,
-      reuniones: meetingsHtml,
-      archivos: filesHtml,
-      actividad: activityHtml,
+    const renderTabBody = (key) => {
+      const body = el.querySelector('#project-tab-body');
+      if (!body) return;
+      if (key === 'resumen') body.innerHTML = resumenHtml;
+      else if (key === 'entregables') body.innerHTML = deliverablesHtml(selectedDeliverable);
+      else if (key === 'tareas') body.innerHTML = tasksHtml;
+      else if (key === 'reuniones') body.innerHTML = meetingsHtml;
+      else if (key === 'archivos') body.innerHTML = filesHtml;
+      else if (key === 'actividad') body.innerHTML = activityHtml;
     };
 
-    const current = new URLSearchParams(window.location.hash.split('?')[1] || '').get('tab') || 'resumen';
+    const sideHtml = `
+      <section class="card side-card">
+        <div class="card-head"><h2>${icon('calendar')} Próxima reunión</h2></div>
+        <div class="card-body">
+          ${nextMeeting
+            ? `<div class="item">
+                <div class="item-main">
+                  <div class="item-title">${esc(nextMeeting.title)}</div>
+                  <div class="item-sub">${esc(fmtDate(nextMeeting.starts_at))} · ${esc(fmtTime(nextMeeting.starts_at))}</div>
+                </div>
+              </div>
+              <div class="side-actions">
+                <button class="btn btn-primary btn-sm" data-meeting-prepare="${esc(nextMeeting.id)}">${icon('sparkles')} Preparar reunión</button>
+              </div>`
+            : emptyBlock('Sin reuniones programadas para este proyecto.')}
+        </div>
+      </section>
+      <section class="card side-card">
+        <div class="card-head"><h2>${icon('list')} Compromisos pendientes</h2>${commitments.length ? `<span class="card-badge">${commitments.length}</span>` : ''}</div>
+        <div class="card-body">
+          ${commitments.length
+            ? `<div class="p-list">${commitments.slice(0, 4).map((ai) => `
+                <div class="item item-row">
+                  <div class="item-main">
+                    <div class="item-title">${esc(ai.title)}</div>
+                    <div class="item-sub">de ${esc(ai.owner || 'la reunión')}</div>
+                  </div>
+                  <div class="item-side">
+                    <button class="btn btn-soft btn-xs" data-action-convert="${esc(ai.id)}" title="Convertir en tarea">${icon('check')} Tarea</button>
+                  </div>
+                </div>`).join('')}</div>`
+            : emptyBlock('Sin compromisos abiertos.')}
+        </div>
+      </section>
+      <section class="card side-card">
+        <div class="card-head"><h2>${icon('clock')} Tiempo registrado hoy</h2></div>
+        <div class="card-body">
+          <div class="kpi-value">${esc(formatMinutes(todayMinutes))}</div>
+          <span class="kpi-label">${formatMinutes(totalMinutes)} en total</span>
+          <div class="side-actions">
+            <button class="btn btn-primary btn-sm" data-worklog-create="1">${icon('plus')} Registrar tiempo</button>
+          </div>
+        </div>
+      </section>`;
 
     el.innerHTML = `
-      <div class="page-head detail-head">
-        <a class="btn btn-ghost btn-xs back-link" href="#/proyectos">${icon('arrow')} Portfolio</a>
-        <div class="page-greeting"><h1>${esc(project.name)}</h1>
-          <span class="date-line">· ${esc(project.id)}</span></div>
-        <div class="detail-meta">
-          ${client ? `<span class="detail-meta-item">${icon('folder')} ${esc(client)}</span>` : ''}
-          ${workspace ? `<span class="detail-meta-item">${icon('link')} ${esc(workspace)}</span>` : ''}
-          <span class="item-side">${badge(project.status)}${project.health && project.health !== 'unknown' ? badge(project.health) : ''}</span>
+      <nav class="crumbs" aria-label="Ubicación">
+        <a href="#/mi-dia">Inicio</a><span class="crumb-sep">/</span>
+        <a href="#/proyectos">Proyectos</a><span class="crumb-sep">/</span>
+        <span>${esc(project.name)}</span>
+      </nav>
+      <div class="detail-head">
+        <div class="page-greeting">
+          <h1>${esc(project.name)}</h1>
+          <div class="detail-meta">
+            ${client ? `<span class="detail-meta-item">${icon('folder')} ${esc(client)}</span>` : ''}
+            ${workspace ? `<span class="detail-meta-item">${icon('link')} ${esc(workspace)}</span>` : ''}
+            <span class="item-side">${badge(project.status)}${project.health && project.health !== 'unknown' ? badge(project.health) : ''}</span>
+          </div>
         </div>
-        <p class="page-sub">Creado ${esc(fmtDate(project.created_at))} · actualizado ${esc(timeAgo(project.updated_at))}</p>
+        <div class="detail-actions">
+          <button class="btn btn-soft" data-create="project-task">${icon('plus')} Tarea</button>
+          <button class="btn btn-primary" data-create="project-deliverable">${icon('plus')} Entregable</button>
+        </div>
       </div>
       <section class="kpi-row">
-        ${kpiCard(openTasks.length, 'Tareas abiertas', 'check', `#/proyectos/${esc(project.id)}?tab=tareas`)}
-        ${kpiCard(overdue.length, 'Vencidas', 'clock', `#/proyectos/${esc(project.id)}?tab=tareas`, 'kpi-icon--danger')}
-        ${kpiCard(blocked.length, 'Bloqueadas', 'alert', `#/proyectos/${esc(project.id)}?tab=tareas`, 'kpi-icon--warning')}
-        ${kpiCard(openDeliverables.length, 'Entregables abiertos', 'doc', `#/proyectos/${esc(project.id)}?tab=entregables`)}
-        ${kpiCard(upcomingMeetings.length, 'Próximas reuniones', 'calendar', `#/proyectos/${esc(project.id)}?tab=reuniones`)}
+        ${kpiCard(acceptedDeliverables, 'Entregables aceptados', 'doc', `#/proyectos/${esc(project.id)}?tab=entregables`)}
+        ${kpiCard(doneCount, 'Tareas completadas', 'check', `#/proyectos/${esc(project.id)}?tab=tareas`, 'kpi-icon--success')}
+        ${kpiCard(formatMinutes(totalMinutes), 'Tiempo registrado', 'clock', `#/proyectos/${esc(project.id)}`)}
+        ${kpiCard(blocked, 'Bloqueos', 'alert', `#/proyectos/${esc(project.id)}?tab=tareas`, blocked ? 'kpi-icon--danger' : '')}
       </section>
-      <div class="tabs" role="tablist" aria-label="Secciones del proyecto">
-        ${tabs.map(([key, label]) => `<button class="tab ${key === current ? 'active' : ''}" data-tab="${key}" role="tab" aria-selected="${key === current ? 'true' : 'false'}">${esc(label)}</button>`).join('')}
-      </div>
-      <div id="project-tab-body">${tabContent[current] || resumenHtml}</div>`;
+      <div class="split-70-30">
+        <div class="split-main">
+          <div class="tabs" role="tablist" aria-label="Secciones del proyecto">
+            ${tabs.map(([key, label]) => `<button class="tab ${key === current ? 'active' : ''}" data-tab="${key}" role="tab" aria-selected="${key === current ? 'true' : 'false'}">${esc(label)}</button>`).join('')}
+          </div>
+          <div id="project-tab-body"></div>
+        </div>
+        <div class="split-side">${sideHtml}</div>
+      </div>`;
+    renderTabBody(current);
 
     if (!el.dataset.viewBound) {
       el.dataset.viewBound = '1';
@@ -1076,8 +1202,40 @@ export async function renderProyectoDetalle(el, projectId) {
           });
           const nextHash = `#/proyectos/${encodeURIComponent(projectId)}?tab=${encodeURIComponent(key)}`;
           if (window.location.hash !== nextHash) history.replaceState(null, '', nextHash);
-          const body = el.querySelector('#project-tab-body');
-          if (body) body.innerHTML = tabContent[key] || resumenHtml;
+          renderTabBody(key);
+          return;
+        }
+        const delSel = event.target.closest('[data-deliverable-select]');
+        if (delSel) {
+          selectedDeliverable = delSel.dataset.deliverableSelect;
+          el.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'entregables'));
+          renderTabBody('entregables');
+          return;
+        }
+        const advance = event.target.closest('[data-deliverable-advance]');
+        if (advance) {
+          const id = advance.dataset.deliverableAdvance;
+          const status = advance.dataset.status;
+          advance.disabled = true;
+          try {
+            if (status === 'planned') {
+              await api(`/api/v1/deliverables/${encodeURIComponent(id)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'in_progress' }),
+              });
+              toast('Avance registrado', 'success');
+            } else if (status === 'in_progress') {
+              await api(`/api/v1/deliverables/${encodeURIComponent(id)}/review`, { method: 'POST' });
+              toast('Entregable enviado a revisión', 'success');
+            } else {
+              await api(`/api/v1/deliverables/${encodeURIComponent(id)}/review`, { method: 'POST' });
+              toast('Entregable enviado a revisión', 'success');
+            }
+          } catch (err) {
+            toast(`No se pudo actualizar: ${err.message}`, 'error');
+          }
+          invalidate('deliverables');
+          renderProyectoDetalle(el, projectId);
           return;
         }
         const createTask = event.target.closest('[data-create="project-task"]');
@@ -1147,6 +1305,114 @@ export async function renderProyectoDetalle(el, projectId) {
             toast(`No se pudo crear el entregable: ${err.message}`, 'error');
           }
           invalidate('deliverables');
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
+        const prepare = event.target.closest('[data-meeting-prepare]');
+        if (prepare) {
+          const meetingId = prepare.dataset.meetingPrepare;
+          prepare.disabled = true;
+          try {
+            const prep = await api(`/api/v1/meetings/${encodeURIComponent(meetingId)}/preparation`);
+            const points = [
+              ...(prep.open_action_items || []).map((ai) => ai.title),
+              ...(prep.task_deadlines || []).map((t) => `Vence: ${t.title}`),
+              ...(prep.deliverable_deadlines || []).map((d) => `Entregable: ${d.title}`),
+            ];
+            const list = points.length
+              ? `<div class="p-list">${points.slice(0, 6).map((p) => `<li class="activity"><span class="activity-kind">${icon('check')}</span><div class="activity-body"><span>${esc(p)}</span></div></li>`).join('')}</div>`
+              : emptyBlock('Sin puntos preparados para esta reunión.');
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+            overlay.innerHTML = `
+              <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="mp-title">
+                <header class="modal-head"><h3 id="mp-title">Preparación de reunión</h3>
+                  <button class="icon-btn" type="button" data-mp="cancel" aria-label="Cerrar">${icon('x')}</button></header>
+                <div class="modal-body">
+                  <div class="item-title">${esc(prep.meeting?.title || 'Reunión')}</div>
+                  <div class="item-sub">generada ${esc(fmtDate(prep.prepared_at))}</div>
+                  ${list}
+                  <div class="modal-actions"><button class="btn btn-primary" type="button" data-mp="ok">Entendido</button></div>
+                </div>
+              </div>`;
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', (e) => {
+              if (e.target.closest('[data-mp]') || e.target === overlay) overlay.remove();
+            });
+          } catch (err) {
+            toast(`No se pudo preparar la reunión: ${err.message}`, 'error');
+          }
+          prepare.disabled = false;
+          return;
+        }
+        const convert = event.target.closest('[data-action-convert]');
+        if (convert) {
+          const ai = commitments.find((c) => c.id === convert.dataset.actionConvert);
+          const form = await openForm({
+            title: 'Convertir en tarea',
+            submitLabel: 'Crear tarea',
+            fields: [
+              { name: 'title', label: 'Título', required: true, value: (ai && ai.title) || '', placeholder: 'Título de la tarea' },
+              {
+                name: 'priority',
+                label: 'Prioridad',
+                type: 'select',
+                value: 'medium',
+                options: ['critical', 'high', 'medium', 'low'].map((s) => ({ value: s, label: humanStatus(s) })),
+              },
+              { name: 'due', label: 'Vence', type: 'date' },
+            ],
+          });
+          if (!form || !ai) return;
+          try {
+            await api(`/api/v1/action-items/${encodeURIComponent(ai.id)}/task`, {
+              method: 'POST',
+              body: JSON.stringify({
+                task_id: genEntityId('tsk', form.title),
+                priority: form.priority || 'medium',
+                ...(form.due ? { due_at: form.due } : {}),
+              }),
+            });
+            toast('Compromiso convertido en tarea', 'success');
+          } catch (err) {
+            toast(`No se pudo convertir: ${err.message}`, 'error');
+          }
+          invalidate('tasks');
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
+        const worklogBtn = event.target.closest('[data-worklog-create]');
+        if (worklogBtn) {
+          const form = await openForm({
+            title: 'Registrar tiempo',
+            submitLabel: 'Guardar',
+            fields: [
+              {
+                name: 'task_id',
+                label: 'Tarea',
+                type: 'select',
+                required: true,
+                options: openTasks.map((t) => ({ value: t.id, label: t.title })),
+              },
+              { name: 'minutes', label: 'Minutos', required: true, placeholder: '45', maxlength: '8' },
+              { name: 'summary', label: 'Resumen', required: true, placeholder: 'Qué avanzaste…', maxlength: '5000' },
+            ],
+          });
+          if (!form) return;
+          const minutes = parseInt(form.minutes, 10);
+          if (!minutes || minutes < 1) {
+            toast('Indica un número de minutos válido', 'error');
+            return;
+          }
+          try {
+            await api(`/api/v1/tasks/${encodeURIComponent(form.task_id)}/work-logs`, {
+              method: 'POST',
+              body: JSON.stringify({ minutes, summary: form.summary }),
+            });
+            toast('Tiempo registrado', 'success');
+          } catch (err) {
+            toast(`No se pudo registrar: ${err.message}`, 'error');
+          }
           renderProyectoDetalle(el, projectId);
           return;
         }
