@@ -253,14 +253,24 @@ export function markHabit(habitId, payload) {
   return api(`/api/v1/habits/${encodeURIComponent(habitId)}/mark`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  }).then((res) => {
+    invalidate('habits');
+    invalidate(`habit-series:${habitId}`);
+    return res;
   });
 }
+
 export function unmarkHabit(habitId, payload) {
   return api(`/api/v1/habits/${encodeURIComponent(habitId)}/unmark`, {
     method: 'POST',
     body: JSON.stringify(payload),
+  }).then((res) => {
+    invalidate('habits');
+    invalidate(`habit-series:${habitId}`);
+    return res;
   });
 }
+
 
 /* ============================================================
    Bandeja
