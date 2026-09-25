@@ -163,6 +163,43 @@ Adaptación funcional de las seis vistas principales a las referencias de
 - **Entregables** (`Fase 3`): checklist de criterios de aceptación persistente por
   entregable (añadir / marcar cumplido / eliminar), creado desde el panel.
 
+### Sistema visual compartido
+
+La composición se apoya en una única fuente de verdad en `static/tokens.css` y
+`static/web/app.css`, para que ninguna pantalla vuelva a inventar su propia
+escala:
+
+- **Escala tipográfica por rol** (`--ff-size-page-title`, `--ff-size-card-title`,
+  `--ff-size-value`, `--ff-size-body`, `--ff-size-secondary`). Los equivalentes
+  comparten token y se adaptan por rol en los breakpoints, no por componente.
+- **Un único componente de indicador**: `.kpi` = `.kpi-icon` (izquierda) +
+  `.kpi-body` (derecha, vertical) con `.kpi-label` arriba, `.kpi-value` debajo y
+  `.kpi-note` (subtítulo) bajo el valor en tono secundario. Se construye siempre
+  con `kpiTile()` en `static/web/js/ui.js`; la clase `kpi-meta` se eliminó por
+  ser ambigua (contenedor y texto a la vez).
+- **Ritmo**: márgenes de contenido 20–28 px, separación 16 px entre tarjetas,
+  radios de 12 px, borde de 1 px y sombra mínima.
+- **Cabecera compacta** de 130–150 px con el faro como ilustración horizontal
+  suave y secundaria, nunca como panel dominante ni imagen de fondo.
+- **Sin reglas contradictorias**: los selectores duplicados se fusionaron en su
+  definición única y se eliminaron las sobrescrituras acumuladas al final del
+  archivo.
+
+### Resumen semanal de hábitos (calculado en el servidor)
+
+`HabitService.week_summary()` resuelve la semana natural (lunes a domingo) que
+contiene hoy y la expone en `HabitSeriesRead.week`:
+
+- Solo cuenta días ya transcurridos: un día futuro nunca es un incumplimiento.
+- Los hábitos `weekdays` excluyen fin de semana; los `specific_days` solo sus días.
+- Los hábitos `weekly` no se fijan en un día, así que se resuelven a nivel de
+  semana con `goal_met` y `total_quantity`.
+- `rate` = días cumplidos / días programados transcurridos.
+
+Esto corrigió el indicador que mostraba `X / 0` y `0 %` por un denominador vacío,
+y reemplazó la ventana móvil de 7 días corridos por la semana real en la matriz y
+en la tira de cada hábito.
+
 ### Diferencias conocidas vs. las referencias
 - Implementación funcional completa; la validación visual pixel a pixel queda
   pendiente de la persona (el agente no ve las imágenes).
@@ -174,6 +211,15 @@ Adaptación funcional de las seis vistas principales a las referencias de
   *importación* no están implementados como rutas propias; el menú lateral solo
   expone los módulos realmente funcionales (resumen, ingresos, egresos, cuentas,
   deudas, presupuesto, metas) para no crear enlaces rotos.
+- El bloque de KPIs del detalle de proyecto mantiene 4 tarjetas (aceptados,
+  completadas, tiempo, bloqueos); la referencia muestra 5 y no queda claro cuál
+  es la quinta, así que no se inventó una.
+- 16 clases referenciadas desde el JS siguen sin regla en CSS
+  (`date-line`, `btn-safe`, `chat-card`, `inbox-item`, `workload-bar`,
+  `f-status`, `f-prio`, `alert`, `alert-warn`, `alert-cta`, `brief-body`,
+  `btn-ghost-view`, `md-grid`, `quick-row`, `task-list`, `workload-note`).
+  Es deuda heredada de `410a2f6`, ajena a esta fase; no se añadió ni quitó
+  ninguna.
 
 ### Circuito Telegram → Drive → importación local
 La captura puede entrar por dos vías reales, ambas **solo lectura** y
@@ -217,9 +263,32 @@ posible contenido personal).
   F8 este informe.
 - Verificación: `pytest` 594 pruebas verdes; endpoints reales responden 200 y
   los adaptadores sin autorización responden 503 por diseño.
-- Pendiente de persona: comparación visual pixel a pixel de las capturas y
-  (si se desea) autorizar credenciales reales para Telegram/Drive siguiendo la
-  sección "Circuito Telegram → Drive → importación local".
+
+### Fase 9 — sistema visual unificado y corrección de indicadores
+- **Un componente de indicador** (`kpiTile`) en las cinco áreas, con la clase
+  ambigua `kpi-meta` eliminada y sus dos papeles separados en `.kpi-body` y
+  `.kpi-note`.
+- **Escala por rol**: página 42 px, tarjeta 24 px, valor 30 px en escritorio;
+  26 / 20 / 23 px a 520 px. Los breakpoints ajustan tokens, no selectores.
+- **Precedencia de `.menu-btn` corregida** (`.icon-btn.menu-btn`, especificidad
+  0-2-0): antes ganaba `.icon-btn` y el botón de menú aparecía en escritorio.
+- **`.detail-head` unificado** en una sola definición; el título ya no se
+  encoge a 24 px. Los entregables del detalle de proyecto pasan de tarjetas a
+  **tabla** con el detalle del seleccionado debajo.
+- **Faro** rediseñado a 240×96 horizontal y suave, dentro de una cabecera de
+  130–150 px, sin el rectángulo dominante anterior.
+- **Hábitos**: `week_summary()` en el servidor corrigió el `X / 0` y el `0 %`, y
+  la matriz dejó de usar la ventana móvil de 7 días por la semana real lun–dom.
+- **Reuniones**: "próxima" ahora exige estado programado **y** fecha no vencida;
+  antes una reunión ya pasada seguía apareciendo como próxima.
+- **Deuda CSS resuelta**: 0 selectores duplicados, llaves balanceadas, sin
+  reglas huérfanas por variables de token.
+- **Verificación**: `pytest` 599 pruebas verdes (5 nuevas para la semana
+  natural), `ruff check` limpio, 0 desbordamiento horizontal en 8 rutas a
+  1440 px y 500 px, y capturas en `capturas_fases/revision_visual/`.
+- **Pendiente de persona**: comparación visual pixel a pixel de las capturas
+  desktop (1440×1000) y móvil (430×932) de las cinco áreas, y (si se desea)
+  autorizar credenciales reales para Telegram/Drive.
 
 ## Working agreements
 

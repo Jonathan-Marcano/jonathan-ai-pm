@@ -24,6 +24,7 @@ import {
   lighthouseArt,
   progressBar,
   promptCompletionNote,
+  kpiTile,
 } from './ui.js';
 
 const WEEKDAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -425,12 +426,11 @@ export async function renderPreparar(el) {
   try {
     const brief = await api('/api/v1/briefs/morning');
     const counts = brief.counts || {};
-    const chips = `
-      <div class="page-grid four">
-        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Reuniones hoy</span><div class="kpi-value">${esc(counts.meetings ?? '—')}</div></div></div>
-        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Tareas vencidas</span><div class="kpi-value">${esc(counts.overdue_tasks ?? '—')}</div></div></div>
-        <div class="card stat-card"><div class="card-body"><span class="kpi-label">En foco</span><div class="kpi-value">${esc(counts.focus_tasks ?? '—')}</div></div></div>
-        <div class="card stat-card"><div class="card-body"><span class="kpi-label">Proyectos en riesgo</span><div class="kpi-value">${esc(counts.at_risk_projects ?? '—')}</div></div></div>
+    const chips = `<div class="kpi-row four">
+        ${kpiTile({ icon: 'calendar', tone: 'accent', label: 'Reuniones hoy', value: esc(counts.meetings ?? '—'), note: 'Agenda del día' })}
+        ${kpiTile({ icon: 'clock', tone: 'danger', label: 'Tareas vencidas', value: esc(counts.overdue_tasks ?? '—'), note: 'Requieren atención' })}
+        ${kpiTile({ icon: 'target', tone: 'primary', label: 'En foco', value: esc(counts.focus_tasks ?? '—'), note: 'Prioridades de hoy' })}
+        ${kpiTile({ icon: 'alert', tone: 'warm', label: 'Proyectos en riesgo', value: esc(counts.at_risk_projects ?? '—'), note: 'Necesitan seguimiento' })}
       </div>`;
 
     const meetings = (brief.meetings || [])

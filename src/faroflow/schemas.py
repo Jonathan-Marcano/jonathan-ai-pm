@@ -632,6 +632,27 @@ class HabitCompletionRead(Timestamps):
     external_ref: str | None
 
 
+class HabitWeekDayRead(StrictModel):
+    date: date
+    scheduled: bool
+    due: bool
+    met: bool
+    quantity: int
+    is_today: bool
+    is_future: bool
+
+
+class HabitWeekRead(StrictModel):
+    start: date
+    end: date
+    days: list[HabitWeekDayRead]
+    scheduled_days: int
+    met_days: int
+    total_quantity: int
+    goal_met: bool
+    rate: float
+
+
 class HabitSeriesRead(StrictModel):
     habit: HabitRead
     today: date
@@ -641,6 +662,7 @@ class HabitSeriesRead(StrictModel):
     current_streak: int
     longest_streak: int
     completion_rate_14d: float
+    week: HabitWeekRead
     completions: list[HabitCompletionRead]
 
 

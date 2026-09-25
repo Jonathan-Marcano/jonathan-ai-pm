@@ -36,6 +36,7 @@ import {
   promptTriage,
   genEntityId,
   humanStatus,
+  kpiTile,
 } from './ui.js';
 
 const plural = (n, singular, pluralForm) => `${n} ${n === 1 ? singular : pluralForm}`;
@@ -77,11 +78,26 @@ async function homeData() {
   return { maps, brief, projects, tasksDue, captures, audit, progress, unmatched, toReview };
 }
 
+/* Indicador navegable: icono a la izquierda, título arriba, valor debajo.
+   Delega en el componente único `kpiTile` para no duplicar la estructura.
+   `tone` acepta tanto el nombre de tono (`danger`) como el modificador de icono
+   legado (`kpi-icon--danger`) que aún llegaban desde algunos llamadores. */
+const KPI_ICON_TONE_ALIAS = {
+  'kpi-icon--danger': 'danger',
+  'kpi-icon--warning': 'warm',
+  'kpi-icon--success': 'success',
+  'kpi-icon--primary': 'primary',
+  'kpi-icon--accent': 'accent',
+};
+
 function kpiCard(value, label, iconName, href, tone = '') {
-  return `<a class="kpi" href="${href}">
-    <span class="kpi-icon ${tone}">${icon(iconName)}</span>
-    <span class="kpi-meta"><span class="kpi-value">${value}</span><br /><span class="kpi-label">${esc(label)}</span></span>
-  </a>`;
+  return kpiTile({
+    icon: iconName,
+    tone: KPI_ICON_TONE_ALIAS[tone] || tone || 'accent',
+    label,
+    value,
+    href,
+  });
 }
 
 function briefSynthesis(b, maps) {
@@ -922,11 +938,17 @@ export async function renderProyectoDetalle(el, projectId) {
     const blocked = openTasks.filter((t) => t.status === 'blocked').length;
     const acceptedDeliverables = (deliverables || []).filter((d) => d.status === 'accepted').length;
     const openDeliverables = (deliverables || []).filter((d) => d.status !== 'accepted' && d.status !== 'cancelled');
+    // Una reunión "próxima" es la que sigue programada Y aún no empieza.
+    // Si solo se filtra por estado, las reuniones ya pasadas siguen apareciendo
+    // como próximas y "Tu próxima reunión" muestra un encuentro obsoleto.
+    const nowMs = Date.now();
+    const isUpcoming = (m) =>
+      m.status === 'scheduled' && Date.parse(m.starts_at || '') >= nowMs;
     const upcomingMeetings = (meetings || [])
-      .filter((m) => m.status === 'scheduled')
+      .filter(isUpcoming)
       .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
     const pastMeetings = (meetings || [])
-      .filter((m) => m.status !== 'scheduled')
+      .filter((m) => !isUpcoming(m))
       .sort((a, b) => String(b.starts_at).localeCompare(String(a.starts_at)));
     const nextMeeting = upcomingMeetings[0];
 
@@ -973,26 +995,28 @@ export async function renderProyectoDetalle(el, projectId) {
         </div>`).join('')}</div>`
       : emptyBlock('Sin tareas abiertas. Todo listo por ahora.')}`;
 
-    function deliverableCell(d, selected) {
-      const criteria = (d.acceptance_criteria || '').trim();
-      const desc = criteria || d.title;
-      return `
-        <div class="deliverable-card ${selected ? 'selected' : ''}" data-deliverable-select="${esc(d.id)}">
-          <div class="item-main">
-            <div class="item-title">${esc(d.title)}</div>
-            <div class="item-sub">${esc(desc.slice(0, 120))}${desc.length > 120 ? '…' : ''}</div>
-          </div>
-          <div class="item-side">
-            <span class="badge badge-${esc(d.status)}"><span class="badge-dot"></span>${esc(humanStatus(d.status))}</span>
-            ${d.evidence_url ? `<a class="btn btn-ghost btn-xs" href="${esc(d.evidence_url)}" target="_blank" rel="noopener">${icon('doc')} Evidencia</a>` : ''}
-          </div>
-        </div>`;
+    function deliverableRows(list, selected) {
+      return list
+        .map(
+          (d) => `
+          <tr class="${d.id === (selected && selected.id) ? 'selected' : ''}" data-deliverable-select="${esc(d.id)}">
+            <td class="cell-name">${esc(d.title)}</td>
+            <td>${badge(d.status)}</td>
+            <td class="cell-evidence">${d.evidence_url
+              ? `<a class="btn btn-ghost btn-xs" href="${esc(d.evidence_url)}" target="_blank" rel="noopener">${icon('doc')} Evidencia</a>`
+              : `<span class="card-note">Sin evidencia</span>`}</td>
+          </tr>`,
+        )
+        .join('');
     }
 
     function deliverablesHtml(selectedId) {
       const selected = (deliverables || []).find((d) => d.id === selectedId) || (deliverables || [])[0];
       const rows = (deliverables || []).length
-        ? `<div class="list">${(deliverables || []).map((d) => deliverableCell(d, d.id === (selected && selected.id))).join('')}</div>`
+        ? `<div class="table-wrap"><table class="deliverable-table">
+            <thead><tr><th>Entregable</th><th>Estado</th><th>Evidencia</th></tr></thead>
+            <tbody>${deliverableRows(deliverables, selected)}</tbody>
+          </table></div>`
         : emptyBlock('Sin entregables registrados.');
       const checklist = selected ? (checklistCache.get(selected.id) || []) : [];
       const criteriaPkg = checklist.length
@@ -1009,14 +1033,16 @@ export async function renderProyectoDetalle(el, projectId) {
           : '');
       const detail = selected
         ? `<div class="deliverable-detail card" data-deliverable-detail="1">
+            <div class="dv-head">
+              <div class="dv-title">${esc(selected.title)}</div>
+              <div class="dv-meta">${badge(selected.status)}${selected.due_at ? `<span>Vence ${esc(fmtDate(selected.due_at))}</span>` : ''}</div>
+            </div>
             <div class="detail-actions">
               <button class="btn btn-ghost btn-sm" data-check-add="${esc(selected.id)}" type="button">${icon('plus')} Añadir criterio</button>
               <button class="btn btn-primary btn-sm" data-deliverable-advance="${esc(selected.id)}" data-status="${esc(selected.status)}">
                 ${icon('arrow')} ${selected.status === 'planned' ? 'Registrar avance' : selected.status === 'in_progress' ? 'Enviar a revisión' : 'Registrar avance'}
               </button>
             </div>
-            <div class="item-title">${esc(selected.title)}</div>
-            <div class="item-sub">Vence ${esc(fmtDate(selected.due_at))} · ${badge(selected.status)}</div>
             <div class="dv-criteria">
               <b>Criterios de aceptación</b>
               ${criteriaPkg || '<p>Sin criterios definidos todavía.</p>'}

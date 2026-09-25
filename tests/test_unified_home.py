@@ -210,6 +210,107 @@ def test_habit_validation_rules(api) -> None:
     assert all(h["id"] != "hbt_arc" for h in listed)
 
 
+def _week_of(client, habit_id):
+    return client.get(f"/api/v1/habits/{habit_id}/series").json()["week"]
+
+
+def test_habit_week_summary_spans_monday_to_sunday(api) -> None:
+    api.post("/api/v1/habits", json={"id": "hbt_sem", "name": "Semanal"})
+    week = _week_of(api, "hbt_sem")
+    days = [d["date"] for d in week["days"]]
+
+    assert len(days) == 7
+    assert days[0] == week["start"] == days[0]
+    assert days[-1] == week["end"]
+    # la semana es siempre lunes a domingo, sin importar el día actual
+    assert date.fromisoformat(days[0]).isoweekday() == 1
+    assert date.fromisoformat(days[-1]).isoweekday() == 7
+    assert week["days"][0]["is_today"] in (True, False)
+    assert sum(1 for d in week["days"] if d["is_today"]) == 1
+
+
+def test_habit_week_summary_ignores_future_days(api) -> None:
+    api.post("/api/v1/habits", json={"id": "hbt_fut", "name": "Futuro"})
+    week = _week_of(api, "hbt_fut")
+
+    elapsed = [d for d in week["days"] if not d["is_future"]]
+    future = [d for d in week["days"] if d["is_future"]]
+
+    assert week["scheduled_days"] == len(elapsed)
+    assert all(d["due"] is False for d in future)
+    assert all(d["scheduled"] is True for d in future)
+    # sin incumplimientos, la constancia de la semana es 0
+    assert week["met_days"] == 0
+    assert week["rate"] == 0.0
+    assert week["goal_met"] is False
+
+
+def test_habit_week_summary_counts_met_days(api) -> None:
+    api.post("/api/v1/habits", json={"id": "hbt_dia", "name": "Diario"})
+    week = _week_of(api, "hbt_dia")
+    today = next(d["date"] for d in week["days"] if d["is_today"])
+
+    api.post("/api/v1/habits/hbt_dia/mark", json={"local_date": today})
+    met = _week_of(api, "hbt_dia")
+
+    assert met["met_days"] == 1
+    assert met["goal_met"] is True
+    assert met["rate"] == round(1 / met["scheduled_days"], 2)
+    today_day = next(d for d in met["days"] if d["is_today"])
+    assert today_day["met"] is True
+    assert today_day["quantity"] == 1
+
+
+def test_habit_week_summary_skips_unscheduled_weekdays(api) -> None:
+    api.post(
+        "/api/v1/habits",
+        json={"id": "hbt_lv", "name": "Laborables", "frequency": "weekdays"},
+    )
+    week = _week_of(api, "hbt_lv")
+
+    for day in week["days"]:
+        expected = date.fromisoformat(day["date"]).isoweekday() <= 5
+        assert day["scheduled"] is expected
+        if not expected:
+            assert day["due"] is False
+    # sábado y domingo nunca se contabilizan comoprogramados
+    assert week["scheduled_days"] == sum(
+        1
+        for d in week["days"]
+        if not d["is_future"] and date.fromisoformat(d["date"]).isoweekday() <= 5
+    )
+
+
+def test_habit_week_summary_resolves_weekly_goal(api) -> None:
+    api.post(
+        "/api/v1/habits",
+        json={
+            "id": "hbt_sem3",
+            "name": "Tres por semana",
+            "frequency": "weekly",
+            "goal_type": "quantity",
+            "target_quantity": 1,
+            "weekly_target": 3,
+        },
+    )
+    week = _week_of(api, "hbt_sem3")
+    today = next(d["date"] for d in week["days"] if d["is_today"])
+    assert week["goal_met"] is False
+
+    for _ in range(3):
+        api.post(
+            "/api/v1/habits/hbt_sem3/mark",
+            json={"local_date": today, "quantity": 1},
+        )
+    met = _week_of(api, "hbt_sem3")
+
+    assert met["goal_met"] is True
+    assert met["total_quantity"] == 3
+    # un hábito semanal no marca días individuales como cumplidos
+    assert all(d["met"] is False for d in met["days"])
+    assert sum(1 for d in met["days"] if d["due"] and not d["is_future"]) == 0
+
+
 # ---------- Bandeja ----------
 
 

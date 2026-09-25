@@ -80,7 +80,7 @@
   --brand-background-dark: #051a38;
   --brand-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* Tipografía */
+  /* Tipografía — escala compartida por función (no por pantalla) */
   --ff-font: var(--brand-font);
   --ff-text-xs: 12px;
   --ff-text-sm: 14px;
@@ -88,9 +88,20 @@
   --ff-text-lg: 17px;
   --ff-text-xl: 21px;
   --ff-text-2xl: 24px;
-  --ff-text-3xl: 32px;
+  --ff-text-3xl: 30px;
   --ff-text-4xl: 42px;
-  --ff-text-hero: 46px;
+
+  /* Escala semántica: una sola fuente de verdad para los roles de texto.
+     Se adapta en pantallas menores con los breakpoints del fin del CSS. */
+  --ff-size-page-title: var(--ff-text-4xl);   /* Título de página: 40–48 px */
+  --ff-size-card-title: var(--ff-text-2xl);    /* Título de tarjeta: 20–24 px */
+  --ff-size-value: var(--ff-text-3xl);         /* Valor destacado: 28–32 px */
+  --ff-size-body: var(--ff-text-md);           /* Texto normal: 15–16 px */
+  --ff-size-secondary: 13.5px;                 /* Texto secundario: 13–14 px */
+
+  /* Alturas de estructura global */
+  --ff-topnav-h: 76px;
+  --ff-sidebar-w: 255px;
   --ff-weight-regular: 400;
   --ff-weight-medium: 500;
   --ff-weight-semibold: 600;
@@ -113,9 +124,14 @@
   /* Radio */
   --ff-radius-sm: 8px;
   --ff-radius-md: 12px;
-  --ff-radius-lg: 16px;
-  --ff-radius-xl: 24px;
+  --ff-radius-lg: 12px;
+  --ff-radius-xl: 20px;
   --ff-radius-full: 999px;
+
+  /* Ritmo: márgenes de contenido y separación entre tarjetas */
+  --ff-view-pad-x: 24px;
+  --ff-view-pad-y: 22px;
+  --ff-card-gap: 16px;
 
   /* Sombra (suave, baja) */
   --ff-shadow-sm: 0 1px 2px rgba(8, 35, 74, 0.05);

@@ -20,6 +20,7 @@ import {
   emptyBlock,
   errorBlock,
   genEntityId,
+  kpiTile,
 } from './ui.js';
 
 const DAY_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']; // índice = isoWeekday - 1
@@ -73,25 +74,55 @@ function isMet(habit, iso, completions, qtyOverride) {
   return qty >= target;
 }
 
+/* Un hábito semanal se cumple con el total de la semana natural (lunes a
+   domingo), no con los últimos 7 días corridos. */
 function weeklyMet(habit, iso, series) {
-  const days = last7();
-  const total = days
+  const days = weekDays(series);
+  const scope = days.length
+    ? days
+    : currentWeek().filter((d) => d <= (series.today || iso));
+  const total = scope
     .map((d) => quantityOn(series.completions, d))
     .reduce((a, b) => a + b, 0);
   return total >= (Number(habit.weekly_target) || 1);
 }
 
-function seriesForDay(habit, iso, series) {
+/* La semana natural (lunes a domingo) y el cumplimiento por día los calcula
+   el servidor en `series.week`; aquí solo se representa. */
+function weekDays(series) {
+  return ((series && series.week && series.week.days) || []).map((d) => d.date);
+}
+
+function dayState(habit, iso, series) {
+  const fromServer = ((series && series.week && series.week.days) || []).find(
+    (d) => d.date === iso,
+  );
+  if (fromServer) {
+    const partial =
+      fromServer.scheduled &&
+      habit.goal_type === 'quantity' &&
+      fromServer.quantity > 0 &&
+      !fromServer.met;
+    return {
+      qty: fromServer.quantity,
+      done: fromServer.met,
+      partial,
+      scheduled: fromServer.scheduled,
+      due: fromServer.due,
+    };
+  }
   const qty = quantityOn(series.completions, iso);
   const scheduled = isScheduled(habit, iso);
-  let done;
-  if (habit.frequency === 'weekly') {
-    done = weeklyMet(habit, iso, series);
-  } else {
-    done = scheduled && isMet(habit, iso, series, qty);
-  }
+  const done =
+    habit.frequency === 'weekly'
+      ? weeklyMet(habit, iso, series)
+      : scheduled && isMet(habit, iso, series, qty);
   const partial = scheduled && habit.goal_type === 'quantity' && qty > 0 && !done;
-  return { qty, done, partial, scheduled };
+  return { qty, done, partial, scheduled, due: scheduled };
+}
+
+function seriesForDay(habit, iso, series) {
+  return dayState(habit, iso, series);
 }
 
 function dayCell(habit, iso, series) {
@@ -104,7 +135,7 @@ function dayCell(habit, iso, series) {
     future ? 'future' : '',
     s.done ? 'done' : '',
     s.partial ? 'partial' : '',
-    s.scheduled ? 'due' : '',
+    s.due ? 'due' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -116,10 +147,11 @@ function dayCell(habit, iso, series) {
   return `<button class="${cls}" data-day="${esc(iso)}" data-habit="${esc(habit.id)}" title="${esc(iso)}${s.scheduled ? '' : ' (no corresponde)'}">${content}</button>`;
 }
 
-function weekStrip(habit, series, days = last7()) {
+function weekStrip(habit, series, days) {
+  const strip = days && days.length ? days : weekDays(series).length ? weekDays(series) : last7();
   return `<div class="habit-row">
     <span class="item-title">${esc(habit.name)}</span>
-    ${days.map((iso) => dayCell(habit, iso, series)).join('')}
+    ${strip.map((iso) => dayCell(habit, iso, series)).join('')}
     <span class="streak-badge">${icon('sparkles')} ${esc(series.current_streak)}</span>
   </div>`;
 }
@@ -279,47 +311,70 @@ export async function renderHabitos(el) {
     }
 
     const series = await Promise.all(activeRows.map((h) => habitSeries(h.id)));
-    const today = todayISO();
-    const week = currentWeek();
+    const today = series[0]?.today || todayISO();
     const selectedId = el.dataset.selectedHabit || activeRows[0]?.id || null;
 
     let doneToday = 0;
     let dueToday = 0;
-    let maxStreak = 0;
     let maxLongest = 0;
     const completeRows = [];
-    const daySummary = week.map(() => ({ done: 0, due: 0 }));
     const ranking = [];
+    const weekStats = { done: 0, due: 0, habitsDue: 0, habitsDone: 0 };
+    const week = weekDays(series[0]).length ? weekDays(series[0]) : currentWeek();
+    const daySummary = week.map((iso) => {
+      const cell = { done: 0, due: 0 };
+      series.forEach((s) => {
+        const d = ((s.week && s.week.days) || []).find((x) => x.date === iso);
+        if (!d) return;
+        if (d.met) cell.done += 1;
+        if (d.due) cell.due += 1;
+      });
+      return cell;
+    });
 
     activeRows.forEach((h, i) => {
       const s = series[i];
-      const st = seriesForDay(h, today, s);
-      const scheduledToday = h.frequency === 'weekly' ? !st.done : st.scheduled;
+      const st = dayState(h, today, s);
       if (st.done) doneToday += 1;
-      else if (scheduledToday) dueToday += 1;
-      maxStreak = Math.max(maxStreak, s.current_streak || 0);
+      else if (st.due) dueToday += 1;
       maxLongest = Math.max(maxLongest, s.longest_streak || 0);
       ranking.push({ name: h.name, id: h.id, streak: s.current_streak || 0 });
       (s.completions || []).forEach((c) => {
         completeRows.push({ habit: h.name, src: c.source, at: c.created_at || `${c.local_date}T12:00:00`, local_date: c.local_date, qty: c.quantity });
       });
-      week.forEach((iso, di) => {
-        const stDay = seriesForDay(h, iso, s);
-        if (stDay.due) daySummary[di].due += 1;
-        if (stDay.done) daySummary[di].done += 1;
-      });
+      const w = s.week;
+      if (w) {
+        weekStats.done += w.met_days;
+        weekStats.due += w.scheduled_days;
+        if (w.scheduled_days > 0) weekStats.habitsDue += 1;
+        if (w.goal_met) weekStats.habitsDone += 1;
+      }
     });
 
-    const kpiRow = `
-      <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon tone-accent">${icon('check')}</span><div class="kpi-meta"><span class="kpi-label">Completados hoy</span><span class="kpi-value">${esc(doneToday)}</span><span class="kpi-label">de ${esc(doneToday + dueToday)} por hoy</span></div></div>
-        <div class="kpi">${(function () {
-          const dueWeek = daySummary.reduce((a, d) => a + d.due, 0);
-          const doneWeek = daySummary.reduce((a, d) => a + d.done, 0);
-          const pct = dueWeek ? Math.round((doneWeek / dueWeek) * 100) : 0;
-          return `<span class="kpi-icon tone-success">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Semana real</span><span class="kpi-value">${doneWeek} / ${dueWeek}</span><span class="kpi-label">${pct}% de constancia</span></div>`;
-        })()}</div>
-        <div class="kpi"><span class="kpi-icon tone-warm">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Mejor racha</span><span class="kpi-value">${esc(maxLongest)} ${esc(maxLongest === 1 ? 'día' : 'días')}</span></div></div>
+    const weekRate = weekStats.due ? Math.round((weekStats.done / weekStats.due) * 100) : 0;
+
+    const kpiRow = `<div class="kpi-row three">
+        ${kpiTile({
+          icon: 'check',
+          tone: 'accent',
+          label: 'Completados hoy',
+          value: `${doneToday}<span class="kpi-value-unit">/ ${doneToday + dueToday}</span>`,
+          note: doneToday + dueToday === 0 ? 'Nada programado para hoy' : 'Hábitos programados para hoy',
+        })}
+        ${kpiTile({
+          icon: 'target',
+          tone: 'success',
+          label: 'Resumen de la semana actual',
+          value: `${weekStats.habitsDone}<span class="kpi-value-unit">/ ${weekStats.habitsDue} hábitos</span>`,
+          note: `${weekRate}% de constancia`,
+        })}
+        ${kpiTile({
+          icon: 'sparkles',
+          tone: 'warm',
+          label: 'Mejor racha',
+          value: `${maxLongest} <span class="kpi-value-unit">${maxLongest === 1 ? 'día' : 'días'}</span>`,
+          note: 'Racha más larga registrada',
+        })}
       </div>`;
 
     const topRachas = ranking.filter((r) => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 3);
@@ -332,17 +387,17 @@ export async function renderHabitos(el) {
             .map((h, i) => {
               const s = series[i];
               return `
-              <div class="habit-card" data-hbt-select="${esc(h.id)}" style="padding:6px 0 12px;border-bottom:1px solid var(--ff-border);${i ? 'margin-top:10px' : ''}${h.id === selectedId ? 'outline:2px solid var(--ff-accent-500);outline-offset:4px;border-radius:var(--ff-radius-lg)' : ''}">
+              <div class="habit-card${h.id === selectedId ? ' is-selected' : ''}" data-hbt-select="${esc(h.id)}">
                 <div class="habit-head">
                   <div class="habit-name">${esc(h.name)}</div>
                   <div class="habit-goal">${esc(goalLabel(h))}${h.status === 'paused' ? ' · en pausa' : ''}</div>
-                  <div class="item-side" style="margin-left:auto">${badge(h.status)}</div>
+                  <div class="item-side">${badge(h.status)}</div>
                 </div>
                 ${weekStrip(h, s, week)}
                 <div class="habit-meta">
                   <span class="streak-badge mint">${icon('sparkles')} Racha ${esc(s.current_streak)}</span>
                   <span class="streak-badge">${Math.round((s.completion_rate_14d || 0) * 100)}% últ. 14 días</span>
-                  <div class="habit-actions" style="margin-left:auto">
+                  <div class="habit-actions">
                     <a class="btn btn-soft btn-xs" href="#/habitos/${esc(h.id)}">${icon('arrow')} Detalle</a>
                     <button class="btn btn-ghost btn-xs" data-hbt-edit="${esc(h.id)}" title="Editar">${icon('edit')}</button>
                     ${h.status === 'active' ? `<button class="btn btn-ghost btn-xs" data-hbt-status="${esc(h.id)}" data-status="paused">Pausar</button>` : ''}
@@ -358,28 +413,29 @@ export async function renderHabitos(el) {
 
     const selHabit = selectedId ? activeRows.find((h) => h.id === selectedId) : null;
     const selSeries = selHabit ? series[activeRows.findIndex((h) => h.id === selectedId)] : null;
-
-    const weekDone = daySummary.reduce((a, d) => a + d.done, 0);
-    const weekDue = daySummary.reduce((a, d) => a + d.due, 0);
+    const selWeek = (selSeries && selSeries.week) || { met_days: 0, scheduled_days: 0 };
+    const selWeekRate = selWeek.scheduled_days
+      ? Math.round((selWeek.met_days / selWeek.scheduled_days) * 100)
+      : 0;
 
     const habitDetail = selHabit && selSeries ? `
       <section class="card">
         <div class="card-head"><h2>${icon('target')} ${esc(selHabit.name)}</h2>${badge(selHabit.status)}</div>
         <div class="card-body">
           <p class="page-sub">${esc(goalLabel(selHabit))}${selHabit.description ? ` · ${esc(selHabit.description)}` : ''}</p>
-          <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);gap:8px">
-            <div class="kpi"><span class="kpi-label">Racha actual</span><span class="kpi-value">${esc(selSeries.current_streak)}</span></div>
-            <div class="kpi"><span class="kpi-label">Racha máxima</span><span class="kpi-value">${esc(selSeries.longest_streak)}</span></div>
-            <div class="kpi"><span class="kpi-label">14 días</span><span class="kpi-value">${Math.round((selSeries.completion_rate_14d || 0) * 100)}%</span></div>
+          <div class="kpi-row three compact">
+            ${kpiTile({ label: 'Racha actual', value: esc(selSeries.current_streak), note: 'días seguidos', noIcon: true, tight: true })}
+            ${kpiTile({ label: 'Racha máxima', value: esc(selSeries.longest_streak), note: 'mejor histórico', noIcon: true, tight: true })}
+            ${kpiTile({ label: 'Cumplimiento 14 días', value: `${Math.round((selSeries.completion_rate_14d || 0) * 100)}<span class="kpi-value-unit">%</span>`, note: 'días programados', noIcon: true, tight: true })}
           </div>
-          <div class="bar-list" style="padding:10px 0 0">
+          <div class="bar-list">
             <div class="bar-row">
-              <span class="bar-name">Semana real</span>
-              <div class="bar-track"><div class="bar-fill" style="width:${weekDue ? Math.round((weekDone / weekDue) * 100) : 0}%"></div></div>
-              <span class="bar-amt">${esc(weekDone)}/${esc(weekDue)}</span>
+              <span class="bar-name">Semana actual</span>
+              <div class="bar-track"><div class="bar-fill" style="width:${selWeekRate}%"></div></div>
+              <span class="bar-amt">${esc(selWeek.met_days)}/${esc(selWeek.scheduled_days)}</span>
             </div>
           </div>
-          <div class="habit-detail-actions" style="margin-top:12px">
+          <div class="habit-detail-actions">
             <button class="btn btn-success-soft btn-sm" data-hbt-toggle="${esc(selHabit.id)}" data-hbt-toggle-target="list">${icon('check')} ${selSeries.completed_today ? 'Quitar de hoy' : 'Marcar hoy'}</button>
             <a class="btn btn-soft btn-sm" href="#/habitos/${esc(selHabit.id)}">${icon('arrow')} Ver detalle</a>
           </div>
@@ -388,30 +444,28 @@ export async function renderHabitos(el) {
 
     const sideHtml = `${habitDetail}
       <section class="card">
-        <div class="card-head"><h2>${icon('calendar')} Semana real</h2></div>
+        <div class="card-head"><h2>${icon('calendar')} Semana actual</h2></div>
         <div class="card-body">
           <div class="week-matrix">
             <div class="week-matrix-scroll">
               <div class="week-matrix-grid">
-                <div class="matrix-row week-head" style="padding:10px 8px">
+                <div class="matrix-row week-head">
                   <span class="week-label">Día</span>
-                  ${week.map((iso) => `<span class="week-label" style="text-align:center">${WEEKDAY_LETTERS[new Date(`${iso}T12:00:00`).getDay()]} ${esc(iso.slice(8))}</span>`).join('')}
-                  <span class="week-label" style="text-align:right">Total</span>
+                  ${week.map((iso) => `<span class="week-label week-label-center">${WEEKDAY_LETTERS[new Date(`${iso}T12:00:00`).getDay()]} ${esc(iso.slice(8))}</span>`).join('')}
+                  <span class="week-label week-label-right">Total</span>
                 </div>
-                <div class="matrix-row" style="padding:10px 8px">
-                  <span class="week-label" style="white-space:nowrap">Cumplidos</span>
+                <div class="matrix-row">
+                  <span class="week-label week-label-nowrap">Cumplidos</span>
                   ${week.map((iso, di) => {
                     const d = daySummary[di];
                     return `<span class="matrix-cell ${d.done && d.done >= d.due ? 'done' : d.done ? 'partial' : ''} ${iso === today ? 'today' : ''}" title="${esc(iso)}">${esc(d.done)}${d.due ? `/${esc(d.due)}` : ''}</span>`;
                   }).join('')}
-                  <span class="week-label" style="text-align:right">${esc(daySummary.reduce((a, d) => a + d.done, 0))}</span>
+                  <span class="week-label week-label-right">${esc(weekStats.done)}</span>
                 </div>
               </div>
             </div>
           </div>
-          <p class="page-sub" style="margin-top:12px">Cumplidos de ${
-            daySummary.reduce((a, d) => a + (d.due || 0), 0)
-          } objetivos programados en la semana.</p>
+          <p class="page-sub week-matrix-note">Cumplidos de ${esc(weekStats.due)} objetivos programados en la semana.</p>
         </div>
       </section>
       ${(() => {
@@ -595,22 +649,24 @@ export async function renderSemana(el) {
       return;
     }
     const series = await Promise.all(active.map((h) => habitSeries(h.id)));
-    const days = last7();
+    const days = weekDays(series[0]).length ? weekDays(series[0]) : currentWeek();
+    const start = series[0]?.week?.start || days[0];
+    const end = series[0]?.week?.end || days[days.length - 1];
     const head = `
       <div class="habit-row week-head">
         <span class="week-label">Hábito</span>
-        ${days.map((d) => `<span class="week-label" style="text-align:center">${WEEKDAY_LETTERS[new Date(`${d}T12:00:00`).getDay()]} ${d.slice(8)}</span>`).join('')}
-        <span class="week-label">Racha</span>
+        ${days.map((d) => `<span class="week-label week-label-center">${WEEKDAY_LETTERS[new Date(`${d}T12:00:00`).getDay()]} ${esc(d.slice(8))}</span>`).join('')}
+        <span class="week-label week-label-right">Racha</span>
       </div>`;
     el.innerHTML = `
       <div class="page-head">
-        <h1>Vista semanal</h1>
-        <p class="page-sub">Últimos 7 días. Toca una celda para marcar o desmarcar.</p>
+        <h1>Semana actual</h1>
+        <p class="page-sub">Del ${esc(start)} al ${esc(end)}. Toca una celda para marcar o desmarcar.</p>
         <div class="page-head-actions"><a class="btn btn-ghost btn-sm" href="#/habitos">${icon('arrow')} Todos los hábitos</a></div>
       </div>
       <section class="card">
         <div class="card-body">
-          <div style="overflow-x:auto">${head}${active.map((h, i) => weekStrip(h, series[i])).join('')}</div>
+          <div class="table-scroll">${head}${active.map((h, i) => weekStrip(h, series[i], days)).join('')}</div>
         </div>
       </section>`;
     bind(el);
@@ -631,25 +687,28 @@ export async function renderHabitoDetalle(el, habitId) {
     el.innerHTML = `
       <a class="back-link" href="#/habitos">${icon('arrow')} Hábitos</a>
       <div class="page-head">
-        <div class="page-greeting"><h1>${esc(habit.name)}</h1> ${badge(habit.status)}</div>
-        <p class="page-sub">${esc(goalLabel(habit))}${habit.description ? ` · ${esc(habit.description)}` : ''}</p>
-        <div class="page-head-actions">
+      <div class="page-head-row">
+        <div class="page-titleblock">
+          <h1>${esc(habit.name)}</h1>
+          <p class="page-sub">${esc(goalLabel(habit))}${habit.description ? ` · ${esc(habit.description)}` : ''}</p>
+        </div>
+        <div class="detail-actions">
           <button class="btn btn-success-soft btn-sm" data-hbt-toggle="${esc(habit.id)}">${icon('check')} ${series.completed_today ? 'Quitar de hoy' : 'Marcar hoy'}</button>
           <button class="btn btn-ghost btn-sm" data-hbt-edit="${esc(habit.id)}">${icon('edit')} Editar</button>
         </div>
       </div>
-      <div class="page-grid three">
-        <div class="card"><div class="card-body"><span class="kpi-label">Racha actual</span><div class="kpi-value">${esc(series.current_streak)} ${esc(series.current_streak === 1 ? 'día' : 'días')}</div></div></div>
-        <div class="card"><div class="card-body"><span class="kpi-label">Racha máxima</span><div class="kpi-value">${esc(series.longest_streak)} ${esc(series.longest_streak === 1 ? 'día' : 'días')}</div></div></div>
-        <div class="card"><div class="card-body"><span class="kpi-label">Cumplimiento 14 días</span><div class="kpi-value">${Math.round((series.completion_rate_14d || 0) * 100)}%</div></div></div>
+      <div class="kpi-row three">
+        ${kpiTile({ icon: 'sparkles', tone: 'warm', label: 'Racha actual', value: `${esc(series.current_streak)} <span class="kpi-value-unit">${series.current_streak === 1 ? 'día' : 'días'}</span>`, note: 'días seguidos' })}
+        ${kpiTile({ icon: 'target', tone: 'accent', label: 'Racha máxima', value: `${esc(series.longest_streak)} <span class="kpi-value-unit">${series.longest_streak === 1 ? 'día' : 'días'}</span>`, note: 'mejor histórico' })}
+        ${kpiTile({ icon: 'check', tone: 'success', label: 'Cumplimiento 14 días', value: `${Math.round((series.completion_rate_14d || 0) * 100)}<span class="kpi-value-unit">%</span>`, note: 'días programados' })}
       </div>
-      <section class="card" style="margin-top:16px">
-        <div class="card-head"><h2>${icon('calendar')} Últimos 7 días</h2></div>
+      <section class="card spaced">
+        <div class="card-head"><h2>${icon('calendar')} Semana actual</h2></div>
         <div class="card-body">
-          <div style="overflow-x:auto">${weekStrip(habit, series)}</div>
+          <div class="table-scroll">${weekStrip(habit, series)}</div>
         </div>
       </section>
-      <section class="card" style="margin-top:16px">
+      <section class="card spaced">
         <div class="card-head"><h2>${icon('clock')} Historial de cumplimientos</h2></div>
         <div class="card-body no-pad">
           ${completions.length

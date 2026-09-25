@@ -190,6 +190,69 @@ class HabitService:
             self.session.commit()
         return found
 
+    def week_summary(
+        self,
+        habit: Habit,
+        quantities: dict[date, int],
+        today: date,
+    ) -> dict[str, Any]:
+        """Resumen de la semana natural (lunes a domingo) que contiene `today`.
+
+        Solo se contabilizan los días ya transcurridos: un día futuro nunca
+        cuenta como incumplimiento. Los hábitos `weekly` no se fijan en un día
+        concreto, así que su cumplimiento se resuelve a nivel de semana
+        (`goal_met`).
+        """
+        start = self.week_start(today)
+        end = start + timedelta(days=6)
+        goal_met = self.is_met(habit, today, quantities)
+        is_weekly = habit.frequency == "weekly"
+
+        days: list[dict[str, Any]] = []
+        scheduled_days = 0
+        met_days = 0
+        total_quantity = 0
+        walk = start
+        while walk <= end:
+            elapsed = walk <= today
+            scheduled = self.is_scheduled(habit, walk)
+            quantity = quantities.get(walk, 0)
+            if is_weekly:
+                met = False
+                due = elapsed and not goal_met
+            else:
+                met = scheduled and self.is_met(habit, walk, quantities)
+                due = scheduled and elapsed
+            if elapsed:
+                if is_weekly or scheduled:
+                    scheduled_days += 1
+                if met:
+                    met_days += 1
+                total_quantity += quantity
+            days.append(
+                {
+                    "date": walk,
+                    "scheduled": scheduled,
+                    "due": due,
+                    "met": met,
+                    "quantity": quantity,
+                    "is_today": walk == today,
+                    "is_future": walk > today,
+                }
+            )
+            walk += timedelta(days=1)
+
+        return {
+            "start": start,
+            "end": end,
+            "days": days,
+            "scheduled_days": scheduled_days,
+            "met_days": met_days,
+            "total_quantity": total_quantity,
+            "goal_met": goal_met,
+            "rate": round(met_days / scheduled_days, 2) if scheduled_days else 0.0,
+        }
+
     def series(self, habit: Habit) -> dict[str, Any]:
         today = self.today(habit)
         zone_name = habit.timezone
@@ -222,6 +285,7 @@ class HabitService:
             "current_streak": current_streak,
             "longest_streak": longest_streak,
             "completion_rate_14d": rate,
+            "week": self.week_summary(habit, quantities, today),
             "completions": completions,
         }
 

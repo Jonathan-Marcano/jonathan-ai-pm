@@ -177,10 +177,10 @@ async function renderResumen(el, household) {
         <div class="page-head-actions">${monthPicker()}</div>
       </div>
       <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon tone-success">${icon('arrow')}</span><div class="kpi-meta"><span class="kpi-label">Ingresos del mes</span><span class="kpi-value">${money(dash.income)}</span><span class="kpi-meta">${pct}% del esperado (${money(dash.expected_income)})</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-meta"><span class="kpi-label">Gastos del mes</span><span class="kpi-value">${money(dash.expenses)}</span><span class="kpi-meta">${dash.expenses ? Math.round((dash.expenses / (dash.income || 1)) * 100) : 0}% del ingreso</span></div></div>
-        <div class="kpi ${dash.balance >= 0 ? '' : 'tone-danger'}"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-meta">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Patrimonio</span><span class="kpi-value">${money(dash.net_worth)}</span><span class="kpi-meta">deuda total: ${money(dash.total_debt)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-success">${icon('arrow')}</span><div class="kpi-body"><span class="kpi-label">Ingresos del mes</span><span class="kpi-value">${money(dash.income)}</span><span class="kpi-note">${pct}% del esperado (${money(dash.expected_income)})</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-body"><span class="kpi-label">Gastos del mes</span><span class="kpi-value">${money(dash.expenses)}</span><span class="kpi-note">${dash.expenses ? Math.round((dash.expenses / (dash.income || 1)) * 100) : 0}% del ingreso</span></div></div>
+        <div class="kpi ${dash.balance >= 0 ? '' : 'tone-danger'}"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-body"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-note">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-body"><span class="kpi-label">Patrimonio</span><span class="kpi-value">${money(dash.net_worth)}</span><span class="kpi-note">deuda total: ${money(dash.total_debt)}</span></div></div>
       </div>
 
       <div class="page-grid two">
@@ -347,9 +347,9 @@ async function renderFlujo(el, household, type) {
 
     const kpiCards = `
       <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon ${ingresosView === 'Ingresos' ? 'tone-success' : 'tone-danger'}">${icon(ingresosView === 'Ingresos' ? 'arrow' : 'flag')}</span><div class="kpi-meta"><span class="kpi-label">${ingresosView} del período</span><span class="kpi-value">${money(total)}</span><span class="kpi-meta">${esc(monthLabel)}</span></div></div>
-        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-meta">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-meta">de ${money(planned)} (${budgetPct}%)</span></div></div>
+        <div class="kpi"><span class="kpi-icon ${ingresosView === 'Ingresos' ? 'tone-success' : 'tone-danger'}">${icon(ingresosView === 'Ingresos' ? 'arrow' : 'flag')}</span><div class="kpi-body"><span class="kpi-label">${ingresosView} del período</span><span class="kpi-value">${money(total)}</span><span class="kpi-note">${esc(monthLabel)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-body"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-note">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-body"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-note">de ${money(planned)} (${budgetPct}%)</span></div></div>
       </div>`;
 
     const chips = `<div class="filterbar chips" id="flujo-chips">
@@ -522,8 +522,8 @@ async function renderCuentas(el, household) {
                 <div class="item-side">${badge(a.status)}</div>
               </div>
               <div class="kpi-row" style="margin:6px 0 0">
-                <div class="kpi"><div class="kpi-meta"><span class="kpi-label">Calculado</span><span class="kpi-value">${money(a.balance_calculated)}</span></div></div>
-                <div class="kpi"><div class="kpi-meta"><span class="kpi-label">Reportado</span><span class="kpi-value">${money(a.balance_reported)}</span></div></div>
+                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Calculado</span><span class="kpi-value">${money(a.balance_calculated)}</span></div></div>
+                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Reportado</span><span class="kpi-value">${money(a.balance_reported)}</span></div></div>
               </div>
               ${a.type === 'credit' ? `<div class="habit-goal">Límite: ${money(a.credit_limit)} · vence día ${a.due_day ?? '—'}</div>` : ''}
               <div class="habit-actions">
@@ -645,9 +645,9 @@ async function renderDeudas(el, household) {
         <div class="page-head-actions"><button class="btn btn-primary" id="fin-debt-new">${icon('plus')} Nueva deuda</button></div>
       </div>
       <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon tone-danger">${icon('alert')}</span><div class="kpi-meta"><span class="kpi-label">Saldo total</span><span class="kpi-value">${money(summary.total_current_balance)}</span><span class="kpi-meta">original: ${money(summary.total_original_amount)}</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-primary">${icon('folder')}</span><div class="kpi-meta"><span class="kpi-label">Activas</span><span class="kpi-value">${esc((byStatus.active || {}).count || 0)}</span><span class="kpi-meta">${money((byStatus.active || {}).current_balance || 0)}</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-success">${icon('check')}</span><div class="kpi-meta"><span class="kpi-label">Pagadas</span><span class="kpi-value">${esc((byStatus.paid_off || {}).count || 0)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-danger">${icon('alert')}</span><div class="kpi-body"><span class="kpi-label">Saldo total</span><span class="kpi-value">${money(summary.total_current_balance)}</span><span class="kpi-note">original: ${money(summary.total_original_amount)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('folder')}</span><div class="kpi-body"><span class="kpi-label">Activas</span><span class="kpi-value">${esc((byStatus.active || {}).count || 0)}</span><span class="kpi-note">${money((byStatus.active || {}).current_balance || 0)}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-success">${icon('check')}</span><div class="kpi-body"><span class="kpi-label">Pagadas</span><span class="kpi-value">${esc((byStatus.paid_off || {}).count || 0)}</span></div></div>
       </div>
       <section class="card">
         <div class="card-body no-pad">
@@ -739,9 +739,9 @@ async function renderPresupuesto(el, household) {
       </div>
       ${budget ? `
         <div class="kpi-row">
-          <div class="kpi"><span class="kpi-icon tone-accent">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Planeado</span><span class="kpi-value">${money(totalPlanned)}</span></div></div>
-          <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-meta"><span class="kpi-label">Real</span><span class="kpi-value">${money(totalActual)}</span></div></div>
-          <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Avance</span><span class="kpi-value">${totalPlanned ? Math.round((totalActual / totalPlanned) * 100) : 0}%</span></div></div>
+          <div class="kpi"><span class="kpi-icon tone-accent">${icon('target')}</span><div class="kpi-body"><span class="kpi-label">Planeado</span><span class="kpi-value">${money(totalPlanned)}</span></div></div>
+          <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-body"><span class="kpi-label">Real</span><span class="kpi-value">${money(totalActual)}</span></div></div>
+          <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-body"><span class="kpi-label">Avance</span><span class="kpi-value">${totalPlanned ? Math.round((totalActual / totalPlanned) * 100) : 0}%</span></div></div>
         </div>
         <section class="card">
           <div class="card-head"><h2>${icon('folder')} Categorías del presupuesto</h2>
@@ -848,8 +848,8 @@ async function renderMetas(el, household) {
                 <div class="item-side">${badge(g.status)}</div>
               </div>
               <div class="kpi-row" style="margin:6px 0 0">
-                <div class="kpi"><div class="kpi-meta"><span class="kpi-label">Progreso</span><span class="kpi-value">${money(g.current_amount)}</span></div></div>
-                <div class="kpi"><div class="kpi-meta"><span class="kpi-label">Meta</span><span class="kpi-value">${money(g.target_amount)}</span></div></div>
+                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Progreso</span><span class="kpi-value">${money(g.current_amount)}</span></div></div>
+                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Meta</span><span class="kpi-value">${money(g.target_amount)}</span></div></div>
               </div>
               <div class="bar-track" style="margin:6px 0"><div class="bar-fill ${pct >= 100 ? 'over' : ''}" style="width:${Math.min(100, pct)}%"></div></div>
               <div class="habit-goal">${pct}% alcanzado · aporte mensual ${money(g.monthly_contribution)}</div>
@@ -1150,9 +1150,9 @@ async function renderEgresos(el, household) {
         </div>
       </div>
       <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-meta"><span class="kpi-label">Total de egresos</span><span class="kpi-value">${money(total)}</span><span class="kpi-label">${incomePct}% del ingreso del mes</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-meta"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-label">de ${money(planned)} · ${budgetPct}%</span></div></div>
-        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-meta"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-label">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-body"><span class="kpi-label">Total de egresos</span><span class="kpi-value">${money(total)}</span><span class="kpi-note">${incomePct}% del ingreso del mes</span></div></div>
+        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-body"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-note">de ${money(planned)} · ${budgetPct}%</span></div></div>
+        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-body"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-note">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
       </div>
       <div class="split-72-28">
         <div class="split-main">

@@ -118,34 +118,43 @@ export function icon(name) {
   return `<svg viewBox="0 0 20 20" class="ff-icon" aria-hidden="true">${body}</svg>`;
 }
 
-/* Ilustración decorativa del faro (bajo contraste, para héroes). */
+/* Faro decorativo: horizontal, suave y secundario al contenido.
+   Sin marco dominante, sin fondo de imagen y con bajo contraste: acompaña la
+   cabecera sin competir con el texto ni con las acciones. */
 export function lighthouseArt() {
   return `
-<svg viewBox="0 0 320 190" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg viewBox="0 0 240 96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="lf-sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#EAFBF9"/>
-      <stop offset="1" stop-color="#F5FBFA"/>
+    <linearGradient id="ff-beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFCE5C" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FFCE5C" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="lf-sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#B9F0EC"/>
-      <stop offset="1" stop-color="#7CE0D8"/>
+    <linearGradient id="ff-wave" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7CE0D8" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#B9F0EC" stop-opacity="0.16"/>
     </linearGradient>
   </defs>
-  <rect width="320" height="190" rx="14" fill="url(#lf-sky)"/>
-  <circle cx="252" cy="44" r="17" fill="#FFEFC9"/>
-  <path d="M0 118 Q50 102 100 116 T200 114 T320 110 V190 H0 Z" fill="#E2F8F5"/>
-  <path d="M0 132 Q45 126 95 130 T200 130 T320 126 V190 H0 Z" fill="url(#lf-sea)"/>
-  <path d="M116 148 Q122 114 140 102 Q136 126 152 148 Z" fill="#BFD6E5"/>
-  <rect x="126" y="80" width="20" height="42" rx="4" fill="#FFFFFF" stroke="#C6D9DE"/>
-  <rect x="128" y="72" width="16" height="11" rx="3" fill="#00AAA5"/>
-  <rect x="129" y="62" width="14" height="12" rx="2" fill="#00AAA5"/>
-  <path d="M136 70 L210 22 L200 86 Z" fill="#FFDF8E" opacity="0.5"/>
-  <circle cx="136" cy="66" r="4.5" fill="#FFCE5C"/>
-  <path d="M38 152 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M182 162 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.65" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M62 170 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="2" stroke-linecap="round" fill="none"/>
-  <path d="M232 154 q11 -5 22 0 t22 0" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+  <!-- haz de luz horizontal -->
+  <path d="M126 40 L232 16 L232 64 Z" fill="url(#ff-beam)"/>
+
+  <!-- ondas horizontales suaves -->
+  <g stroke="#9FDCD6" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7">
+    <path d="M8 76 q14 -5 28 0 t28 0" opacity="0.55"/>
+    <path d="M52 84 q14 -5 28 0 t28 0" opacity="0.4"/>
+    <path d="M126 76 q14 -5 28 0 t28 0" opacity="0.5"/>
+    <path d="M170 84 q14 -5 28 0 t28 0" opacity="0.34"/>
+  </g>
+  <path d="M0 80 Q60 72 120 80 T240 78 V96 H0 Z" fill="url(#ff-wave)"/>
+
+  <!-- faro -->
+  <path d="M104 80 q5 -26 18 -36 q-3 20 6 36 Z" fill="#CFE2EC" opacity="0.85"/>
+  <rect x="112" y="36" width="18" height="40" rx="4" fill="#FFFFFF" stroke="#C6D9DE"/>
+  <rect x="114" y="47" width="14" height="7" rx="2" fill="#DFECEF"/>
+  <rect x="114" y="60" width="14" height="7" rx="2" fill="#DFECEF"/>
+  <rect x="113" y="29" width="16" height="9" rx="2.5" fill="#00AAA5" opacity="0.85"/>
+  <path d="M115 29 v-4 a2 2 0 0 1 2 -2 h8 a2 2 0 0 1 2 2 v4 Z" fill="#007F83" opacity="0.85"/>
+  <circle cx="121" cy="25" r="3.4" fill="#FFCE5C"/>
 </svg>`;
 }
 
@@ -200,6 +209,44 @@ export function humanStatus(status) {
 export function prio(level) {
   const labels = { critical: 'Crítico', high: 'Alto', medium: 'Medio', low: 'Bajo' };
   return `<span class="prio prio-${esc(level)}">${esc(labels[level] || level)}</span>`;
+}
+
+/* Componente único de indicador.
+   Icono a la izquierda, bloque de contenido a la derecha, título arriba,
+   valor destacado debajo y explicación secundaria bajo el valor.
+   - `label`  título del indicador
+   - `value`  valor destacado (importes, ratios, cantidades)
+   - `note`   explicación secundaria; nunca se mezcla con el valor          */
+export function kpiTile({
+  icon: iconName = null,
+  tone = 'accent',
+  label,
+  value,
+  note = '',
+  href = '',
+  valueClass = '',
+  noIcon = false,
+  tight = false,
+} = {}) {
+  const iconHtml = noIcon || !iconName ? '' : `<span class="kpi-icon tone-${esc(tone)}">${icon(iconName)}</span>`;
+  const body = `
+      <span class="kpi-label">${esc(label)}</span>
+      <span class="kpi-value${valueClass ? ` ${esc(valueClass)}` : ''}">${value}</span>
+      ${note ? `<span class="kpi-note">${note}</span>` : ''}`;
+  const inner = `${iconHtml}<span class="kpi-body">${body}</span>`;
+  const classes = `kpi${noIcon ? ' no-icon' : ''}${tight ? ' tight' : ''}`;
+  return href
+    ? `<a class="${classes}" href="${esc(href)}">${inner}</a>`
+    : `<div class="${classes}">${inner}</div>`;
+}
+
+/* Indicador simple sin icono, para listas compactas de cifras. */
+export function statTile(label, valueHtml, noteHtml = '', extraClass = '') {
+  return `<div class="card stat-card ${esc(extraClass)}"><div class="card-body">
+      <span class="kpi-label">${esc(label)}</span>
+      <span class="kpi-value">${valueHtml}</span>
+      ${noteHtml ? `<span class="kpi-note">${noteHtml}</span>` : ''}
+    </div></div>`;
 }
 
 export function progressBar(percent) {
