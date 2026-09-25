@@ -360,6 +360,9 @@ button { font-family: inherit; }
   overflow-wrap: anywhere;
 }
 .page-greeting { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+/* La fecha o el contexto que acompaña al h1 en la misma línea: secundario y
+   nunca del mismo peso que el título. */
+.date-line { color: var(--ff-text-muted); font-size: var(--ff-size-secondary); }
 .page-date {
   color: var(--ff-text-muted);
   font-size: var(--ff-size-secondary);
@@ -1141,6 +1144,9 @@ a.card:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-m
 
 /* Chips de filtro */
 .filterbar.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+/* Fila de sugerencias rápidas: los `.chip` son inline, así que sin esto se
+   tocan entre sí en vez de repartirse con separación. */
+.quick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chip { border: 1px solid var(--ff-border); background: var(--ff-surface); color: var(--ff-text-muted); border-radius: var(--ff-radius-full); padding: 6px 13px; font: 600 var(--ff-text-sm)/1 var(--ff-font); cursor: pointer; transition: background var(--ff-transition-fast), color var(--ff-transition-fast), border-color var(--ff-transition-fast); }
 .chip:hover { color: var(--ff-text); background: var(--ff-surface-tint); }
 .chip.active { background: var(--ff-accent-500); border-color: var(--ff-accent-500); color: #fff; }
@@ -1863,6 +1869,10 @@ a.card:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-m
 .wl-fill { height: 100%; background: linear-gradient(90deg, var(--ff-accent-400), var(--ff-accent-600)); border-radius: var(--ff-radius-full); }
 .wl-name { font-size: var(--ff-text-sm); font-weight: var(--ff-weight-semibold); }
 .wl-count { font-size: var(--ff-text-xs); color: var(--ff-text-muted); }
+/* Una fila del gráfico de carga: nombre, barra y número alineados. El nombre
+   cede espacio para que la barra sea la parte elástica de la fila. */
+.workload-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; align-items: center; gap: 12px; }
+.workload-note { margin: 12px 0 0; font-size: var(--ff-size-secondary); color: var(--ff-text-muted); }
 
 /* ---------- Calendario ---------- */
 .cal-wrap { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
@@ -2075,6 +2085,26 @@ a.card:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-m
 .advice > .ff-icon { width: 22px; height: 22px; flex: none; margin-top: 2px; color: var(--ff-accent-600); }
 .advice b { color: var(--ff-text); }
 .advice .btn { margin-left: auto; flex: none; }
+
+/* Aviso en línea: misma estructura que `.advice` pero con fondo y borde, para
+   marcar que hay algo pendiente de tu atención. `.alert-warn` es el tono
+   defecto; el color de la variante lo pone el modificador, no `.alert`. */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: var(--ff-card-gap);
+  border: 1px solid var(--ff-border);
+  border-radius: var(--ff-radius-lg);
+  background: var(--ff-surface-tint);
+}
+.alert > .ff-icon { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.alert > span { min-width: 0; }
+.alert b { color: var(--ff-text); }
+.alert-warn { background: var(--ff-warning-100); border-color: var(--ff-warm-200); }
+.alert-warn > .ff-icon { color: var(--ff-warning-500); }
+.alert-cta { margin-left: auto; flex: none; align-self: center; }
 
 @media (max-width: 960px) {
   .split-72-28 { grid-template-columns: minmax(0, 1fr); }

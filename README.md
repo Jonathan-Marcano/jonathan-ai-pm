@@ -202,19 +202,22 @@ en la tira de cada hábito.
 
 ### Bloque "Disponible"
 
-El dinero disponible es el mismo dato en todos los dashboards, así que es un
-componente único (`disponibleCard()`) con un único origen
+Componente único (`disponibleCard()`) con un único origen
 (`availableBalance()` en `api.js`): la suma del saldo de las cuentas activas del
-hogar. Aparece a ancho completo y arriba del todo en **Mi Día, Trabajo,
-Finanzas (Resumen y Egresos), Hábitos y Bandeja**, para que se lea siempre en el
-mismo sitio.
+hogar. **Solo aparece en Finanzas** (Resumen y Egresos), a ancho completo y
+arriba del todo.
 
 - No depende del mes: es saldo actual, no un total del período.
-- Se cachea por hogar, así que las cinco vistas no multiplican llamadas.
+- Se cachea por hogar, así que las dos vistas no multiplican llamadas. La
+  invalidación por prefijo `fin` de `invalidate()` lo cubre al registrar o dar de
+  baja un movimiento.
 - Usa `balance_calculated` y cae a `balance_reported` si una cuenta no tiene
   saldo calculado.
 - La nota dice cuántas cuentas activas suman y, si hay, el total de líneas de
   crédito. El número va en negativo a `--ff-danger-500`.
+- Se quitó de Mi Día, Trabajo, Hábitos y Bandeja: un saldo en euros no pertenece
+  a un tablero de trabajo, hábitos o capturas, y competía con el contenido de
+  cada área.
 
 ### Egresos: orden de la vista
 
@@ -254,13 +257,9 @@ Cambios frente a la versión anterior:
 - El bloque de KPIs del detalle de proyecto mantiene 4 tarjetas (aceptados,
   completadas, tiempo, bloqueos); la referencia muestra 5 y no queda claro cuál
   es la quinta, así que no se inventó una.
-- 16 clases referenciadas desde el JS siguen sin regla en CSS
-  (`alert`, `alert-cta`, `alert-warn`, `brief-body`, `btn-ghost-view`,
-  `btn-safe`, `chat-card`, `date-line`, `f-prio`, `f-status`, `inbox-item`,
-  `md-grid`, `quick-row`, `task-list`, `workload-bar`, `workload-note`).
-  Es deuda heredada de `410a2f6`, ajena a esta fase; no se añadió ni quitó
-  ninguna. `.stack` sí se definió en esta fase porque la usaba el nuevo bloque
-  *Este mes* y dejaba las tarjetas pegadas (hueco 0).
+- Las 16 clases que el JS usaba sin regla en CSS se resolvieron en la Fase 11.
+  Quedan 3 sin regla a propósito, porque son ganchos de `querySelector` y no
+  estilo: `f-status`, `f-prio` y `task-list`.
 
 
 ### Circuito Telegram → Drive → importación local
@@ -335,11 +334,11 @@ posible contenido personal).
   autorizar credenciales reales para Telegram/Drive.
 
 ### Fase 10 — bloque "Disponible" y reordenación de Egresos
-- **Disponible** en los seis dashboards (Mi Día, Trabajo, Finanzas Resumen,
-  Finanzas Egresos, Hábitos, Bandeja) con un único componente
-  (`disponibleCard()`) y una única fuente cacheada (`availableBalance()`):
-  suma de `balance_calculated` de las cuentas activas, con `balance_reported`
-  como respaldo. 52 px en escritorio, 38 px a 820 px y 32 px a 520 px.
+- **Disponible** añadido a seis dashboards y después reducido a los dos de
+  Finanzas (ver Fase 11). Componente `disponibleCard()` y fuente cacheada
+  `availableBalance()`: suma de `balance_calculated` de las cuentas activas, con
+  `balance_reported` como respaldo. 52 px en escritorio, 38 px a 820 px y 32 px
+  a 520 px.
 - **Egresos reordenado**: Disponible a ancho completo → *Este mes* (60) junto a
   *Distribución* (40) → *Política de gastos* → movimientos y recurrentes con
   próximos pagos al lado.
@@ -359,6 +358,43 @@ posible contenido personal).
   duplicados en el CSS.
 - **Nota**: la base local no tiene transacciones de finanzas, así que Egresos se
   valida sobre estados vacíos.
+
+### Fase 11 — "Disponible" solo en Finanzas y limpieza de clases muertas
+- **"Disponible" se queda únicamente en Finanzas** (Resumen y Egresos). Se
+  retiró de Mi Día, Trabajo, Hábitos y Bandeja: un saldo en euros no pertenece a
+  un tablero de trabajo, hábitos o capturas, y competía con el contenido de cada
+  área. El componente y la fuente cacheada se conservan porque Finanzas los usa
+  en sus dos vistas.
+- **7 clases que el JS usaba sin ninguna regla CSS**, resueltas con estilo real:
+  - `alert` + `alert-warn`: el bloque "Revisión pendiente" del dashboard de
+    Trabajo salía como texto pelado. Ahora es una caja de aviso ámbar
+    (`--ff-warning-100` sobre `--ff-warm-200`, radio 12 px) con icono de 20 px,
+    siguiendo la estructura que ya tenía `.advice`.
+  - `alert-cta`: empuja el botón a la derecha con `margin-left: auto`.
+  - `date-line` (8 usos): la fecha o el contexto en la línea del `h1` iba con el
+    mismo peso y color que el título; ahora secundario, 13,5 px y apagado.
+  - `workload-bar` y `workload-note`: las filas del gráfico de carga no tenían
+    layout (nombre, barra y número se apilaban como bloques) ni el pie tenía
+    estilo. Ahora es una rejilla `1fr 2fr auto` centrada y el pie queda en
+    secundario.
+  - `quick-row`: los `.chip` de sugerencias rápidas son inline y se tocaban entre
+    sí; ahora `flex` con `gap: 8px`.
+- **5 clases muertas retiradas del markup** en vez de inventarles estilo:
+  - `btn-safe` → se usó la variante existente `.btn-accent` (mismo botón sólido).
+  - `brief-body` → se quitó; los hijos `.brief-*` ya llevan su propio margen
+    vertical y un contenedor con `gap` duplicaría la separación.
+  - `md-grid`, `btn-ghost-view`, `inbox-item` y `chat-card` → el estilo ya lo
+    dan `dash-grid`, `.view-toggle .icon-btn`, `.item` y `.card`.
+- **`.stack` definido** (flex column, hueco 16 px) en la fase anterior: la clase
+  se usaba en tres vistas sin regla y dejaba las tarjetas pegadas con hueco 0.
+- Quedan 3 clases sin regla de forma intencionada: `f-status`, `f-prio` y
+  `task-list` son ganchos de `querySelector`, no estilo.
+- **Verificación**: 599 pruebas verdes, `ruff check` limpio, sin desbordamiento
+  horizontal en 8 vistas, llaves CSS balanceadas y 0 selectores duplicados. El
+  aviso y el gráfico de carga se midieron inyectados en el navegador, porque con
+  los datos locales no hay nada que revisar ni filas de carga que los rendereen:
+  aviso de 62 px de alto con fondo `rgb(255, 241, 214)`, icono de 20 px, CTA a
+  480 px del texto, y filas de carga en rejilla 353/705/13 px.
 
 ## Working agreements
 

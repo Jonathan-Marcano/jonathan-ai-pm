@@ -7,7 +7,6 @@ import {
   listBandeja,
   dashboard,
   upcomingPayments,
-  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -26,7 +25,6 @@ import {
   progressBar,
   promptCompletionNote,
   kpiTile,
-  disponibleCard,
 } from './ui.js';
 
 const WEEKDAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -279,8 +277,7 @@ export async function renderMiDia(el) {
         </div>
         <div class="hero-art">${lighthouseArt()}</div>
       </div>
-      ${fin.household_id ? disponibleCard({ available: await availableBalance(fin.household_id).catch(() => null) }) : ''}
-      <div class="dash-grid md-grid">
+      <div class="dash-grid">
         ${prioridades}
         ${agenda}
         ${proyectos}

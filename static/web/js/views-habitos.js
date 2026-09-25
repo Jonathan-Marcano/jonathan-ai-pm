@@ -8,7 +8,6 @@ import {
   habitSeries,
   markHabit,
   unmarkHabit,
-  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -22,7 +21,6 @@ import {
   errorBlock,
   genEntityId,
   kpiTile,
-  disponibleCard,
 } from './ui.js';
 
 const DAY_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']; // índice = isoWeekday - 1
@@ -506,7 +504,6 @@ export async function renderHabitos(el) {
           <button class="btn btn-primary" id="hbt-new">${icon('plus')} Nuevo hábito</button>
         </div>
       </div>
-      ${disponibleCard({ available: await availableBalance().catch(() => null) })}
       ${kpiRow}
       <div class="split-60-40">
         <div class="split-main">${mainCard}</div>

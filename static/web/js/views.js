@@ -11,7 +11,6 @@ import {
   nameMaps,
   invalidate,
   forgetMaps,
-  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -38,7 +37,6 @@ import {
   genEntityId,
   humanStatus,
   kpiTile,
-  disponibleCard,
 } from './ui.js';
 
 const plural = (n, singular, pluralForm) => `${n} ${n === 1 ? singular : pluralForm}`;
@@ -354,7 +352,7 @@ function reviewAlert(b, unmatched, toReview) {
   return `<div class="alert alert-warn">
     ${icon('flag')}
     <span><b>Revisión pendiente.</b> ${esc(msg)}</span>
-    <a class="btn btn-sm btn-safe alert-cta" href="#/reuniones">Revisar</a>
+    <a class="btn btn-accent btn-sm alert-cta" href="#/reuniones">Revisar</a>
   </div>`;
 }
 
@@ -415,7 +413,7 @@ export async function renderInicio(el) {
           <section class="card">
             <div class="card-head"><h2>${icon('sparkles')} Brief de la mañana</h2>
               <a class="btn btn-soft btn-sm card-action" href="#/mi-dia">Mi día</a></div>
-            <div class="card-body brief-body">${briefSynthesis(brief, maps)}</div>
+            <div class="card-body">${briefSynthesis(brief, maps)}</div>
           </section>
           <section class="card">
             <div class="card-head"><h2>${icon('clock')} Agenda de hoy</h2>
@@ -702,7 +700,7 @@ function inboxItem(c, maps) {
       <button class="btn btn-danger-soft btn-xs" data-cap="discard" data-id="${esc(c.id)}">Descartar</button>
     </div>`;
   return `
-    <div class="item inbox-item">
+    <div class="item">
       <div class="item-main">
         <div class="item-title"><span class="item-kind">${esc(kind)}</span> ${esc(c.text.length > 90 ? `${c.text.slice(0, 90)}…` : c.text)}</div>
         <div class="item-sub">${esc(fmtDate(c.captured_at))} · captura local</div>
@@ -820,7 +818,6 @@ export async function renderProyectos(el) {
           <button class="btn btn-primary btn-sm" data-create="project">${icon('plus')} Nuevo proyecto</button>
         </div>
       </div>
-      ${disponibleCard({ available: await availableBalance().catch(() => null) })}
       <section class="kpi-row">
         ${kpiCard(counts.active, 'Activos', 'folder', '#/proyectos', 'kpi-icon--success')}
         ${kpiCard(counts.blocked, 'Con riesgo', 'alert', '#/proyectos', 'kpi-icon--warning')}
@@ -832,8 +829,8 @@ export async function renderProyectos(el) {
         <select data-pf="client" aria-label="Filtrar por cliente"><option value="">Todos los clientes</option>${clientsOpts}</select>
         <select data-pf="status" aria-label="Filtrar por estado"><option value="">Todos los estados</option>${statusOpts}</select>
         <span class="view-toggle" role="group" aria-label="Vista">
-          <button type="button" class="icon-btn btn-ghost-view active" data-pf-view="cards" title="Tarjetas" aria-label="Vista de tarjetas">${icon('folder')}</button>
-          <button type="button" class="icon-btn btn-ghost-view" data-pf-view="list" title="Lista" aria-label="Vista de lista">${icon('doc')}</button>
+          <button type="button" class="icon-btn active" data-pf-view="cards" title="Tarjetas" aria-label="Vista de tarjetas">${icon('folder')}</button>
+          <button type="button" class="icon-btn" data-pf-view="list" title="Lista" aria-label="Vista de lista">${icon('doc')}</button>
         </span>
       </div>
       <div id="projects-grid"></div>`;

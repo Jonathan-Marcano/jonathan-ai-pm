@@ -11,7 +11,6 @@ import {
   listCategoriesByHousehold,
   listHouseholds,
   listHabits,
-  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -24,7 +23,6 @@ import {
   skeleton,
   emptyBlock,
   errorBlock,
-  disponibleCard,
 } from './ui.js';
 import { suggestCapture } from './capture-triage.js';
 
@@ -104,7 +102,6 @@ export async function renderBandeja(el) {
           <button class="btn btn-primary" data-capture-open type="button">${icon('plus')} Capturar</button>
         </div>
       </div>
-      ${disponibleCard({ available: await availableBalance().catch(() => null) })}
       ${syncHtml}
       <div class="split-bandeja">
         <aside class="bandeja-list-host ${selected ? 'is-hidden' : ''}" id="bj-list-host">
@@ -576,7 +573,7 @@ export async function renderChat(el) {
         <h1>Capturar por chat</h1>
         <p class="page-sub">Simula un canal de mensajería (P4-02): cada mensaje entra como captura pendiente a la bandeja, deduplicada y sin aplicar nada solo. La sugerencia de Faro es solo propuesta.</p>
       </div>
-      <section class="card chat-card">
+      <section class="card">
         <div class="card-head"><h2>${icon('send')} Conversación</h2></div>
         <div class="card-body">
           <div class="chat-thread" id="chat-thread"></div>
