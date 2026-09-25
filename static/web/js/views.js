@@ -11,6 +11,7 @@ import {
   nameMaps,
   invalidate,
   forgetMaps,
+  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -37,6 +38,7 @@ import {
   genEntityId,
   humanStatus,
   kpiTile,
+  disponibleCard,
 } from './ui.js';
 
 const plural = (n, singular, pluralForm) => `${n} ${n === 1 ? singular : pluralForm}`;
@@ -818,6 +820,7 @@ export async function renderProyectos(el) {
           <button class="btn btn-primary btn-sm" data-create="project">${icon('plus')} Nuevo proyecto</button>
         </div>
       </div>
+      ${disponibleCard({ available: await availableBalance().catch(() => null) })}
       <section class="kpi-row">
         ${kpiCard(counts.active, 'Activos', 'folder', '#/proyectos', 'kpi-icon--success')}
         ${kpiCard(counts.blocked, 'Con riesgo', 'alert', '#/proyectos', 'kpi-icon--warning')}

@@ -113,6 +113,33 @@ export function createHouseholdMember(householdId, payload) {
 export function listAccounts() {
   return cached('fin:accounts', () => finance('/accounts'));
 }
+
+/* Saldo disponible del hogar: suma el saldo de las cuentas activas. Es un
+   número global (no depende del mes), así que se cachea y todas las vistas lo
+   comparten sin volver a pedirlo. Se usa `balance_calculated` y, cuando falta,
+   `balance_reported` como respaldo para cuentas sin saldo calculado.
+   Sin `householdId` se usa el primer hogar, igual que hace el backend. */
+export async function availableBalance(householdId = '') {
+  const id = householdId || (await listHouseholds())?.[0]?.id;
+  if (!id) return { total: 0, currency: 'CLP', accounts: 0, credit: 0 };
+  return cached(`fin:available:${id}`, async () => {
+    const accounts = (await listAccounts()) || [];
+    const active = accounts.filter((a) => a.status === 'active');
+    const balanceOf = (a) => {
+      const value = a.balance_calculated ?? a.balance_reported ?? 0;
+      return Number(value) || 0;
+    };
+    const total = active.reduce((sum, a) => sum + balanceOf(a), 0);
+    return {
+      total,
+      currency: active[0]?.currency || 'CLP',
+      accounts: active.length,
+      credit: active
+        .filter((a) => (Number(a.credit_limit) || 0) > 0)
+        .reduce((sum, a) => sum + (Number(a.credit_limit) || 0), 0),
+    };
+  });
+}
 export function createAccount(payload) {
   return finance('/accounts', { method: 'POST', body: JSON.stringify(payload) });
 }

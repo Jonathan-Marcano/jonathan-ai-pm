@@ -624,6 +624,39 @@ button { font-family: inherit; }
   box-shadow: var(--ff-shadow-sm);
   overflow: hidden;
 }
+a.card { display: block; color: inherit; }
+a.card:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-md); }
+
+/* Apilado vertical de tarjetas. Existía como clase usada en varias vistas pero
+   sin regla, así que las tarjetas quedaban pegadas (hueco 0). */
+.stack { display: flex; flex-direction: column; gap: var(--ff-card-gap); }
+.stack > .card:last-child { margin-bottom: 0; }
+
+/* Bloque "Disponible": la cifra de dinero a ancho completo. Mismo lenguaje que
+   `.kpi` (título, valor, nota) con jerarquía de portada, así que el valor sube
+   dos pasos sobre `--ff-size-value` y la nota queda en secundario. */
+.disponible { margin-bottom: var(--ff-card-gap); }
+.disponible-body { display: flex; flex-direction: column; gap: 2px; padding: 20px 24px; }
+.disponible-label {
+  font-size: var(--ff-size-secondary);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ff-text-2);
+}
+.disponible-value {
+  font-size: var(--ff-size-portada);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ff-text-1);
+}
+.disponible-value.is-negative { color: var(--ff-danger-500); }
+.disponible-note { font-size: var(--ff-size-secondary); color: var(--ff-text-3); }
+.disponible.tone-accent .disponible-value { color: var(--ff-accent-600); }
+.disponible.tone-danger .disponible-value { color: var(--ff-danger-500); }
+
 .card-head {
   display: flex;
   align-items: center;
@@ -1900,6 +1933,7 @@ button { font-family: inherit; }
   /* La escala tipográfica se adapta por rol, no por componente */
   :root {
     --ff-size-page-title: 30px;
+    --ff-size-portada: 38px;
     --ff-size-card-title: 20px;
     --ff-size-value: 26px;
     --ff-view-pad-x: 16px;
@@ -1957,7 +1991,8 @@ button { font-family: inherit; }
 }
 
 @media (max-width: 520px) {
-  :root { --ff-size-page-title: 26px; --ff-size-card-title: 20px; --ff-size-value: 23px; }
+  :root { --ff-size-page-title: 26px; --ff-size-portada: 32px; --ff-size-card-title: 20px; --ff-size-value: 23px; }
+  .disponible-body { padding: 16px 18px; }
   .brand-name { display: none; }
   .kpi { grid-template-columns: 36px minmax(0, 1fr); gap: 11px; padding: 13px 14px; }
   .kpi-icon { width: 36px; height: 36px; border-radius: var(--ff-radius-sm); }

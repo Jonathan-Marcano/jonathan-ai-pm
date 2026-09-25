@@ -249,6 +249,29 @@ export function statTile(label, valueHtml, noteHtml = '', extraClass = '') {
     </div></div>`;
 }
 
+/* Bloque "Disponible": el número grande de dinero, a ancho completo y arriba del
+   todo. Comparte el lenguaje del KPI (título, valor, nota) pero con la jerarquía
+   de portada, así que es su propio componente en vez de un `.kpi` estirado.
+   Se usa el mismo bloque en todos los dashboards para que el número sea siempre
+   el mismo y se lea en el mismo sitio. */
+export function disponibleCard({ available = null, value = '', note = '', tone = 'accent', href = '' } = {}) {
+  const amount = available ? money(available.total, available.currency || 'CLP') : value;
+  const parts = [];
+  if (available) {
+    parts.push(`${available.accounts} ${available.accounts === 1 ? 'cuenta activa' : 'cuentas activas'}`);
+    if (available.credit) parts.push(`${money(available.credit)} en líneas de crédito`);
+  }
+  const noteHtml = note || parts.join(' · ');
+  const body = `
+      <span class="disponible-label">Disponible</span>
+      <span class="disponible-value">${amount}</span>
+      ${noteHtml ? `<span class="disponible-note">${esc(noteHtml)}</span>` : ''}`;
+  const classes = `card disponible tone-${esc(tone)}`;
+  return href
+    ? `<a class="${classes}" href="${esc(href)}"><div class="disponible-body">${body}</div></a>`
+    : `<section class="${classes}"><div class="disponible-body">${body}</div></section>`;
+}
+
 export function progressBar(percent) {
   const p = Math.max(0, Math.min(100, Math.round(percent || 0)));
   return `<div class="progress" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:${p}%"></div></div>`;

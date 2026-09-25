@@ -200,6 +200,46 @@ Esto corrigió el indicador que mostraba `X / 0` y `0 %` por un denominador vac�
 y reemplazó la ventana móvil de 7 días corridos por la semana real en la matriz y
 en la tira de cada hábito.
 
+### Bloque "Disponible"
+
+El dinero disponible es el mismo dato en todos los dashboards, así que es un
+componente único (`disponibleCard()`) con un único origen
+(`availableBalance()` en `api.js`): la suma del saldo de las cuentas activas del
+hogar. Aparece a ancho completo y arriba del todo en **Mi Día, Trabajo,
+Finanzas (Resumen y Egresos), Hábitos y Bandeja**, para que se lea siempre en el
+mismo sitio.
+
+- No depende del mes: es saldo actual, no un total del período.
+- Se cachea por hogar, así que las cinco vistas no multiplican llamadas.
+- Usa `balance_calculated` y cae a `balance_reported` si una cuenta no tiene
+  saldo calculado.
+- La nota dice cuántas cuentas activas suman y, si hay, el total de líneas de
+  crédito. El número va en negativo a `--ff-danger-500`.
+
+### Egresos: orden de la vista
+
+1. **Disponible** a ancho completo.
+2. **Este mes** (indicadores de total, resultado y movimientos) junto a
+   **Distribución** (donut + barras por categoría) en un 60/40.
+3. **Política de gastos**: el presupuesto real del mes, planificado contra real
+   por categoría con su % de desviación.
+4. Movimientos y recurrentes en pestañas, con próximos pagos y capturas
+   pendientes al lado.
+
+Cambios frente a la versión anterior:
+- Se eliminó la pestaña *Por categoría*: mostraba el mismo donut que ya está en
+  el bloque de Distribución.
+- Se añadió el filtro de **estado** (vigentes / anuladas), que antes se mostraba
+  como etiqueta en la fila pero no se podía filtrar.
+- *Política de gastos* es una tarjeta única con el presupuesto real. **No
+  existe** una entidad "política de gastos" en el modelo de datos: se decidió no
+  inventar la tabla y mostrar `Budget` + `BudgetCategory` (planificado, real y
+  desviación) con ese rótulo.
+- Los filtros *tipo* y *método* de la referencia **no se implementaron**: en
+  Egresos todas las filas son `type=expense`, así que el filtro tendría una sola
+  opción, y el modelo `Transaction` no tiene ningún campo de método de pago.
+  Quedan los tres con backing real: mes, estado y búsqueda.
+
 ### Diferencias conocidas vs. las referencias
 - Implementación funcional completa; la validación visual pixel a pixel queda
   pendiente de la persona (el agente no ve las imágenes).
@@ -215,11 +255,13 @@ en la tira de cada hábito.
   completadas, tiempo, bloqueos); la referencia muestra 5 y no queda claro cuál
   es la quinta, así que no se inventó una.
 - 16 clases referenciadas desde el JS siguen sin regla en CSS
-  (`date-line`, `btn-safe`, `chat-card`, `inbox-item`, `workload-bar`,
-  `f-status`, `f-prio`, `alert`, `alert-warn`, `alert-cta`, `brief-body`,
-  `btn-ghost-view`, `md-grid`, `quick-row`, `task-list`, `workload-note`).
+  (`alert`, `alert-cta`, `alert-warn`, `brief-body`, `btn-ghost-view`,
+  `btn-safe`, `chat-card`, `date-line`, `f-prio`, `f-status`, `inbox-item`,
+  `md-grid`, `quick-row`, `task-list`, `workload-bar`, `workload-note`).
   Es deuda heredada de `410a2f6`, ajena a esta fase; no se añadió ni quitó
-  ninguna.
+  ninguna. `.stack` sí se definió en esta fase porque la usaba el nuevo bloque
+  *Este mes* y dejaba las tarjetas pegadas (hueco 0).
+
 
 ### Circuito Telegram → Drive → importación local
 La captura puede entrar por dos vías reales, ambas **solo lectura** y
@@ -264,6 +306,8 @@ posible contenido personal).
 - Verificación: `pytest` 594 pruebas verdes; endpoints reales responden 200 y
   los adaptadores sin autorización responden 503 por diseño.
 
+
+
 ### Fase 9 — sistema visual unificado y corrección de indicadores
 - **Un componente de indicador** (`kpiTile`) en las cinco áreas, con la clase
   ambigua `kpi-meta` eliminada y sus dos papeles separados en `.kpi-body` y
@@ -289,6 +333,32 @@ posible contenido personal).
 - **Pendiente de persona**: comparación visual pixel a pixel de las capturas
   desktop (1440×1000) y móvil (430×932) de las cinco áreas, y (si se desea)
   autorizar credenciales reales para Telegram/Drive.
+
+### Fase 10 — bloque "Disponible" y reordenación de Egresos
+- **Disponible** en los seis dashboards (Mi Día, Trabajo, Finanzas Resumen,
+  Finanzas Egresos, Hábitos, Bandeja) con un único componente
+  (`disponibleCard()`) y una única fuente cacheada (`availableBalance()`):
+  suma de `balance_calculated` de las cuentas activas, con `balance_reported`
+  como respaldo. 52 px en escritorio, 38 px a 820 px y 32 px a 520 px.
+- **Egresos reordenado**: Disponible a ancho completo → *Este mes* (60) junto a
+  *Distribución* (40) → *Política de gastos* → movimientos y recurrentes con
+  próximos pagos al lado.
+- **Política de gastos** = presupuesto real del mes (planificado, real y
+  desviación por categoría). No se creó la tabla "política de gastos": no existe
+  en el modelo y se decidió no inventarla.
+- **Filtro de estado** nuevo (vigentes / anuladas) con contador sincronizado; la
+  etiqueta `voided` ya se mostraba en la fila pero no se podía filtrar.
+- Se quitó la pestaña *Por categoría*, que duplicaba el donut de Distribución.
+- Se quitaron los filtros *tipo* y *método*: sin backing real. Quedan mes, estado y
+  búsqueda.
+- **`.stack` definido** (flex column, hueco 16 px). Existía como clase usada en
+  tres vistas sin regla, y dejaba las tarjetas pegadas con hueco 0.
+- **Verificación**: 599 pruebas verdes, `ruff check` limpio, sin desbordamiento
+  horizontal a 1440 px ni 500 px, filtro de estado probado con filas inyectadas
+  (vigentes 2/3, anuladas 1/3, todas 3/3, contador correcto), 0 selectores
+  duplicados en el CSS.
+- **Nota**: la base local no tiene transacciones de finanzas, así que Egresos se
+  valida sobre estados vacíos.
 
 ## Working agreements
 

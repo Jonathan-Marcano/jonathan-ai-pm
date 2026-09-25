@@ -11,6 +11,7 @@ import {
   listCategoriesByHousehold,
   listHouseholds,
   listHabits,
+  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -23,6 +24,7 @@ import {
   skeleton,
   emptyBlock,
   errorBlock,
+  disponibleCard,
 } from './ui.js';
 import { suggestCapture } from './capture-triage.js';
 
@@ -102,6 +104,7 @@ export async function renderBandeja(el) {
           <button class="btn btn-primary" data-capture-open type="button">${icon('plus')} Capturar</button>
         </div>
       </div>
+      ${disponibleCard({ available: await availableBalance().catch(() => null) })}
       ${syncHtml}
       <div class="split-bandeja">
         <aside class="bandeja-list-host ${selected ? 'is-hidden' : ''}" id="bj-list-host">

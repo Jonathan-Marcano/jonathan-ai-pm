@@ -25,6 +25,7 @@ import {
   listGoalsByHousehold,
   createGoal,
   contributeGoal,
+  availableBalance,
 } from './api.js';
 import {
   esc,
@@ -39,6 +40,8 @@ import {
   errorBlock,
   openForm,
   progressBar,
+  kpiTile,
+  disponibleCard,
 } from './ui.js';
 
 const state = {
@@ -164,9 +167,10 @@ async function renderResumen(el, household) {
     ${skeleton(6)}`;
   const { year, month } = monthParts();
   try {
-    const [dash, up] = await Promise.all([
+    const [dash, up, available] = await Promise.all([
       dashboard(household.id, year, month),
       upcomingPayments(household.id, 30),
+      availableBalance(household.id).catch(() => null),
     ]);
     const pct = dash.expected_income ? Math.round((dash.income / dash.expected_income) * 100) : 0;
 
@@ -176,6 +180,7 @@ async function renderResumen(el, household) {
         <p class="page-sub">${esc(household.name)} — ${esc(MONTHS[month - 1])} ${esc(String(year))}</p>
         <div class="page-head-actions">${monthPicker()}</div>
       </div>
+      ${disponibleCard({ available })}
       <div class="kpi-row">
         <div class="kpi"><span class="kpi-icon tone-success">${icon('arrow')}</span><div class="kpi-body"><span class="kpi-label">Ingresos del mes</span><span class="kpi-value">${money(dash.income)}</span><span class="kpi-note">${pct}% del esperado (${money(dash.expected_income)})</span></div></div>
         <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-body"><span class="kpi-label">Gastos del mes</span><span class="kpi-value">${money(dash.expenses)}</span><span class="kpi-note">${dash.expenses ? Math.round((dash.expenses / (dash.income || 1)) * 100) : 0}% del ingreso</span></div></div>
@@ -983,7 +988,7 @@ async function renderEgresos(el, household) {
     </div>
     ${skeleton(6)}`;
   try {
-    const [accounts, categories, members, txns, up, dash, debts] = await Promise.all([
+    const [accounts, categories, members, txns, up, dash, debts, available] = await Promise.all([
       listAccounts(),
       listCategoriesByHousehold(household.id),
       api(`/api/v1/finance/households/${encodeURIComponent(household.id)}/members`),
@@ -991,6 +996,7 @@ async function renderEgresos(el, household) {
       upcomingPayments(household.id, 30),
       dashboard(household.id, year, month),
       listDebtsByHousehold(household.id),
+      availableBalance(household.id).catch(() => null),
     ]);
     let bandeja = [];
     try {
@@ -1034,6 +1040,16 @@ async function renderEgresos(el, household) {
       ${accounts.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('')}
     </select>` : '';
 
+    /* Filtros con backing real: mes (en la cabecera), estado y búsqueda.
+       No se ofrecen «tipo» ni «método»: en Egresos todas las filas son de tipo
+       expense y el modelo de transacción no tiene método de pago, así que ambos
+       controles serían decorativos. */
+    const statusFilter = `<select class="form-control flujo-search" id="flujo-estado" aria-label="Filtrar por estado">
+      <option value="">Todos los estados</option>
+      <option value="posted">Vigentes</option>
+      <option value="voided">Anuladas</option>
+    </select>`;
+
     const movimientosHtml = `
       <div style="padding:16px 18px 0"><div class="flujo-toolbar">
         <span class="flujo-total"><b id="flujo-count">${esc(txns.length)} movimientos</b> · total <b>${money(total)}</b></span>
@@ -1041,6 +1057,7 @@ async function renderEgresos(el, household) {
       <div class="flujo-toolbar" style="padding:2px 18px 0">
         <span class="js-search">${icon('search')}</span>
         <input type="search" class="form-control flujo-search" id="flujo-q" placeholder="Buscar por descripción…" autocomplete="off" />
+        ${statusFilter}
         ${accountFilter}
       </div>
       ${chips}
@@ -1048,7 +1065,7 @@ async function renderEgresos(el, household) {
         <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Cuenta</th><th class="num">Monto</th><th></th></tr></thead>
         <tbody id="flujo-tbody">
           ${txns.map((t) => `
-            <tr data-fin-row="${esc(t.category_id || '')}" data-fin-acc="${esc(t.account_id || '')}" data-fin-search="${esc(String(t.description || '').toLowerCase())}">
+            <tr data-fin-row="${esc(t.category_id || '')}" data-fin-acc="${esc(t.account_id || '')}" data-fin-status="${esc(t.status || 'posted')}" data-fin-search="${esc(String(t.description || '').toLowerCase())}">
               <td>${esc(fmtDate(t.date))}</td>
               <td>${esc(t.description || '—')}</td>
               <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
@@ -1063,23 +1080,17 @@ async function renderEgresos(el, household) {
       )}</div>`}`;
 
     const categorias = [...(dash.expense_categories || [])].sort((a, b) => b.amount - a.amount);
-    const categoriasHtml = `
-      <div class="card-body no-pad">
-        ${categorias.length ? `${
-          (() => {
-            const parts = categorias.map((c) => ({ label: c.name, amount: c.amount }));
-            return `<div style="padding:18px">${donutChart(parts)}</div>
-              <div class="bar-list" style="padding:0 18px 14px">
-                ${categorias.map((c) => `
-                  <div class="bar-row">
-                    <span class="bar-name">${esc(c.name)}</span>
-                    <div class="bar-track"><div class="bar-fill" style="width:${Math.round((c.amount / (dash.expenses || 1)) * 100)}%"></div></div>
-                    <span class="bar-amt">${money(c.amount)}</span>
-                  </div>`).join('')}
-              </div>`;
-          })()
-        }` : `<div class="card-body">${emptyBlock('Sin egresos categorizados este mes.')}</div>`}
-      </div>`;
+    const categoriasHtml = categorias.length
+      ? `<div style="padding:18px">${donutChart(categorias.map((c) => ({ label: c.name, amount: c.amount })))}</div>
+        <div class="bar-list" style="padding:0 18px 14px">
+          ${categorias.map((c) => `
+            <div class="bar-row">
+              <span class="bar-name">${esc(c.name)}</span>
+              <div class="bar-track"><div class="bar-fill" style="width:${Math.round((c.amount / (dash.expenses || 1)) * 100)}%"></div></div>
+              <span class="bar-amt">${money(c.amount)}</span>
+            </div>`).join('')}
+        </div>`
+      : emptyBlock('Sin egresos categorizados este mes.');
 
     const recurrentesHtml = `
       <div class="card-body no-pad">
@@ -1098,15 +1109,16 @@ async function renderEgresos(el, household) {
         </div>` : ''}
       </div>`;
 
-    const tabs = [['movimientos', 'Movimientos'], ['categorias', 'Por categoría'], ['recurrentes', 'Recurrentes']];
+    /* «Por categoría» ya no es una pestaña: la distribución vive arriba, en el
+       bloque de la derecha, para no mostrar el mismo donut dos veces. */
+    const tabs = [['movimientos', 'Movimientos'], ['recurrentes', 'Recurrentes']];
     let currentTab = 'movimientos';
 
     const renderTabBody = () => {
       const body = el.querySelector('#egresos-tab-body');
       if (!body) return;
       if (currentTab === 'movimientos') body.innerHTML = `<section class="card"><div class="card-body no-pad">${movimientosHtml}</div></section>`;
-      else if (currentTab === 'categorias') body.innerHTML = `<section class="card"><div class="card-body">${categoriasHtml}</div></section>`;
-      else if (currentTab === 'recurrentes') body.innerHTML = `<section class="card"><div class="card-body">${recurrentesHtml}</div></section>`;
+      else body.innerHTML = `<section class="card"><div class="card-body">${recurrentesHtml}</div></section>`;
     };
 
     const upcomingSide = `
@@ -1135,6 +1147,39 @@ async function renderEgresos(el, household) {
         </div></section>`
       : '';
 
+    /* Política de gastos = el presupuesto real del mes (planned vs. actual por
+       categoría). No existe una entidad "política de gastos" en el modelo, así
+       que la tarjeta muestra los datos que sí existen en vez de inventar reglas. */
+    const budgetRows = (dash.budget || []).slice().sort((a, b) => (b.planned || 0) - (a.planned || 0));
+    const policySide = `
+      <section class="card">
+        <div class="card-head">
+          <h2>${icon('target')} Política de gastos</h2>
+          <a class="card-action" href="#/finanzas/presupuesto">Presupuesto</a>
+        </div>
+        <div class="card-body no-pad">
+          ${budgetRows.length ? `
+            <div class="kpi-row compact" style="margin:0; padding:16px 18px 4px">
+              ${kpiTile({ icon: 'target', tone: 'primary', label: 'Planificado', value: money(planned), note: `${budgetRows.length} categorías` })}
+              ${kpiTile({ icon: 'flag', tone: planned && used > planned ? 'danger' : 'accent', label: 'Gastado', value: money(used), note: `${budgetPct}% de lo planificado` })}
+            </div>
+            <div class="list" style="padding:0 18px 6px">
+              ${budgetRows.map((b) => {
+                const pct = b.planned ? Math.round((b.actual / b.planned) * 100) : 0;
+                const over = pct > 100;
+                return `<div class="item">
+                  <div class="item-main">
+                    <div class="item-title">${esc(b.category_name || 'Sin categoría')}</div>
+                    <div class="item-sub">${money(b.actual)} de ${money(b.planned)}</div>
+                  </div>
+                  <div class="item-side"><span class="${over ? 'text-danger' : ''}">${pct}%</span></div>
+                </div>`;
+              }).join('')}
+            </div>`
+          : `<div class="card-body">${emptyBlock('Sin presupuesto definido para este mes.', `<a class="btn btn-soft btn-sm" href="#/finanzas/presupuesto">Definir presupuesto</a>`)}</div>`}
+        </div>
+      </section>`;
+
     el.innerHTML = `
       <nav class="crumbs" aria-label="Ubicación">
         <a href="#/finanzas">Finanzas</a><span class="crumb-sep">/</span><span>Egresos</span>
@@ -1149,11 +1194,28 @@ async function renderEgresos(el, household) {
           <button class="btn btn-primary" id="fin-new">${icon('plus')} Registrar</button>
         </div>
       </div>
-      <div class="kpi-row">
-        <div class="kpi"><span class="kpi-icon tone-danger">${icon('flag')}</span><div class="kpi-body"><span class="kpi-label">Total de egresos</span><span class="kpi-value">${money(total)}</span><span class="kpi-note">${incomePct}% del ingreso del mes</span></div></div>
-        <div class="kpi"><span class="kpi-icon tone-primary">${icon('sparkles')}</span><div class="kpi-body"><span class="kpi-label">Presupuesto usado</span><span class="kpi-value">${money(used)}</span><span class="kpi-note">de ${money(planned)} · ${budgetPct}%</span></div></div>
-        <div class="kpi"><span class="kpi-icon ${dash.balance >= 0 ? 'tone-accent' : 'tone-danger'}">${icon('target')}</span><div class="kpi-body"><span class="kpi-label">Resultado del mes</span><span class="kpi-value">${money(dash.balance)}</span><span class="kpi-note">${dash.balance >= 0 ? 'superávit' : 'déficit'}</span></div></div>
+      ${disponibleCard({ available })}
+      <div class="split-60-40">
+        <div class="split-main">
+          <section class="card">
+            <div class="card-head"><h2>${icon('sparkles')} Este mes</h2></div>
+            <div class="card-body">
+              <div class="stack">
+                ${kpiTile({ icon: 'flag', tone: 'danger', label: 'Total de egresos', value: money(total), note: `${incomePct}% del ingreso del mes` })}
+                ${kpiTile({ icon: 'target', tone: dash.balance >= 0 ? 'accent' : 'danger', label: 'Resultado del mes', value: money(dash.balance), note: dash.balance >= 0 ? 'superávit' : 'déficit' })}
+                ${kpiTile({ icon: 'clock', tone: 'warm', label: 'Movimientos', value: esc(txns.length), note: `${money(total)} en total` })}
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="split-side">
+          <section class="card">
+            <div class="card-head"><h2>${icon('folder')} Distribución</h2></div>
+            <div class="card-body no-pad">${categoriasHtml}</div>
+          </section>
+        </div>
       </div>
+      ${policySide}
       <div class="split-72-28">
         <div class="split-main">
           <div class="tabs" role="tablist" aria-label="Secciones de egresos">
@@ -1162,9 +1224,6 @@ async function renderEgresos(el, household) {
           <div id="egresos-tab-body"></div>
         </div>
         <div class="split-side">
-          <section class="card"><div class="card-head"><h2>${icon('folder')} Egresos por categoría</h2></div><div class="card-body">
-            ${categorias.length ? donutChart(categorias.map((c) => ({ label: c.name, amount: c.amount }))) : emptyBlock('Sin egresos este mes.')}
-          </div></section>
           ${upcomingSide}
           ${capturesSide}
         </div>
@@ -1189,9 +1248,11 @@ async function renderEgresos(el, household) {
     const chipWrap = el.querySelector('#flujo-chips');
     const qInput = el.querySelector('#flujo-q');
     const accSelect = el.querySelector('#flujo-account');
+    const statusSelect = el.querySelector('#flujo-estado');
     const applyFilters = () => {
       const cat = (chipWrap?.querySelector('.chip.active[data-fin-cat]') || {}).dataset?.finCat || '';
       const acc = accSelect?.value || '';
+      const status = statusSelect?.value || '';
       const q = (qInput?.value || '').trim().toLowerCase();
       const rows = el.querySelectorAll('#flujo-tbody tr');
       let shown = 0;
@@ -1199,6 +1260,7 @@ async function renderEgresos(el, household) {
         const visible =
           (!cat || row.dataset.finRow === cat) &&
           (!acc || row.dataset.finAcc === acc) &&
+          (!status || row.dataset.finStatus === status) &&
           (!q || (row.dataset.finSearch || '').includes(q));
         row.hidden = !visible;
         if (visible) shown += 1;
@@ -1216,6 +1278,7 @@ async function renderEgresos(el, household) {
     }
     if (qInput) qInput.addEventListener('input', applyFilters);
     if (accSelect) accSelect.addEventListener('change', applyFilters);
+    if (statusSelect) statusSelect.addEventListener('change', applyFilters);
 
     const upBtn = el.querySelector('#fin-egresos-upcoming');
     if (upBtn) {
