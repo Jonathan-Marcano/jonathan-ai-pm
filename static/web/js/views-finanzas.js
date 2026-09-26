@@ -527,8 +527,8 @@ async function renderCuentas(el, household) {
                 <div class="item-side">${badge(a.status)}</div>
               </div>
               <div class="kpi-row" style="margin:6px 0 0">
-                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Calculado</span><span class="kpi-value">${money(a.balance_calculated)}</span></div></div>
-                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Reportado</span><span class="kpi-value">${money(a.balance_reported)}</span></div></div>
+                <div class="kpi no-icon"><div class="kpi-body"><span class="kpi-label">Calculado</span><span class="kpi-value">${money(a.balance_calculated)}</span></div></div>
+                <div class="kpi no-icon"><div class="kpi-body"><span class="kpi-label">Reportado</span><span class="kpi-value">${money(a.balance_reported)}</span></div></div>
               </div>
               ${a.type === 'credit' ? `<div class="habit-goal">Límite: ${money(a.credit_limit)} · vence día ${a.due_day ?? '—'}</div>` : ''}
               <div class="habit-actions">
@@ -853,8 +853,8 @@ async function renderMetas(el, household) {
                 <div class="item-side">${badge(g.status)}</div>
               </div>
               <div class="kpi-row" style="margin:6px 0 0">
-                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Progreso</span><span class="kpi-value">${money(g.current_amount)}</span></div></div>
-                <div class="kpi"><div class="kpi-body"><span class="kpi-label">Meta</span><span class="kpi-value">${money(g.target_amount)}</span></div></div>
+                <div class="kpi no-icon"><div class="kpi-body"><span class="kpi-label">Progreso</span><span class="kpi-value">${money(g.current_amount)}</span></div></div>
+                <div class="kpi no-icon"><div class="kpi-body"><span class="kpi-label">Meta</span><span class="kpi-value">${money(g.target_amount)}</span></div></div>
               </div>
               <div class="bar-track" style="margin:6px 0"><div class="bar-fill ${pct >= 100 ? 'over' : ''}" style="width:${Math.min(100, pct)}%"></div></div>
               <div class="habit-goal">${pct}% alcanzado · aporte mensual ${money(g.monthly_contribution)}</div>
