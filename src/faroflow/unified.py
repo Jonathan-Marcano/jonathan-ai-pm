@@ -434,6 +434,10 @@ class InboxService:
 
     def refine(self, item_id: str, **changes: Any) -> BandejaItem:
         item = self._item(item_id)
+        if changes.get("original_text") is not None:
+            # Corregir el texto no reclasifica: el destino sigue siendo el que
+            # haya elegido la persona, y el item no vuelve a "received".
+            item.original_text = changes["original_text"].strip()
         for name in (
             "kind",
             "amount",
@@ -445,11 +449,24 @@ class InboxService:
         ):
             if name in changes and changes[name] is not None:
                 setattr(item, name, changes[name])
-        if not changes.get("status"):
+        # Corregir el texto de algo ya resuelto no lo reabre: applied y
+        # discarded son terminales y volverian a la cola de pendientes.
+        if not changes.get("status") and item.status not in {"applied", "discarded"}:
             item.status = "confirmed"
         self.session.commit()
         self.session.refresh(item)
         return item
+
+    def delete(self, item_id: str) -> None:
+        """Borra la captura de la bandeja.
+
+        No revierte lo que ya se aplicó en su destino: si el item quedó
+        "applied", lo que se creó en el módulo destino sigue living su propia
+        vida y la UI lo advierte antes de confirmar.
+        """
+        item = self._item(item_id)
+        self.session.delete(item)
+        self.session.commit()
 
     def discard(self, item_id: str, *, note: str | None = None) -> BandejaItem:
         item = self._item(item_id)

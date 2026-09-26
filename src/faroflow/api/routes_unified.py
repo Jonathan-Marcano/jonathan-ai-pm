@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -210,6 +210,17 @@ def get_bandeja(item_id: str, session: DbSession):
 def refine_bandeja(item_id: str, payload: BandejaItemUpdate, session: DbSession):
     try:
         return InboxService(session).refine(item_id, **payload.model_dump(exclude_unset=True))
+    except DomainRuleError as exc:
+        session.rollback()
+        raise domain_http_error(exc) from exc
+
+
+@router.delete(
+    "/api/v1/bandeja/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["bandeja"]
+)
+def delete_bandeja(item_id: str, session: DbSession):
+    try:
+        InboxService(session).delete(item_id)
     except DomainRuleError as exc:
         session.rollback()
         raise domain_http_error(exc) from exc

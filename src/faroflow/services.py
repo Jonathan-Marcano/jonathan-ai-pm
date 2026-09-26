@@ -17,6 +17,7 @@ from faroflow.classification import (
 )
 from faroflow.domain_rules import (
     DELIVERABLE_PROTECTED_STATUSES,
+    DomainConflictError,
     DomainNotFoundError,
     DomainRuleError,
     action_item_link_error,
@@ -150,7 +151,21 @@ class DomainStore:
     def update(self, kind: str, entity_id: str, **changes: Any):
         entity = self._required(kind, entity_id)
         if isinstance(entity, Capture):
-            raise DomainRuleError("Captures are immutable; use triage_capture")
+            # Una captura solo se puede corregir en su texto y en la nota del
+            # triaje. El resto (estado, disposicion y enlaces) sigue pasando por
+            # triage_capture, que es el unico camino que valida el flujo.
+            allowed = {"text", "disposition_note"}
+            blocked = sorted(set(changes) - allowed)
+            if blocked:
+                raise DomainRuleError(
+                    "Captures are immutable except for text and disposition_note; "
+                    "use triage_capture for: " + ", ".join(blocked)
+                )
+            if "text" in changes:
+                text = (changes["text"] or "").strip()
+                if not text:
+                    raise DomainRuleError("A capture requires non-empty text")
+                changes["text"] = text
         if isinstance(entity, WorkLog):
             raise DomainRuleError("Work logs are append-only")
         if isinstance(entity, Task):
@@ -186,7 +201,7 @@ class DomainStore:
                 .limit(1)
             )
             if translation_id:
-                raise DomainRuleError("Delete record translations before deleting the source")
+                raise DomainConflictError("Delete record translations before deleting the source")
         self._reject_references(kind, entity_id)
         self.session.delete(entity)
         self.session.commit()
@@ -202,19 +217,33 @@ class DomainStore:
                 select(Capture.id).where(Capture.task_id == entity_id).limit(1)
             )
             if capture_id:
-                raise DomainRuleError("Task is still referenced by a captured note")
+                raise DomainConflictError("Task is still referenced by a captured note")
         elif kind == "action_item":
             capture_id = self.session.scalar(
                 select(Capture.id).where(Capture.action_item_id == entity_id).limit(1)
             )
             if capture_id:
-                raise DomainRuleError("Action item is still referenced by a captured note")
+                raise DomainConflictError("Action item is still referenced by a captured note")
         elif kind == "project":
+            # Sin esto la respuesta seria el IntegrityError generico del FK, que
+            # no dice que hay que borrar. Se listan los hijos reales del proyecto.
+            for child_label, child_model, column in (
+                ("task", Task, Task.project_id),
+                ("deliverable", Deliverable, Deliverable.project_id),
+                ("meeting", Meeting, Meeting.project_id),
+            ):
+                child_id = self.session.scalar(
+                    select(child_model.id).where(column == entity_id).limit(1)
+                )
+                if child_id:
+                    raise DomainConflictError(
+                        f"Project still has a {child_label}; delete it first"
+                    )
             capture_id = self.session.scalar(
                 select(Capture.id).where(Capture.project_id == entity_id).limit(1)
             )
             if capture_id:
-                raise DomainRuleError("Project is still referenced by a captured note")
+                raise DomainConflictError("Project is still referenced by a captured note")
         elif kind == "deliverable":
             identity_id = self.session.scalar(
                 select(ExternalIdentity.id)
@@ -225,7 +254,7 @@ class DomainStore:
                 .limit(1)
             )
             if identity_id:
-                raise DomainRuleError("Unlink Drive files before deleting the deliverable")
+                raise DomainConflictError("Unlink Drive files before deleting the deliverable")
         elif kind == "habit":
             completion_id = self.session.scalar(
                 select(HabitCompletion.id)
@@ -233,7 +262,33 @@ class DomainStore:
                 .limit(1)
             )
             if completion_id:
-                raise DomainRuleError("Habit still has recorded completions")
+                raise DomainConflictError("Habit still has recorded completions")
+        elif kind == "workspace":
+            client_id = self.session.scalar(
+                select(Client.id).where(Client.workspace_id == entity_id).limit(1)
+            )
+            if client_id:
+                raise DomainConflictError(
+                    "Workspace still has clients; move or delete them first"
+                )
+        elif kind == "client":
+            project_id = self.session.scalar(
+                select(Project.id).where(Project.client_id == entity_id).limit(1)
+            )
+            if project_id:
+                raise DomainConflictError(
+                    "Client still has projects; move or delete them first"
+                )
+        elif kind == "meeting":
+            action_id = self.session.scalar(
+                select(ActionItem.id)
+                .where(ActionItem.meeting_id == entity_id)
+                .limit(1)
+            )
+            if action_id:
+                raise DomainConflictError(
+                    "Meeting still has action items; delete them first"
+                )
 
     def associate_meeting(self, meeting_id: str, project_id: str) -> Meeting:
         """Confirm a project for an imported meeting and reuse that association later."""

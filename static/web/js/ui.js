@@ -1,5 +1,7 @@
 'use strict';
 
+import { deleteRecord } from './api.js';
+
 export function esc(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -418,6 +420,17 @@ export function genEntityId(prefix, fromName = '') {
   return `${prefix}_${base || 'item'}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Un input datetime-local solo entiende "YYYY-MM-DDTHH:mm" en hora local.
+// readValues hace el camino inverso con new Date(val).toISOString(), asi que
+// ambos lados tienen que usar la zona local del navegador.
+export function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function openForm({ title, fields = [], submitLabel = 'Guardar', hint = '' }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -660,4 +673,73 @@ export function promptCompletionNote(caption = 'Completar tarea') {
       if (event.key === 'Escape') finish(null);
     });
   });
+}
+/* ---------- Editar y borrar ---------- */
+
+// El backend responde con un motivo concreto cuando no deja borrar ("Project is
+// still referenced by a captured note") y con un 409 generico en ingles cuando
+// la referencia la impone la FK. Este mapa traduce los motivos known para que
+// la UI diga que hay que deshacer y no "Record is still referenced".
+const DELETE_BLOCKED = [
+  [/still referenced by a captured note/i, 'está referido por una captura de la bandeja'],
+  [/still linked to an action item/i, 'está ligado a un action item de una reunión'],
+  [/Unlink Drive files before deleting/i, 'está vinculado a archivos de Drive; desvincula los archivos primero'],
+  [/Habit still has recorded completions/i, 'tiene cumplimientos registrados; archívalo en vez de borrarlo'],
+  [/still has clients; move or delete them first/i, 'tiene clientes; muévelos o bórralos primero'],
+  [/still has projects; move or delete them first/i, 'tiene proyectos; muévelos o bórralos primero'],
+  [/Meeting still has action items/i, 'tiene action items; bórralos primero'],
+  [/Delete record translations before deleting/i, 'tiene traducciones; bórralas primero'],
+  [/still has a task/i, 'tiene tareas; bórralas primero'],
+  [/still has a deliverable/i, 'tiene entregables; bórralos primero'],
+  [/still has a meeting/i, 'tiene reuniones; bórralas primero'],
+  [/Record is still referenced/i, 'todavía tiene registros asociados'],
+  [/Record or relationship conflict/i, 'todavía tiene registros asociados'],
+];
+
+// Traduce el detalle de un 4xx a una frase que diga qué hacer. Si no conoce el
+// motivo, devuelve el texto del backend tal cual, en vez de inventar una
+// explicación que no viene de los datos.
+export function explainError(err) {
+  const raw = (err && err.message) || 'Error desconocido';
+  if (!err || !err.status || err.status < 400) return raw;
+  for (const [pattern, friendly] of DELETE_BLOCKED) {
+    if (pattern.test(raw)) return `No se puede eliminar: ${friendly}.`;
+  }
+  return raw;
+}
+
+// Confirmacion de borrado. Devuelve la promesa de window.confirm para poder
+// encadenarla. El motivo se muestra antes de preguntar, no despues del error.
+export function confirmDelete(label, name, hint = '') {
+  const target = name ? `«${name}»` : 'este registro';
+  const extra = hint ? `\n\n${hint}` : '';
+  return window.confirm(`¿Eliminar ${label} ${target}?${extra}`);
+}
+
+// Botones de editar y borrar con el marcado que ya usa el resto de la app.
+export function rowActions(idAttr, id, { canEdit = true, canDelete = true, entity = '' } = {}) {
+  const parts = [];
+  if (canEdit) {
+    parts.push(`<button class="btn btn-ghost btn-xs" ${idAttr}-edit="${esc(id)}"${entity ? ` data-entity="${esc(entity)}"` : ''} type="button">${icon('edit')} Editar</button>`);
+  }
+  if (canDelete) {
+    parts.push(`<button class="btn btn-danger-soft btn-xs" ${idAttr}-delete="${esc(id)}" type="button">${icon('trash')} Eliminar</button>`);
+  }
+  return parts.join('');
+}
+
+// Flujo de borrado compartido: pregunta, llama al backend y, si el backend
+// dice que no se puede, muestra el motivo traducido en vez de un error generico.
+// Devuelve true solo si el registro se borro de verdad, para que la vista decida
+// si navega o se queda.
+export async function deleteEntity({ kind, id, label, name, hint = '', deleted }) {
+  if (!confirmDelete(label, name, hint)) return false;
+  try {
+    await deleteRecord(kind, id);
+    toast(deleted || `${label.charAt(0).toUpperCase() + label.slice(1)} eliminado`, 'success');
+    return true;
+  } catch (err) {
+    toast(explainError(err), 'error');
+    return false;
+  }
 }

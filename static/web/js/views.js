@@ -11,6 +11,8 @@ import {
   nameMaps,
   invalidate,
   forgetMaps,
+  updateRecord,
+  deleteRecord,
 } from './api.js';
 import {
   esc,
@@ -38,6 +40,10 @@ import {
   humanStatus,
   kpiTile,
   greeting,
+  explainError,
+  confirmDelete,
+  deleteEntity,
+  toLocalInput,
 } from './ui.js';
 
 const plural = (n, singular, pluralForm) => `${n} ${n === 1 ? singular : pluralForm}`;
@@ -992,6 +998,8 @@ export async function renderProyectoDetalle(el, projectId) {
           <div class="item-side">
             ${prio(t.priority)}
             ${t.status !== 'in_progress' ? `<button class="btn btn-ghost btn-xs" data-tact="start" data-id="${esc(t.id)}" title="Iniciar">${icon('play')}</button>` : ''}
+            <button class="btn btn-ghost btn-xs" data-tact-edit="${esc(t.id)}" title="Editar tarea" aria-label="Editar ${esc(t.title)}">${icon('edit')}</button>
+            <button class="btn btn-ghost btn-xs btn-danger-soft" data-tact-delete="${esc(t.id)}" title="Eliminar tarea" aria-label="Eliminar ${esc(t.title)}">${icon('trash')}</button>
           </div>
         </div>`).join('')}</div>`
       : emptyBlock('Sin tareas abiertas. Todo listo por ahora.')}`;
@@ -1006,6 +1014,10 @@ export async function renderProyectoDetalle(el, projectId) {
             <td class="cell-evidence">${d.evidence_url
               ? `<a class="btn btn-ghost btn-xs" href="${esc(d.evidence_url)}" target="_blank" rel="noopener">${icon('doc')} Evidencia</a>`
               : `<span class="card-note">Sin evidencia</span>`}</td>
+            <td class="cell-actions">
+              <button class="btn btn-ghost btn-xs" data-deliv-edit="${esc(d.id)}" title="Editar entregable" aria-label="Editar ${esc(d.title)}">${icon('edit')}</button>
+              <button class="btn btn-ghost btn-xs btn-danger-soft" data-deliv-delete="${esc(d.id)}" title="Eliminar entregable" aria-label="Eliminar ${esc(d.title)}">${icon('trash')}</button>
+            </td>
           </tr>`,
         )
         .join('');
@@ -1015,7 +1027,7 @@ export async function renderProyectoDetalle(el, projectId) {
       const selected = (deliverables || []).find((d) => d.id === selectedId) || (deliverables || [])[0];
       const rows = (deliverables || []).length
         ? `<div class="table-wrap"><table class="deliverable-table">
-            <thead><tr><th>Entregable</th><th>Estado</th><th>Evidencia</th></tr></thead>
+            <thead><tr><th>Entregable</th><th>Estado</th><th>Evidencia</th><th><span class="sr-only">Acciones</span></th></tr></thead>
             <tbody>${deliverableRows(deliverables, selected)}</tbody>
           </table></div>`
         : emptyBlock('Sin entregables registrados.');
@@ -1220,6 +1232,8 @@ export async function renderProyectoDetalle(el, projectId) {
         <div class="detail-actions">
           <button class="btn btn-soft" data-create="project-task">${icon('plus')} Tarea</button>
           <button class="btn btn-primary" data-create="project-deliverable">${icon('plus')} Entregable</button>
+          <button class="btn btn-ghost btn-sm" data-prj-edit="${esc(project.id)}">${icon('edit')} Editar</button>
+          <button class="btn btn-danger-soft btn-sm" data-prj-delete="${esc(project.id)}">${icon('trash')} Eliminar</button>
         </div>
       </div>
       <section class="kpi-row">
@@ -1254,6 +1268,63 @@ export async function renderProyectoDetalle(el, projectId) {
           renderTabBody(key);
           return;
         }
+        // Van antes que data-deliverable-select porque los botones viven dentro
+        // de la fila seleccionable y esa rama se adelantaria al return.
+        const delEditBtn = event.target.closest('[data-deliv-edit]');
+        if (delEditBtn) {
+          const current = deliverables.find((d) => d.id === delEditBtn.dataset.delivEdit);
+          if (!current) return;
+          const form = await openForm({
+            title: 'Editar entregable',
+            submitLabel: 'Guardar',
+            fields: [
+              { name: 'title', label: 'Título', required: true, value: current.title },
+              {
+                name: 'status',
+                label: 'Estado',
+                type: 'select',
+                value: current.status,
+                options: ['planned', 'in_progress', 'in_review', 'accepted', 'blocked', 'cancelled'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+              { name: 'due', label: 'Vence', type: 'date', value: String(current.due_at || '').slice(0, 10) },
+              { name: 'criteria', label: 'Criterios de aceptación', type: 'textarea', value: current.acceptance_criteria || '' },
+              { name: 'evidence', label: 'URL de evidencia', value: current.evidence_url || '' },
+            ],
+          });
+          if (!form) return;
+          try {
+            await updateRecord('deliverable', current.id, {
+              title: form.title,
+              status: form.status,
+              due_at: form.due || null,
+              acceptance_criteria: form.criteria || null,
+              evidence_url: form.evidence || null,
+            });
+            toast('Entregable actualizado', 'success');
+          } catch (err) {
+            toast(explainError(err), 'error');
+          }
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
+
+        const delDeleteBtn = event.target.closest('[data-deliv-delete]');
+        if (delDeleteBtn) {
+          const current = deliverables.find((d) => d.id === delDeleteBtn.dataset.delivDelete);
+          if (!current) return;
+          const checkCount = ((checklistCache.get(delDeleteBtn.dataset.delivDelete)) || []).length;
+          const gone = await deleteEntity({
+            kind: 'deliverable',
+            id: current.id,
+            label: 'el entregable',
+            name: current.title,
+            hint: checkCount ? `También se perderán ${checkCount} ítem${checkCount === 1 ? '' : 's'} de verificación.` : '',
+            deleted: 'Entregable eliminado',
+          });
+          if (gone) renderProyectoDetalle(el, projectId);
+          return;
+        }
+
         const delSel = event.target.closest('[data-deliverable-select]');
         if (delSel) {
           selectedDeliverable = delSel.dataset.deliverableSelect;
@@ -1531,6 +1602,63 @@ export async function renderProyectoDetalle(el, projectId) {
           renderProyectoDetalle(el, projectId);
           return;
         }
+        const taskEditBtn = event.target.closest('[data-tact-edit]');
+        if (taskEditBtn) {
+          const current = tasks.find((t) => t.id === taskEditBtn.dataset.tactEdit);
+          if (!current) return;
+          const form = await openForm({
+            title: 'Editar tarea',
+            submitLabel: 'Guardar',
+            fields: [
+              { name: 'title', label: 'Título', required: true, value: current.title },
+              {
+                name: 'status',
+                label: 'Estado',
+                type: 'select',
+                value: current.status,
+                options: ['ready', 'in_progress', 'blocked', 'done', 'cancelled'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+              {
+                name: 'priority',
+                label: 'Prioridad',
+                type: 'select',
+                value: current.priority,
+                options: ['critical', 'high', 'medium', 'low'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+              { name: 'due', label: 'Vence', type: 'date', value: String(current.due_at || '').slice(0, 10) },
+            ],
+          });
+          if (!form) return;
+          try {
+            await updateRecord('task', current.id, {
+              title: form.title,
+              status: form.status,
+              priority: form.priority,
+              due_at: form.due || null,
+            });
+            toast('Tarea actualizada', 'success');
+          } catch (err) {
+            toast(explainError(err), 'error');
+          }
+          renderProyectoDetalle(el, projectId);
+          return;
+        }
+
+        const taskDeleteBtn = event.target.closest('[data-tact-delete]');
+        if (taskDeleteBtn) {
+          const current = tasks.find((t) => t.id === taskDeleteBtn.dataset.tactDelete);
+          if (!current) return;
+          const gone = await deleteEntity({
+            kind: 'task',
+            id: current.id,
+            label: 'la tarea',
+            name: current.title,
+            deleted: 'Tarea eliminada',
+          });
+          if (gone) renderProyectoDetalle(el, projectId);
+          return;
+        }
+
         const taskBtn = event.target.closest('[data-tact]');
         if (!taskBtn) return;
         taskBtn.disabled = true;
@@ -1553,6 +1681,82 @@ export async function renderProyectoDetalle(el, projectId) {
         }
         invalidate('tasks');
         renderProyectoDetalle(el, projectId);
+      });
+
+      el.addEventListener('click', async (event) => {
+        const editBtn = event.target.closest('[data-prj-edit]');
+        if (editBtn) {
+          const current = (await listProjects()).find((x) => x.id === editBtn.dataset.prjEdit);
+          if (!current) return;
+          const form = await openForm({
+            title: 'Editar proyecto',
+            submitLabel: 'Guardar',
+            fields: [
+              { name: 'name', label: 'Nombre', required: true, value: current.name, maxlength: 200 },
+              {
+                name: 'client_id',
+                label: 'Cliente',
+                type: 'select',
+                value: current.client_id,
+                options: [{ value: '', label: 'Sin cliente' }, ...(await listClients()).map((c) => ({ value: c.id, label: c.name }))],
+              },
+              {
+                name: 'status',
+                label: 'Estado',
+                type: 'select',
+                value: current.status,
+                options: ['active', 'on_hold', 'completed', 'archived'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+              {
+                name: 'health',
+                label: 'Salud',
+                type: 'select',
+                value: current.health,
+                options: ['unknown', 'on_track', 'at_risk', 'off_track'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+            ],
+          });
+          if (!form) return;
+          try {
+            await updateRecord('project', current.id, {
+              name: form.name,
+              client_id: form.client_id || null,
+              status: form.status,
+              health: form.health,
+            });
+            toast('Proyecto actualizado', 'success');
+            window.location.hash = '#/proyectos';
+            await renderProyectos(el);
+          } catch (err) {
+            toast(explainError(err), 'error');
+          }
+          return;
+        }
+
+        const deleteBtn = event.target.closest('[data-prj-delete]');
+        if (deleteBtn) {
+          const current = (await listProjects()).find((x) => x.id === deleteBtn.dataset.prjDelete);
+          if (!current) return;
+          const nTasks = (tasks || []).length;
+          const nDeliv = (deliverables || []).length;
+          const nMeet = (meetings || []).length;
+          const parts = [];
+          if (nTasks) parts.push(`${nTasks} tarea${nTasks === 1 ? '' : 's'}`);
+          if (nDeliv) parts.push(`${nDeliv} entregable${nDeliv === 1 ? '' : 's'}`);
+          if (nMeet) parts.push(`${nMeet} reunión${nMeet === 1 ? '' : 'es'}`);
+          const gone = await deleteEntity({
+            kind: 'project',
+            id: current.id,
+            label: 'el proyecto',
+            name: current.name,
+            hint: parts.length ? `También se perderán ${parts.join(', ')}.` : '',
+            deleted: 'Proyecto eliminado',
+          });
+          if (gone) {
+            window.location.hash = '#/proyectos';
+            await renderProyectos(el);
+          }
+        }
       });
     }
   } catch (err) {
@@ -1749,14 +1953,20 @@ export async function renderReuniones(el) {
       .filter((m) => m.status !== 'scheduled')
       .sort((a, b) => String(b.starts_at).localeCompare(String(a.starts_at)));
 
+    // El enlace no envuelve los botones: un <button> dentro de un <a> es HTML
+    // invalido y ademas la navegacion se llevaria por delante el click.
     const row = (m) => `
-      <a class="item item-row" href="#/reuniones/${esc(m.id)}">
-        <div class="item-main">
+      <div class="item item-row">
+        <a class="item-main item-link" href="#/reuniones/${esc(m.id)}">
           <div class="item-title">${esc(m.title)}</div>
           <div class="item-sub">${esc(fmtDate(m.starts_at))} · ${esc(fmtTime(m.starts_at))}${m.project_id ? ` · ${esc(maps.project[m.project_id] || m.project_id)}` : ' · <b class="text-danger">sin proyecto</b>'}</div>
+        </a>
+        <div class="item-side">
+          ${badge(m.status)}
+          <button class="btn btn-ghost btn-xs" data-meet-edit="${esc(m.id)}" title="Editar reunión" aria-label="Editar ${esc(m.title)}">${icon('edit')}</button>
+          <button class="btn btn-ghost btn-xs btn-danger-soft" data-meet-delete="${esc(m.id)}" title="Eliminar reunión" aria-label="Eliminar ${esc(m.title)}">${icon('trash')}</button>
         </div>
-        <div class="item-side">${badge(m.status)}</div>
-      </a>`;
+      </div>`;
 
     const queue = (unmatched || []).length
       ? `<div class="list">${(unmatched || [])
@@ -1856,6 +2066,63 @@ export async function renderReuniones(el) {
           renderReuniones(el);
           return;
         }
+        const meetEditBtn = event.target.closest('[data-meet-edit]');
+        if (meetEditBtn) {
+          const current = meetings.find((m) => m.id === meetEditBtn.dataset.meetEdit);
+          if (!current) return;
+          const form = await openForm({
+            title: 'Editar reunión',
+            submitLabel: 'Guardar',
+            fields: [
+              { name: 'title', label: 'Título', required: true, value: current.title },
+              {
+                name: 'project_id',
+                label: 'Proyecto',
+                type: 'select',
+                value: current.project_id,
+                options: [{ value: '', label: 'Sin proyecto' }, ...(projects || []).map((p) => ({ value: p.id, label: p.name }))],
+              },
+              { name: 'starts', label: 'Inicio', type: 'datetime-local', value: toLocalInput(current.starts_at) },
+              {
+                name: 'status',
+                label: 'Estado',
+                type: 'select',
+                value: current.status,
+                options: ['scheduled', 'completed', 'cancelled'].map((v) => ({ value: v, label: humanStatus(v) })),
+              },
+            ],
+          });
+          if (!form) return;
+          try {
+            await updateRecord('meeting', current.id, {
+              title: form.title,
+              project_id: form.project_id || null,
+              starts_at: form.starts || null,
+              status: form.status,
+            });
+            toast('Reunión actualizada', 'success');
+          } catch (err) {
+            toast(explainError(err), 'error');
+          }
+          renderReuniones(el);
+          return;
+        }
+
+        const meetDeleteBtn = event.target.closest('[data-meet-delete]');
+        if (meetDeleteBtn) {
+          const current = meetings.find((m) => m.id === meetDeleteBtn.dataset.meetDelete);
+          if (!current) return;
+          const gone = await deleteEntity({
+            kind: 'meeting',
+            id: current.id,
+            label: 'la reunión',
+            name: current.title,
+            deleted: 'Reunión eliminada',
+          });
+          if (gone) renderReuniones(el);
+          return;
+        }
+
         const btn = event.target.closest('[data-act]');
         if (!btn) return;
         btn.disabled = true;

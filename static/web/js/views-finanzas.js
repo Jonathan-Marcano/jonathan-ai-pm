@@ -9,6 +9,11 @@ import {
   listAccounts,
   createAccount,
   patchAccount,
+  deleteGoal,
+  updateTransaction,
+  updateGoal,
+  updateDebt,
+  updateBudget,
   listInstitutions,
   listCategoriesByHousehold,
   listTransactions,
@@ -42,6 +47,7 @@ import {
   progressBar,
   kpiTile,
   disponibleCard,
+  explainError,
 } from './ui.js';
 
 const state = {
@@ -379,7 +385,7 @@ async function renderFlujo(el, household, type) {
                   <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
                   <td>${esc(t.account_id.slice(0, 8))}</td>
                   <td class="num ${ingresosView === 'Ingresos' ? 'text-success' : 'text-danger'}">${ingresosView === 'Ingresos' ? '+' : '−'}${money(t.amount)}</td>
-                  <td>${t.status === 'voided' ? badge('voided') : `<button class="btn btn-ghost btn-xs" data-fin-void="${esc(t.id)}">${icon('trash')}</button>`}</td>
+                  <td>${t.status === 'voided' ? badge('voided') : `<div class="item-actions"><button class="btn btn-ghost btn-xs" data-fin-tx-edit="${esc(t.id)}" title="Editar movimiento" aria-label="Editar movimiento">${icon('edit')}</button><button class="btn btn-ghost btn-xs btn-danger-soft" data-fin-void="${esc(t.id)}" title="Anular movimiento" aria-label="Anular movimiento">${icon('trash')}</button></div>`}</td>
                 </tr>`).join('')}
             </tbody>
           </table></div>` : `<div class="card-body">${emptyBlock(
@@ -410,7 +416,7 @@ async function renderFlujo(el, household, type) {
 
     bindMonth(el, () => renderFlujo(el, household, type));
     bindNew(el, { household, accounts, categories, members, type, again: () => renderFlujo(el, household, type) });
-    bindVoid(el, () => renderFlujo(el, household, type));
+    bindVoid(el, () => renderFlujo(el, household, type), { household, accounts, categories });
 
     const chipWrap = el.querySelector('#flujo-chips');
     if (chipWrap) {
@@ -480,8 +486,55 @@ async function bindNew(el, { household, accounts, categories, members, type, aga
   el.addEventListener('click', go);
 }
 
-function bindVoid(el, again) {
+function bindVoid(el, again, ctx = {}) {
   el.addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('[data-fin-tx-edit]');
+    if (editBtn) {
+      const { household, accounts, categories } = ctx;
+      const all = await listTransactions({ household_id: household.id, limit: 500 });
+      const t = all.find((x) => x.id === editBtn.dataset.finTxEdit);
+      if (!t) return;
+      const form = await openForm({
+        title: 'Editar movimiento',
+        submitLabel: 'Guardar',
+        fields: [
+          { name: 'description', label: 'Descripción', value: t.description || '' },
+          { name: 'amount', label: 'Monto', required: true, value: String(t.amount) },
+          { name: 'date', label: 'Fecha', type: 'date', value: String(t.date || '').slice(0, 10) },
+          {
+            name: 'category_id',
+            label: 'Categoría',
+            type: 'select',
+            value: t.category_id,
+            options: [{ value: '', label: 'Sin categoría' }, ...(categories || []).map((c) => ({ value: c.id, label: c.name }))],
+          },
+          {
+            name: 'account_id',
+            label: 'Cuenta',
+            type: 'select',
+            value: t.account_id,
+            options: (accounts || []).map((a) => ({ value: a.id, label: a.name })),
+          },
+        ],
+      });
+      if (!form) return;
+      try {
+        await updateTransaction(t.id, {
+          description: form.description,
+          amount: Number(form.amount) || 0,
+          date: form.date || null,
+          category_id: form.category_id || null,
+          account_id: form.account_id || null,
+        });
+        invalidate(['fin']);
+        toast('Movimiento actualizado', 'success');
+        again();
+      } catch (err) {
+        toast(explainError(err), 'error');
+      }
+      return;
+    }
+
     const btn = e.target.closest('[data-fin-void]');
     if (!btn) return;
     if (!window.confirm('Anular este movimiento?')) return;
@@ -533,7 +586,7 @@ async function renderCuentas(el, household) {
               ${a.type === 'credit' ? `<div class="habit-goal">Límite: ${money(a.credit_limit)} · vence día ${a.due_day ?? '—'}</div>` : ''}
               <div class="habit-actions">
                 <button class="btn btn-ghost btn-xs" data-fin-acc-toggle="${esc(a.id)}" data-status="${a.status === 'active' ? 'inactive' : 'active'}">${a.status === 'active' ? 'Desactivar' : 'Reactivar'}</button>
-                <button class="btn btn-ghost btn-xs" data-fin-acc-balance="${esc(a.id)}">${icon('edit')} Ajustar saldo</button>
+                <button class="btn btn-ghost btn-xs" data-fin-acc-balance="${esc(a.id)}" title="Ajustar el saldo que reporta el banco">${icon('edit')} Ajustar saldo</button>
               </div>
             </div>
           </section>`).join('')}
@@ -613,10 +666,17 @@ async function bindBalance(el, again) {
   el.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-fin-acc-balance]');
     if (!btn) return;
-    const v = await openForm({ title: 'Ajustar saldo calculado', submitLabel: 'Guardar', fields: [{ name: 'balance_calculated', label: 'Nuevo saldo', type: 'text', required: true }] });
+    const v = await openForm({
+      title: 'Ajustar saldo reportado',
+      submitLabel: 'Guardar',
+      hint: 'Es el saldo que dice el banco, no el que calcula FaroFlow con los movimientos.',
+      fields: [{ name: 'balance_reported', label: 'Nuevo saldo', required: true }],
+    });
     if (!v) return;
     try {
-      await patchAccount(btn.dataset.finAccBalance, { balance_calculated: Number(v.balance_calculated) || 0 });
+      // El campo se llama balance_reported: enviar balance_calculated lo hacia
+      // descartar en silencio y el saldo nunca cambiaba.
+      await patchAccount(btn.dataset.finAccBalance, { balance_reported: Number(v.balance_reported) || 0 });
       invalidate(['fin']);
       toast('Saldo ajustado', 'success');
       again();
@@ -668,12 +728,16 @@ async function renderDeudas(el, household) {
                   <td class="num">${money(d.minimum_payment)}</td>
                   <td>${esc(d.due_day)}</td>
                   <td>${badge(d.status)}</td>
+                  <td><div class="item-actions">
+                    <button class="btn btn-ghost btn-xs" data-fin-debt-edit="${esc(d.id)}" title="Editar deuda" aria-label="Editar ${esc(d.name)}">${icon('edit')}</button>
+                  </div></td>
                 </tr>`).join('')}
             </tbody>
           </table></div>` : `<div class="card-body">${emptyBlock('Sin deudas registradas.', '<button class="btn btn-soft btn-sm" id="fin-debt-new2">Registrar deuda</button>')}</div>`}
         </div>
       </section>`;
     bind(el, '#fin-debt-new, #fin-debt-new2', () => debtModal(el, household, accounts));
+    bindDebts(el, household, accounts, () => renderDeudas(el, household));
   } catch (err) {
     el.innerHTML = `<div class="page-head"><h1>Finanzas · Deudas</h1></div>${errorBlock(`No disponible: ${err.message}`)}`;
   }
@@ -740,7 +804,13 @@ async function renderPresupuesto(el, household) {
       <div class="page-head">
         <h1>Finanzas · Presupuesto</h1>
         <p class="page-sub">${esc(MONTHS[month - 1])} ${esc(String(year))}${budget ? ` · estado ${esc(budget.status)}` : ' · sin presupuesto'}</p>
-        <div class="page-head-actions">${monthPicker()}</div>
+        <div class="page-head-actions">${monthPicker()}${
+          budget
+            ? `<button class="btn btn-ghost btn-sm" data-fin-budget-status="${esc(budget.id)}" data-status="${budget.status === 'closed' ? 'active' : 'closed'}">${
+                budget.status === 'closed' ? 'Reabrir presupuesto' : 'Cerrar presupuesto'
+              }</button>`
+            : ''
+        }</div>
       </div>
       ${budget ? `
         <div class="kpi-row">
@@ -776,6 +846,22 @@ async function renderPresupuesto(el, household) {
     bindMonth(el, () => renderPresupuesto(el, household));
     bindBudgetCreate(el, household, year, month);
     bindBudgetAddCategory(el, household, budget, budgetCategories);
+    if (budget) {
+      el.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-fin-budget-status]');
+        if (!btn) return;
+        const next = btn.dataset.status;
+        if (next === 'closed' && !window.confirm('Cerrar el presupuesto del mes?\n\nDeja de admitir nuevos montos planificados, pero conserva lo ya gastado.')) return;
+        try {
+          await updateBudget(btn.dataset.finBudgetStatus, { status: next });
+          invalidate(['fin', 'budgets']);
+          toast(next === 'closed' ? 'Presupuesto cerrado' : 'Presupuesto reabierto', 'success');
+          renderPresupuesto(el, household);
+        } catch (err) {
+          toast(explainError(err), 'error');
+        }
+      });
+    }
   } catch (err) {
     el.innerHTML = `<div class="page-head"><h1>Finanzas · Presupuesto</h1></div>${errorBlock(`No disponible: ${err.message}`)}`;
   }
@@ -858,15 +944,18 @@ async function renderMetas(el, household) {
               </div>
               <div class="bar-track" style="margin:6px 0"><div class="bar-fill ${pct >= 100 ? 'over' : ''}" style="width:${Math.min(100, pct)}%"></div></div>
               <div class="habit-goal">${pct}% alcanzado · aporte mensual ${money(g.monthly_contribution)}</div>
-              ${g.status === 'active' ? `<div class="modal-actions" style="margin-top:10px;justify-content:flex-start">
-                <button class="btn btn-primary btn-xs" data-fin-goal-contribute="${esc(g.id)}">${icon('plus')} Aportar</button>
-              </div>` : ''}
+              <div class="modal-actions" style="margin-top:10px;justify-content:flex-start">
+                ${g.status === 'active' ? `<button class="btn btn-primary btn-xs" data-fin-goal-contribute="${esc(g.id)}">${icon('plus')} Aportar</button>` : ''}
+                <button class="btn btn-ghost btn-xs" data-fin-goal-edit="${esc(g.id)}" title="Editar meta" aria-label="Editar ${esc(g.name)}">${icon('edit')} Editar</button>
+                <button class="btn btn-ghost btn-xs btn-danger-soft" data-fin-goal-delete="${esc(g.id)}" title="Eliminar meta" aria-label="Eliminar ${esc(g.name)}">${icon('trash')} Eliminar</button>
+              </div>
             </div>
           </section>`;
         }).join('')}
       </div>` : `<section class="card"><div class="card-body">${emptyBlock('Sin metas de ahorro.', '<button class="btn btn-soft btn-sm" id="fin-goal-new2">Crear meta</button>')}</div></section>`}`;
     bind(el, '#fin-goal-new, #fin-goal-new2', () => goalModal(el, household, accounts));
     bindContribute(el, accounts, () => renderMetas(el, household));
+    bindGoals(el, household, accounts, () => renderMetas(el, household));
   } catch (err) {
     el.innerHTML = `<div class="page-head"><h1>Finanzas · Metas</h1></div>${errorBlock(`No disponible: ${err.message}`)}`;
   }
@@ -1071,7 +1160,7 @@ async function renderEgresos(el, household) {
               <td>${esc((catById.get(t.category_id) || {}).name || t.category_id || '—')}</td>
               <td>${accName(t.account_id)}</td>
               <td class="num text-danger">−${money(t.amount)}</td>
-              <td>${t.status === 'voided' ? badge('voided') : `<button class="btn btn-ghost btn-xs" data-fin-void="${esc(t.id)}">${icon('trash')}</button>`}</td>
+              <td>${t.status === 'voided' ? badge('voided') : `<div class="item-actions"><button class="btn btn-ghost btn-xs" data-fin-tx-edit="${esc(t.id)}" title="Editar movimiento" aria-label="Editar movimiento">${icon('edit')}</button><button class="btn btn-ghost btn-xs btn-danger-soft" data-fin-void="${esc(t.id)}" title="Anular movimiento" aria-label="Anular movimiento">${icon('trash')}</button></div>`}</td>
             </tr>`).join('')}
         </tbody>
       </table></div>` : `<div class="card-body">${emptyBlock(
@@ -1232,7 +1321,7 @@ async function renderEgresos(el, household) {
 
     bindMonth(el, () => renderEgresos(el, household));
     bindNew(el, { household, accounts, categories, members, type: 'expense', again: () => renderEgresos(el, household) });
-    bindVoid(el, () => renderEgresos(el, household));
+    bindVoid(el, () => renderEgresos(el, household), { household, accounts, categories });
 
     el.querySelector('.tabs').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-eg-tab]');
@@ -1290,4 +1379,139 @@ async function renderEgresos(el, household) {
   } catch (err) {
     el.innerHTML = `<nav class="crumbs" aria-label="Ubicación"><a href="#/finanzas">Finanzas</a><span class="crumb-sep">/</span><span>Egresos</span></nav><h1>Egresos</h1>${errorBlock(`No disponible: ${err.message}`)}`;
   }
+}
+/* ---------- Editar y eliminar metas ---------- */
+
+function bindGoals(el, household, accounts, again) {
+  el.addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('[data-fin-goal-edit]');
+    if (editBtn) {
+      const goals = await listGoalsByHousehold(household.id);
+      const g = goals.find((x) => x.id === editBtn.dataset.finGoalEdit);
+      if (!g) return;
+      const form = await openForm({
+        title: 'Editar meta',
+        submitLabel: 'Guardar',
+        fields: [
+          { name: 'name', label: 'Nombre', required: true, value: g.name },
+          {
+            name: 'category',
+            label: 'Categoría',
+            type: 'select',
+            value: g.category,
+            options: [['fondo', 'Fondo de emergencia'], ['security', 'Seguridad'], ['travel', 'Viaje'], ['purchase', 'Compra'], ['debt', 'Pago de deuda'], ['other', 'Otro']].map(([v, l]) => ({ value: v, label: l })),
+          },
+          { name: 'target_amount', label: 'Monto meta', required: true, value: String(g.target_amount) },
+          { name: 'current_amount', label: 'Ya ahorrado', value: String(g.current_amount) },
+          { name: 'monthly_contribution', label: 'Aporte mensual', value: String(g.monthly_contribution || 0) },
+          { name: 'target_date', label: 'Fecha meta', type: 'date', value: String(g.target_date || '').slice(0, 10) },
+          {
+            name: 'status',
+            label: 'Estado',
+            type: 'select',
+            value: g.status,
+            options: [['active', 'Activa'], ['achieved', 'Alcanzada'], ['archived', 'Archivada']].map(([v, l]) => ({ value: v, label: l })),
+          },
+        ],
+      });
+      if (!form) return;
+      try {
+        await updateGoal(g.id, {
+          name: form.name,
+          category: form.category,
+          target_amount: Number(form.target_amount) || 0,
+          current_amount: Number(form.current_amount) || 0,
+          monthly_contribution: Number(form.monthly_contribution) || 0,
+          target_date: form.target_date || null,
+          status: form.status,
+        });
+        invalidate(['fin']);
+        toast('Meta actualizada', 'success');
+        again();
+      } catch (err) {
+        toast(explainError(err), 'error');
+      }
+      return;
+    }
+
+    const delBtn = e.target.closest('[data-fin-goal-delete]');
+    if (delBtn) {
+      const goals = await listGoalsByHousehold(household.id);
+      const g = goals.find((x) => x.id === delBtn.dataset.finGoalDelete);
+      if (!g) return;
+      const saved = g.current_amount || 0;
+      if (!window.confirm(`Eliminar la meta «${g.name}»?\n\nSe borra su historial de aportes: ${money(saved)} ahorrados.`)) return;
+      try {
+        await deleteGoal(g.id);
+        invalidate(['fin']);
+        toast('Meta eliminada', 'success');
+        again();
+      } catch (err) {
+        toast(explainError(err), 'error');
+      }
+    }
+  });
+}
+
+/* ---------- Editar deudas ---------- */
+
+function bindDebts(el, household, accounts, again) {
+  el.addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('[data-fin-debt-edit]');
+    if (!editBtn) return;
+    const debts = await listDebtsByHousehold(household.id);
+    const d = debts.find((x) => x.id === editBtn.dataset.finDebtEdit);
+    if (!d) return;
+    const form = await openForm({
+      title: 'Editar deuda',
+      submitLabel: 'Guardar',
+      hint: 'Una deuda no se borra: se marca como pagada o se cierra.',
+      fields: [
+        { name: 'name', label: 'Nombre', required: true, value: d.name },
+        {
+          name: 'type',
+          label: 'Tipo',
+          type: 'select',
+          value: d.type,
+          options: [['credit_card', 'Tarjeta de crédito'], ['loan', 'Préstamo'], ['auto', 'Auto'], ['mortgage', 'Hipoteca'], ['line', 'Línea de crédito'], ['other', 'Otra']].map(([v, l]) => ({ value: v, label: l })),
+        },
+        {
+          name: 'account_id',
+          label: 'Cuenta asociada',
+          type: 'select',
+          value: d.account_id,
+          options: [{ value: '', label: 'Ninguna' }, ...(accounts || []).map((a) => ({ value: a.id, label: a.name }))],
+        },
+        { name: 'current_balance', label: 'Saldo actual', value: String(d.current_balance) },
+        { name: 'minimum_payment', label: 'Pago mínimo', value: String(d.minimum_payment) },
+        { name: 'interest_rate', label: 'Tasa % mensual', value: String(d.interest_rate) },
+        { name: 'due_day', label: 'Día de pago (1-31)', value: String(d.due_day) },
+        {
+          name: 'status',
+          label: 'Estado',
+          type: 'select',
+          value: d.status,
+          options: [['active', 'Activa'], ['paid_off', 'Pagada'], ['closed', 'Cerrada']].map(([v, l]) => ({ value: v, label: l })),
+        },
+      ],
+    });
+    if (!form) return;
+    try {
+      await updateDebt(d.id, {
+        name: form.name,
+        type: form.type,
+        account_id: form.account_id || null,
+        current_balance: Number(form.current_balance) || 0,
+        minimum_payment: Number(form.minimum_payment) || 0,
+        interest_rate: Number(form.interest_rate) || 0,
+        due_day: Number(form.due_day) || 1,
+        status: form.status,
+      });
+      invalidate(['fin']);
+      toast('Deuda actualizada', 'success');
+      again();
+    } catch (err) {
+      toast(explainError(err), 'error');
+    }
+  });
 }

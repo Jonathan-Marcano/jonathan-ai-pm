@@ -37,9 +37,13 @@ async function cached(key, loader) {
   }
 }
 
-export function invalidate(prefix) {
+// Acepta un prefijo o una lista de prefijos. Antes, passing un array hacia
+// startsWith lo convertia a "fin,goals", que no matcheaba ninguna clave: la
+// invalidacion de Finanzas no hacia nada y las vistas servian datos viejos.
+export function invalidate(prefixes) {
+  const list = Array.isArray(prefixes) ? prefixes : [prefixes];
   for (const key of [...cache.keys()]) {
-    if (key.startsWith(prefix)) cache.delete(key);
+    if (list.some((prefix) => prefix && key.startsWith(prefix))) cache.delete(key);
   }
 }
 
@@ -305,4 +309,136 @@ export function applyBandeja(itemId, payload) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+/* ---------- Editar y borrar registros ---------- */
+
+const KIND_PATH = {
+  workspace: 'workspaces',
+  client: 'clients',
+  project: 'projects',
+  deliverable: 'deliverables',
+  meeting: 'meetings',
+  action_item: 'action-items',
+  habit: 'habits',
+  task: 'tasks',
+  capture: 'captures',
+  bandeja: 'bandeja',
+  translation: 'translations',
+};
+
+// PATCH generico por tipo de entidad. El store ignora los campos ausentes, asi
+// que solo hay que mandar lo que cambio.
+export function updateRecord(kind, entityId, changes) {
+  const path = KIND_PATH[kind];
+  if (!path) return Promise.reject(new Error(`Tipo no editable: ${kind}`));
+  return api(`/api/v1/${path}/${encodeURIComponent(entityId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  }).then((res) => {
+    invalidate(path);
+    invalidate(`${path}-`);
+    return res;
+  });
+}
+
+export function deleteRecord(kind, entityId) {
+  const path = KIND_PATH[kind];
+  if (!path) return Promise.reject(new Error(`Tipo no eliminable: ${kind}`));
+  return api(`/api/v1/${path}/${encodeURIComponent(entityId)}`, {
+    method: 'DELETE',
+  }).then((res) => {
+    invalidate(path);
+    invalidate(`${path}-`);
+    forgetMaps();
+    return res;
+  });
+}
+
+export function deleteBandeja(itemId) {
+  return api(`/api/v1/bandeja/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+}
+
+export function listCaptures(params) {
+  const q = params ? `?${params}` : '';
+  return cached(`captures${q}`, () => api(`/api/v1/captures${q}`));
+}
+
+export function deleteCapture(captureId) {
+  return deleteRecord('capture', captureId);
+}
+
+/* ---------- Finanzas: editar y borrar ---------- */
+
+// Toda mutacion de finanzas invalida la familia "fin" completa. Los saldos,
+// budgets, deudas y metas se derivan entre si, asi que invalidar por entidad
+// dejaba lecturas mezcladas: el total actualizado con una lista vieja.
+const FIN_PREFIXES = ['fin', 'transactions'];
+
+function finWrite(path, method, payload) {
+  return finance(path, {
+    method,
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  }).then((res) => {
+    invalidate(FIN_PREFIXES);
+    return res;
+  });
+}
+
+export function updateAccount(accountId, changes) {
+  return finWrite(`/accounts/${encodeURIComponent(accountId)}`, 'PATCH', changes);
+}
+
+export function updateTransaction(transactionId, changes) {
+  return finWrite(`/transactions/${encodeURIComponent(transactionId)}`, 'PATCH', changes);
+}
+
+export function updateBudget(budgetId, changes) {
+  return finWrite(`/budgets/${encodeURIComponent(budgetId)}`, 'PATCH', changes);
+}
+
+export function updateDebt(debtId, changes) {
+  return finWrite(`/debts/${encodeURIComponent(debtId)}`, 'PATCH', changes);
+}
+
+export function updateGoal(goalId, changes) {
+  return finWrite(`/goals/${encodeURIComponent(goalId)}`, 'PATCH', changes);
+}
+
+export function updateCategory(categoryId, changes) {
+  return finWrite(`/categories/${encodeURIComponent(categoryId)}`, 'PATCH', changes);
+}
+
+export function updateInstitution(institutionId, changes) {
+  return finWrite(`/financial-institutions/${encodeURIComponent(institutionId)}`, 'PATCH', changes);
+}
+
+export function updateIncomeSource(sourceId, changes) {
+  return finWrite(`/income-sources/${encodeURIComponent(sourceId)}`, 'PATCH', changes);
+}
+
+export function updateMember(memberId, changes) {
+  return finWrite(`/members/${encodeURIComponent(memberId)}`, 'PATCH', changes);
+}
+
+export function updateHousehold(householdId, changes) {
+  return finWrite(`/households/${encodeURIComponent(householdId)}`, 'PATCH', changes);
+}
+
+// Solo las entidades sin historial financiero tienen DELETE. Un movimiento, un
+// presupuesto o una deuda no se borran: se anulan o se cierran, para que el
+// historial del hogar no cambie bajo los pies.
+export function deleteGoal(goalId) {
+  return finWrite(`/goals/${encodeURIComponent(goalId)}`, 'DELETE');
+}
+
+export function deleteInstitution(institutionId) {
+  return finWrite(`/financial-institutions/${encodeURIComponent(institutionId)}`, 'DELETE');
+}
+
+export function deleteIncomeSource(sourceId) {
+  return finWrite(`/income-sources/${encodeURIComponent(sourceId)}`, 'DELETE');
+}
+
+export function deleteMember(memberId) {
+  return finWrite(`/members/${encodeURIComponent(memberId)}`, 'DELETE');
 }

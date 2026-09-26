@@ -9,6 +9,16 @@ class DomainRuleError(ValueError):
     status_code = 422
 
 
+class DomainConflictError(DomainRuleError):
+    """The request is well formed but conflicts with the current state; maps to HTTP 409.
+
+    Se usa para los borrados bloqueados por referencias: el cliente necesita
+    distinguir "no lo puedo borrar todavia" de "me equivoque en el payload".
+    """
+
+    status_code = 409
+
+
 class DomainNotFoundError(DomainRuleError):
     """A referenced entity does not exist; maps to HTTP 404."""
 

@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from faroflow.services import DomainRuleError, DomainStore
+from faroflow.services import DomainConflictError, DomainRuleError, DomainStore
 
 
 def build_hierarchy(store: DomainStore) -> None:
@@ -188,13 +188,26 @@ def test_action_item_rejects_cross_project_task_and_deliverable(session) -> None
         )
 
 
-def test_capture_and_work_log_history_are_immutable(session) -> None:
+def test_capture_text_is_editable_but_its_classification_is_not(session) -> None:
     store = DomainStore(session)
     build_hierarchy(store)
     capture = store.capture("Original text")
-    with pytest.raises(DomainRuleError, match="immutable"):
-        store.update("capture", capture.id, text="Rewritten")
 
+    store.update("capture", capture.id, text="Rewritten", disposition_note="Ajustado a mano")
+    assert store.get("capture", capture.id).text == "Rewritten"
+    assert store.get("capture", capture.id).disposition_note == "Ajustado a mano"
+
+    # Clasificar o resolver una captura sigue siendo un triage, no una edicion.
+    with pytest.raises(DomainRuleError, match="immutable"):
+        store.update("capture", capture.id, status="applied")
+
+    with pytest.raises(DomainRuleError, match="non-empty"):
+        store.update("capture", capture.id, text="   ")
+
+
+def test_work_log_history_is_immutable(session) -> None:
+    store = DomainStore(session)
+    build_hierarchy(store)
     store.start_task("tsk_rules")
     work_log = store.add_work_log(
         "tsk_rules",
@@ -232,7 +245,10 @@ def test_one_task_cannot_be_linked_to_two_action_items(session) -> None:
 def test_referenced_project_cannot_be_deleted(session) -> None:
     store = DomainStore(session)
     build_hierarchy(store)
-    with pytest.raises(IntegrityError):
+    # build_hierarchy deja tareas y entregables colgando del proyecto. Antes
+    # esto reventaba con el IntegrityError de la FK, que no dice que borrar;
+    # ahora la guarda nombra al hijo que hay que eliminar primero.
+    with pytest.raises(DomainConflictError, match=r"Project still has a (task|deliverable)"):
         store.delete("project", "prj_rules")
 
 

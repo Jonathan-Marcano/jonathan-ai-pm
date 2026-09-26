@@ -334,3 +334,97 @@ def test_static_assets_are_not_cached(api_client) -> None:
         response = api_client.get(asset)
         assert response.status_code == 200, asset
         assert response.headers["cache-control"] == "no-cache", asset
+
+
+def test_capture_can_be_edited_and_deleted(api_client) -> None:
+    capture = api_client.post("/api/v1/captures", json={"text": "Texto original"})
+    assert capture.status_code == 201
+    capture_id = capture.json()["id"]
+
+    edited = api_client.patch(f"/api/v1/captures/{capture_id}", json={"text": "Texto corregido"})
+    assert edited.status_code == 200
+    assert edited.json()["text"] == "Texto corregido"
+
+    # Clasificar sigue siendo triage, no edicion: el PATCH lo rechaza.
+    assert (
+        api_client.patch(f"/api/v1/captures/{capture_id}", json={"status": "applied"}).status_code
+        == 422
+    )
+
+    assert api_client.delete(f"/api/v1/captures/{capture_id}").status_code == 204
+    assert api_client.get(f"/api/v1/captures/{capture_id}").status_code == 404
+
+
+def test_parents_with_children_report_why_they_cannot_be_deleted(api_client) -> None:
+    create_core_hierarchy(api_client)
+    assert (
+        api_client.post(
+            "/api/v1/meetings",
+            json={
+                "id": "mtg_demo",
+                "project_id": "prj_demo",
+                "title": "Demo meeting",
+                "starts_at": "2026-09-14T13:00:00Z",
+            },
+        ).status_code
+        == 201
+    )
+    assert (
+        api_client.post(
+            "/api/v1/action-items",
+            json={
+                "id": "act_demo",
+                "meeting_id": "mtg_demo",
+                "title": "Follow up",
+                "owner": "Demo Engineer",
+            },
+        ).status_code
+        == 201
+    )
+
+    # Cada uno dice que referencia lo bloquea, en vez de un error generico.
+    for entity, id_, detail in (
+        ("workspaces", "wrk_demo", "Workspace still has clients; move or delete them first"),
+        ("clients", "cli_demo", "Client still has projects; move or delete them first"),
+        ("meetings", "mtg_demo", "Meeting still has action items; delete them first"),
+    ):
+        blocked = api_client.delete(f"/api/v1/{entity}/{id_}")
+        assert blocked.status_code == 409, (entity, blocked.text)
+        assert blocked.json()["detail"] == detail, entity
+
+    # Liberadas las referencias, el borrado en cascada manual si procede.
+    assert api_client.delete("/api/v1/action-items/act_demo").status_code == 204
+    assert api_client.delete("/api/v1/meetings/mtg_demo").status_code == 204
+    assert api_client.delete("/api/v1/projects/prj_demo").status_code == 204
+    assert api_client.delete("/api/v1/clients/cli_demo").status_code == 204
+    assert api_client.delete("/api/v1/workspaces/wrk_demo").status_code == 204
+
+
+def test_bandeja_text_can_be_corrected_without_reopening_the_item(api_client) -> None:
+    received = api_client.post(
+        "/api/v1/bandeja",
+        json={
+            "channel": "manual",
+            "source_ref": "probe-1",
+            "original_text": "gaste 50000 en un almuerzo",
+        },
+    )
+    assert received.status_code == 201
+    item_id = received.json()["id"]
+
+    fixed = api_client.patch(
+        f"/api/v1/bandeja/{item_id}", json={"original_text": " almuerzo con cliente "}
+    )
+    assert fixed.status_code == 200
+    assert fixed.json()["original_text"] == "almuerzo con cliente"
+    assert fixed.json()["status"] == "confirmed"
+
+    # Un item descartado es terminal: corregir su texto no lo reabre.
+    discarded = api_client.post(f"/api/v1/bandeja/{item_id}/discard", json={"note": "duplicado"})
+    assert discarded.status_code == 200
+    reopened = api_client.patch(f"/api/v1/bandeja/{item_id}", json={"original_text": "otro texto"})
+    assert reopened.status_code == 200
+    assert reopened.json()["status"] == "discarded"
+
+    assert api_client.delete(f"/api/v1/bandeja/{item_id}").status_code == 204
+    assert api_client.get(f"/api/v1/bandeja/{item_id}").status_code == 404

@@ -148,7 +148,8 @@ def test_source_cannot_be_deleted_before_translation(api_client) -> None:
     )
 
     blocked = api_client.delete("/api/v1/tasks/tsk_demo")
-    assert blocked.status_code == 422
+    # 409 y no 422: el registro esta bien, lo que falta es desenlazar la referencia.
+    assert blocked.status_code == 409
     assert api_client.delete("/api/v1/translations/trn_task_en").status_code == 204
     assert api_client.delete("/api/v1/tasks/tsk_demo").status_code == 204
 

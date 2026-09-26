@@ -859,6 +859,8 @@ a.card:hover { border-color: var(--ff-accent-300); box-shadow: var(--ff-shadow-m
 }
 .item:last-child { border-bottom: none; }
 .item-row { list-style: none; }
+.item-link { display: block; color: inherit; text-decoration: none; }
+.item-link:hover .item-title { color: var(--ff-accent); }
 .item-main { min-width: 0; flex: 1; }
 .item-title { font-weight: var(--ff-weight-semibold); color: var(--ff-text); overflow-wrap: anywhere; }
 .item-sub { font-size: var(--ff-text-sm); color: var(--ff-text-muted); margin-top: 2px; overflow-wrap: anywhere; }

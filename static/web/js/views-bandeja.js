@@ -23,6 +23,9 @@ import {
   skeleton,
   emptyBlock,
   errorBlock,
+  openForm,
+  explainError,
+  deleteEntity,
 } from './ui.js';
 import { suggestCapture } from './capture-triage.js';
 
@@ -234,6 +237,8 @@ function renderDetail(item, { selectedIsPending }) {
       </div>` : ''}
     ${item.error ? `<div class="bandeja-meta text-danger">${esc(item.error)}</div>` : ''}
     <div class="detail-actions">
+      <button class="btn btn-ghost" data-bj-fix="${esc(item.id)}" type="button">${icon('edit')} Corregir texto</button>
+      <button class="btn btn-danger-soft" data-bj-delete="${esc(item.id)}" type="button">${icon('trash')} Eliminar</button>
       ${item.status === 'error' ? `<button class="btn btn-ghost" data-bj-retry="${esc(item.id)}">Reintentar</button>` : ''}
       ${selectedIsPending ? `
         <button class="btn btn-primary" data-bj-apply="${esc(item.id)}">${icon('check')} Clasificar</button>
@@ -765,6 +770,51 @@ function bindItems(el, refs) {
       } catch (err) {
         toast(`Falló: ${err.message}`, 'error');
       }
+      setTimeout(() => renderBandeja(el), 250);
+      return;
+    }
+
+    const fixBtn = event.target.closest('[data-bj-fix]');
+    if (fixBtn) {
+      const items = await listBandeja({ limit: 500 });
+      const item = items.find((i) => i.id === fixBtn.dataset.bjFix);
+      if (!item) return;
+      const form = await openForm({
+        title: 'Corregir texto de la captura',
+        submitLabel: 'Guardar',
+        hint: 'Solo cambia el texto. Clasificarla sigue siendo un paso aparte.',
+        fields: [
+          { name: 'text', label: 'Texto', type: 'textarea', rows: 4, required: true, value: item.original_text || '' },
+        ],
+      });
+      if (!form) return;
+      try {
+        await refineBandeja(item.id, { original_text: form.text });
+        toast('Texto corregido', 'success');
+      } catch (err) {
+        toast(explainError(err), 'error');
+      }
+      setTimeout(() => renderBandeja(el), 250);
+      return;
+    }
+
+    const deleteBtn = event.target.closest('[data-bj-delete]');
+    if (deleteBtn) {
+      const items = await listBandeja({ limit: 500 });
+      const item = items.find((i) => i.id === deleteBtn.dataset.bjDelete);
+      if (!item) return;
+      const preview = (item.original_text || '').split('\n')[0].slice(0, 60);
+      const gone = await deleteEntity({
+        kind: 'bandeja',
+        id: item.id,
+        label: 'la captura',
+        name: preview || '(sin texto)',
+        hint: 'Si ya estaba clasificada, lo aplicado en su destino no se revierte.',
+        deleted: 'Captura eliminada',
+      });
+      if (!gone) return;
+      // Sin la captura seleccionada no hay nada que mostrar en el detalle.
+      window.location.hash = '#/bandeja';
       setTimeout(() => renderBandeja(el), 250);
       return;
     }

@@ -337,6 +337,14 @@ class CaptureCreate(StrictModel):
     text: Annotated[str, Field(min_length=1, max_length=5000)]
 
 
+class CaptureUpdate(StrictModel):
+    # Editar el texto era imposible: no habia ruta, no habia schema y el store
+    # rechazaba cualquier cambio. Corregir una captura mal capturada obligaba a
+    # borrarla y volver a crearla.
+    text: Annotated[str, Field(min_length=1, max_length=5000)]
+    disposition_note: Annotated[str, Field(max_length=2000)] | None = None
+
+
 class CaptureRead(Timestamps):
     id: EntityId
     text: str
@@ -719,6 +727,7 @@ class BandejaItemRead(ResponseModel):
 
 
 class BandejaItemUpdate(StrictModel):
+    original_text: Annotated[str, Field(min_length=1, max_length=5000)] | None = None
     kind: BandejaKind | None = None
     amount: int | None = None
     account_id: Annotated[str, Field(max_length=120)] | None = None

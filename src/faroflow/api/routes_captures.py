@@ -9,6 +9,7 @@ from faroflow.schemas import (
     CaptureRead,
     CaptureStatus,
     CaptureTriage,
+    CaptureUpdate,
     EntityId,
 )
 from faroflow.services import DomainRuleError
@@ -18,11 +19,13 @@ from .deps import (
     DbSession,
     PageLimit,
     PageOffset,
+    delete_record,
     domain_http_error,
     get_record,
     page_items,
     set_page_links,
     store,
+    update_record,
 )
 
 router = APIRouter()
@@ -62,6 +65,27 @@ def list_captures(
 @router.get("/api/v1/captures/{entity_id}", response_model=CaptureRead, tags=["captures"])
 def get_capture(entity_id: EntityId, session: DbSession):
     return get_record(session, "capture", entity_id)
+
+
+@router.patch("/api/v1/captures/{entity_id}", response_model=CaptureRead, tags=["captures"])
+def update_capture(entity_id: EntityId, payload: CaptureUpdate, session: DbSession):
+    """Corrige el texto de una captura.
+
+    El store solo deja cambiar el texto y la nota del triaje: el estado, la
+    disposicion y los enlaces siguen pasando por triage_capture, que es el
+    unico camino que valida el flujo de la bandeja.
+    """
+    return update_record(session, "capture", entity_id, payload)
+
+
+@router.delete("/api/v1/captures/{entity_id}", status_code=204, tags=["captures"])
+def delete_capture(entity_id: EntityId, session: DbSession):
+    """Borra una captura.
+
+    Sin esto, corregir o descartar una captura mal capturada era imposible:
+    no existia ruta de edicion ni de borrado.
+    """
+    return delete_record(session, "capture", entity_id)
 
 
 @router.post(
