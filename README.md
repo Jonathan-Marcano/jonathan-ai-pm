@@ -137,6 +137,12 @@ Seed data under `data/seed/` is intentionally fictional.
   classifier contract (HTTP 503 until a provider is authorized), explicit confirmation that
   creates the operational record from the proposal with an immutable decision trail, and bounded
   cost/data exposure (per-text caching, redacted prompt logs, request bounds) are implemented.
+- Web CRUD: project detail, tasks, deliverables, meetings, inbox items, captures, and the
+  finance modules (transactions, accounts, debts, budgets, goals) can be edited or deleted
+  from the interface. Destructive operations follow the domain semantics: transactions are
+  voided rather than deleted, and debts and budgets are closed rather than erased.
+- Web deletion guards: a record with dependents is refused with HTTP 409 and a reason the
+  interface shows in Spanish, instead of the foreign-key failure the API used to return.
 - Phase 4 (in progress): provider-neutral messaging contracts bound inbound capture
   candidates and outbound notices, and an `OutboundPolicy` gate refuses any send without an
   explicit preview-confirmation; WhatsApp capture and notifications are next.
@@ -257,6 +263,11 @@ Cambios frente a la versión anterior:
 - El bloque de KPIs del detalle de proyecto mantiene 4 tarjetas (aceptados,
   completadas, tiempo, bloqueos); la referencia muestra 5 y no queda claro cuál
   es la quinta, así que no se inventó una.
+- La edición en la UI no cubre todavía la lista independiente de tareas, los
+  action-items dentro del detalle de reunión, la edición de cuenta más allá del
+  saldo y el estado, ni las categorías, instituciones, miembros y fuentes de
+  ingreso. La API sí expone los cuatro últimos; es la interfaz la que quedó
+  pendiente.
 - Las 16 clases que el JS usaba sin regla en CSS se resolvieron en la Fase 11.
   Quedan 3 sin regla a propósito, porque son ganchos de `querySelector` y no
   estilo: `f-status`, `f-prio` y `task-list`.
@@ -423,6 +434,60 @@ posible contenido personal).
   desbordamiento y sin errores de consola. Los cortes de hora se revisaron
   uno por uno: 05:00 noches, 06:00 días, 11:00 días, 12:00 tardes, 19:00 tardes,
   20:00 noches.
+
+### Fase 13 — edición y borrado de registros
+- Los registros se podían crear y, en el mejor de los casos, cambiar de estado, pero no
+  corregir ni borrar. Un movimiento mal cargado, una meta que ya no interesa o una reunión
+  con el título mal escrito no tenían arreglo, y borrar reventaba con un 500 y el error de
+  clave foránea de Postgres, que no dice qué hacer.
+- **Proyectos**: edición del detalle completo y eliminación. El formulario se precarga con
+  los valores guardados y el borrado informa cuántas tareas, entregables y reuniones hay
+  colgando, en vez de fallar con el error de la FK.
+- **Tareas, entregables y reuniones** de un proyecto: editar y eliminar desde la fila,
+  reutilizando el mismo formulario. En la lista de reuniones los botones estaban dentro de
+  un `<a>`, así que el HTML no era válido; se sacaron del enlace. Para el `datetime-local`
+  se agregó `toLocalInput()`, que convierte el UTC del servidor a la zona local, porque
+  antes se mostraban horas corridas.
+- **Finanzas**, con la semántica que corresponde a cada cosa:
+  - Movimientos: editar y **anular**, nunca borrar. Anular mantiene el registro.
+  - Cuentas: *Ajustar saldo* ahora manda `balance_reported`. Antes mandaba
+    `balance_calculated`, así que ajustaba el saldo equivocado y el cambio se perdía al
+    recalcular; verificado con `1000 → 123456 → 1000`.
+  - Metas: editar y eliminar. Deudas: editor precargado. Presupuestos: cerrar y reabrir.
+    El historial no se borra en ningún caso.
+- **Capturas**: `PATCH` para corregir el texto o la nota de disposición, y `DELETE`. No
+  existía ruta ni schema y el store rechazaba cualquier cambio, así que corregir una
+  captura mal hecha obligaba a borrarla y volver a crearla.
+- **Bandeja**: *Corregir texto* y eliminar. Corregir el texto de un item ya resuelto no lo
+  reabre: `applied` y `discarded` son terminales y volverían a la cola de pendientes. Tampoco
+  reclasifica, porque el destino sigue siendo el que eligió la persona. Ojo con la
+  distinción: **bandeja (`bjx_`) y capturas (`cap_`) son entidades distintas**, con rutas
+  propias `/api/v1/bandeja/{id}` y `/api/v1/captures/{id}`.
+- **Borrados bloqueados que dicen qué hacer**: se comprueban antes de borrar y se responden
+  con `409` en vez de `500`. `DomainConflictError` se separa de `DomainRuleError`
+  justamente para que el cliente distinga *no lo puedo borrar todavía* de *me equivoqué en
+  el payload*. Cubren proyecto con hijos, tarea y action-item referenciados por capturas,
+  entregable con archivos de Drive, hábito con registro de cumplimiento, cliente y
+  workspace con actividad, reunión con action-items o notas, y traducciones de un registro
+  que se quiere borrar. La UI traduce el motivo al español con `confirmDelete()` y advierte
+  que un item `applied` ya creó cosas en su destino que no se deshacen con el borrado.
+- **De paso**: `api.js` concentra `updateRecord()`, `deleteRecord()` y `deleteEntity()`, más
+  los `invalidate()` de la caché financiera —sin eso, editar un saldo dejaba la pantalla
+  mostrando el valor viejo—. Se cachea el listado de cuentas para no pedirlo en cada render
+  y se corrige un import duplicado de `views-bandeja` que rompía la carga de **todos** los
+  módulos.
+- **Verificado** en Chrome sobre la app servida: edición de proyecto con persistencia y
+  vuelta al valor original, edición y anulación de movimiento en Ingresos y Egresos, ajuste
+  de saldo `1000 → 123456 → 1000`, edición y borrado de meta, cierre y reapertura de
+  presupuesto, corrección de texto en bandeja, y el borrado de proyecto con hijos mostrando
+  *No se puede eliminar: tiene tareas; bórralas primero* y sin filtrar inglés. 604 tests
+  verdes y `ruff` limpio.
+- **Aparte, en su propio commit**: los saldos de Cuentas y el progreso de Metas salían
+  partidos en cuatro líneas. No era falta de ancho —la tarjeta mide 977 px y cada indicador
+  460—, sino que `.kpi` reserva una columna de 44 px para `.kpi-icon` y esos indicadores no
+  tienen icono, así que su `.kpi-body` caía en esa columna y el texto tenía 44 px en vez de
+  363. La variante `.kpi.no-icon` ya existía en el CSS desde antes y no la usaba ninguna
+  vista; al aplicarla el valor pasó de 138 px de alto a 35 px, en una línea.
 
 ## Working agreements
 
