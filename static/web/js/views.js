@@ -37,6 +37,7 @@ import {
   genEntityId,
   humanStatus,
   kpiTile,
+  greeting,
 } from './ui.js';
 
 const plural = (n, singular, pluralForm) => `${n} ${n === 1 ? singular : pluralForm}`;
@@ -151,7 +152,7 @@ function briefSynthesis(b, maps) {
     .join('');
 
   return `
-    <p class="brief-greet">Buenos días.</p>
+    <p class="brief-greet">${esc(greeting())}.</p>
     ${sentences.map((s) => `<p class="brief-sentence">${esc(s)}</p>`).join('')}
     ${chips ? `<div class="brief-chips">${chips}</div>` : ''}
     ${primary}`;
@@ -378,7 +379,7 @@ export async function renderInicio(el) {
   el.innerHTML = `
     <div class="page-head">
       <div class="page-greeting">
-        <h1>Buenos días</h1>
+        <h1>${esc(greeting())}</h1>
         <span class="date-line">· ${esc(fmtFullDate(new Date()))}</span>
       </div>
       <p class="page-sub">Aquí tienes el panorama de tu trabajo.</p>
@@ -401,7 +402,7 @@ export async function renderInicio(el) {
     el.innerHTML = `
       <div class="page-head">
         <div class="page-greeting">
-          <h1>Buenos días</h1>
+          <h1>${esc(greeting())}</h1>
           <span class="date-line">· ${esc(workspaceName || fmtFullDate(new Date()))}</span>
         </div>
         <p class="page-sub">Aquí tienes el panorama de tu trabajo.</p>

@@ -306,6 +306,57 @@ export function errorBlock(message) {
   return `<div class="error">${esc(message)}</div>`;
 }
 
+/* ---------- Perfil local ---------- */
+
+const PROFILE_KEY = 'ff.user';
+const PROFILE_DEFAULT = 'Jonathan Marcano';
+
+function readName() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw && raw.trim() ? raw.trim() : PROFILE_DEFAULT;
+  } catch (_) {
+    return PROFILE_DEFAULT;
+  }
+}
+
+export function displayName() {
+  return readName();
+}
+
+// El saludo va con el primer nombre: "Buenas noches, Jonathan".
+export function firstName() {
+  return readName().split(/\s+/)[0];
+}
+
+export function userInitials() {
+  const parts = readName().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+export function setDisplayName(name) {
+  const clean = (name || '').trim().replace(/\s+/g, ' ');
+  try {
+    if (clean) localStorage.setItem(PROFILE_KEY, clean);
+    else localStorage.removeItem(PROFILE_KEY);
+  } catch (_) {
+    /* sin localStorage: se usa el nombre por defecto */
+  }
+  window.dispatchEvent(new CustomEvent('ff:profile-changed', { detail: { name: readName() } }));
+  return readName();
+}
+
+// Un solo saludo para toda la app, según la hora local. Sin nombre devuelve
+// solo el período, para que ningún encabezado quede con "undefined".
+export function greeting() {
+  const h = new Date().getHours();
+  const period = h < 6 || h >= 20 ? 'Buenas noches' : h < 12 ? 'Buenos días' : 'Buenas tardes';
+  const first = firstName();
+  return first ? `${period}, ${first}` : period;
+}
+
 export function setPageTitle(title) {
   const routeTitle = document.getElementById('route-title');
   if (routeTitle) routeTitle.textContent = title;

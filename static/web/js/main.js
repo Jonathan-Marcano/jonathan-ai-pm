@@ -9,7 +9,7 @@ import {
   listWorkspaces,
   nameMaps,
 } from './api.js';
-import { esc, icon, toast } from './ui.js';
+import { esc, icon, toast, displayName, userInitials } from './ui.js';
 import {
   renderProyectos,
   renderProyectoDetalle,
@@ -575,11 +575,17 @@ function bind() {
   window.addEventListener('ff:config-changed', setupWorkspaces);
   window.addEventListener('ff:bandeja-changed', refreshBandejaCount);
 
-  const initial = localStorage.getItem('ff.user');
-  if (initial) {
-    $('user-name').textContent = initial;
-    $('user-avatar').textContent = initial.charAt(0).toUpperCase();
-  }
+  paintProfile();
+  window.addEventListener('ff:profile-changed', paintProfile);
+}
+
+// El nombre vive en una sola fuente (ui.js) y la barra lateral se repinta sola
+// cuando se cambia en Configuracion, sin recargar.
+function paintProfile() {
+  const name = $('user-name');
+  const avatar = $('user-avatar');
+  if (name) name.textContent = displayName();
+  if (avatar) avatar.textContent = userInitials();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

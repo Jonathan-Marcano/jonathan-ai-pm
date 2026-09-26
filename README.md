@@ -396,6 +396,34 @@ posible contenido personal).
   aviso de 62 px de alto con fondo `rgb(255, 241, 214)`, icono de 20 px, CTA a
   480 px del texto, y filas de carga en rejilla 353/705/13 px.
 
+### Fase 12 — el nombre de la persona en toda la app
+- La barra lateral decía `Usuario local` fijo en el HTML y el saludo de Mi Día
+  salía sin nombre. La causa era que `ff.user` ya era la fuente del nombre, la
+  barra lateral y el saludo, pero **nada lo escribía nunca**: la clave quedaba
+  vacía y ambos caían al texto de arranque.
+- `ui.js` concentra el perfil en una sola fuente: `displayName()`,
+  `firstName()`, `userInitials()` y `setDisplayName()`. El valor por defecto es
+  `Jonathan Marcano` y se puede cambiar; `ff.user` ya no se lee fuera de `ui.js`.
+- El saludo es una función sola, `greeting()`, con la misma regla de hora en
+  toda la app: antes de las 6 y desde las 20 `Buenas noches`, hasta las 12
+  `Buenos días`, el resto `Buenas tardes`, siempre con el primer nombre.
+- Se wiring en `main.js` con `paintProfile()`: la barra lateral se repinta con
+  el evento `ff:profile-changed`, así que cambiar el nombre se ve al instante
+  sin recargar.
+- **Configuración** tiene ahora una tarjeta *Tu perfil* con el campo de nombre.
+  Un nombre vacío o solo espacios se rechaza y el campo vuelve al valor
+  guardado, y guardar no vuelve a renderizar la vista entera para no perder el
+  foco ni volver a pedir salud, progreso, auditoría y respaldo.
+- De paso, `Buenos días` estaba escrito a mano en tres lugares (el briefing y
+  dos veces en Inicio), así que a las 23:00 saludaba con "Buenos días". Ahora
+  los tres usan `greeting()`.
+- Verificado en Chrome real sobre la app servida, en cinco vistas: Mi Día,
+  Inicio y Trabajo muestran `Buenas noches, Jonathan` a las 21:00, la barra
+  lateral `Jonathan Marcano` con avatar `JM`, el campo precargado, sin
+  desbordamiento y sin errores de consola. Los cortes de hora se revisaron
+  uno por uno: 05:00 noches, 06:00 días, 11:00 días, 12:00 tardes, 19:00 tardes,
+  20:00 noches.
+
 ## Working agreements
 
 - GitHub is the source of truth for code, schemas, and versioned technical documentation.

@@ -9,13 +9,17 @@ import {
   skeleton,
   emptyBlock,
   errorBlock,
+  displayName,
+  setDisplayName,
+  firstName,
+  greeting,
 } from './ui.js';
 
 export async function renderConfiguracion(el) {
   el.innerHTML = `
     <div class="page-head">
       <h1>Configuración</h1>
-      <p class="page-sub">Estado del sistema, actividad y respaldo local.</p>
+      <p class="page-sub">Tu perfil, el estado del sistema, la actividad y el respaldo local.</p>
     </div>
     ${skeleton(4)}`;
   try {
@@ -30,8 +34,24 @@ export async function renderConfiguracion(el) {
     el.innerHTML = `
       <div class="page-head">
         <h1>Configuración</h1>
-        <p class="page-sub">Estado del sistema, actividad y respaldo local.</p>
+        <p class="page-sub">Tu perfil, el estado del sistema, la actividad y el respaldo local.</p>
       </div>
+
+      <section class="card" style="margin-bottom:16px">
+        <div class="card-head"><h2>${icon('home')} Tu perfil</h2></div>
+        <div class="card-body">
+          <p class="integ-note">Tu nombre aparece en la barra lateral y en el saludo de Mi Día, Inicio y el briefing. El saludo usa solo el primer nombre.</p>
+          <form id="cfg-profile" style="margin-top:12px;max-width:420px">
+            <label class="modal-label" for="cfg-name">Nombre</label>
+            <input id="cfg-name" class="form-control" type="text" maxlength="60" autocomplete="name"
+                   placeholder="Jonathan Marcano" value="${esc(displayName())}" />
+            <div class="modal-actions" style="justify-content:flex-start;margin-top:12px">
+              <button class="btn btn-primary btn-sm" type="submit">${icon('check')} Guardar nombre</button>
+            </div>
+          </form>
+          <p class="integ-note" id="cfg-greet-note" style="margin-top:10px">Ahora el saludo es: <b>${esc(greeting())}</b></p>
+        </div>
+      </section>
 
       <div class="page-grid three">
         <section class="card">
@@ -101,6 +121,25 @@ export async function renderConfiguracion(el) {
           <p class="integ-note">Asistente local para trabajo, finanzas, hábitos y captura diaria. Los datos viven en tu máquina; ninguna integración externa ha sido verificada todavía.</p>
         </div>
       </section>`;
+
+    el.querySelector('#cfg-profile').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const input = el.querySelector('#cfg-name');
+      const clean = (input.value || '').trim().replace(/\s+/g, ' ');
+      if (!clean) {
+        // Se devuelve el valor guardado en vez de dejar los espacios que
+        // escribio el usuario, que parecerian un nombre en blanco sin serlo.
+        input.value = displayName();
+        toast('Escribe un nombre', 'error');
+        input.focus();
+        return;
+      }
+      setDisplayName(clean);
+      input.value = displayName();
+      const note = el.querySelector('#cfg-greet-note b');
+      if (note) note.textContent = greeting();
+      toast(`Hola, ${firstName()}`, 'success');
+    });
 
     el.querySelector('#cfg-export').addEventListener('click', () => {
       if (!snapshot) {

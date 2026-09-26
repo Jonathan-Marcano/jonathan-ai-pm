@@ -25,6 +25,7 @@ import {
   progressBar,
   promptCompletionNote,
   kpiTile,
+  greeting,
 } from './ui.js';
 
 const WEEKDAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -35,22 +36,6 @@ const MONTHS_ES = [
 
 function esDate(d) {
   return `${WEEKDAYS_ES[d.getDay()]}, ${d.getDate()} de ${MONTHS_ES[d.getMonth()]}`;
-}
-
-function greetShort() {
-  const first = greetName();
-  const h = new Date().getHours();
-  const period = h < 6 || h >= 20 ? 'Buenas noches' : h < 12 ? 'Buenos días' : 'Buenas tardes';
-  return first ? `${period}, ${first}` : period;
-}
-
-function greetName() {
-  try {
-    const raw = localStorage.getItem('ff.user');
-    return raw && raw.trim() ? raw.trim().split(/\s+/)[0] : null;
-  } catch (_) {
-    return null;
-  }
 }
 
 function kindChip(kind, amount = null) {
@@ -89,7 +74,7 @@ export async function renderMiDia(el) {
     <div class="hero md-hero">
       <div class="hero-body">
         <div class="hero-date">${esc(esDate(new Date()))}</div>
-        <h1>${esc(greetShort())}</h1>
+        <h1>${esc(greeting())}</h1>
         <p>${esc(dailySubtitle())}</p>
       </div>
       <div class="hero-side">
@@ -269,7 +254,7 @@ export async function renderMiDia(el) {
       <div class="hero md-hero">
         <div class="hero-body">
           <div class="hero-date">${esc(esDate(new Date()))}</div>
-          <h1>${esc(greetShort())}</h1>
+          <h1>${esc(greeting())}</h1>
           <p>${esc(dailySubtitle())}</p>
         </div>
         <div class="hero-side">
