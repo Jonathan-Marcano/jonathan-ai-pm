@@ -41,6 +41,13 @@ async def log_requests(request: Request, call_next):
     started = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - started) * 1000
+    # El JS del cliente se revalida siempre. StaticFiles no envía Cache-Control,
+    # así que Chrome aplica su heurístico de frescura (10% de la antigüedad del
+    # Last-Modified) y puede servir un módulo viejo sin preguntar al servidor:
+    # el arreglo llegaba al disco pero no al navegador y el síntoma era "hay que
+    # recargar con F5 para que aparezca el cambio".
+    if request.url.path.startswith("/static"):
+        response.headers["Cache-Control"] = "no-cache"
     logger.info(
         "request method=%s url=%s status=%s duration_ms=%.1f",
         request.method,

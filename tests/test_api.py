@@ -316,3 +316,21 @@ def test_dismissed_capture_requires_reason(api_client) -> None:
         f"/api/v1/captures/{capture_id}/triage", json={"disposition": "dismissed"}
     )
     assert response.status_code == 422
+
+
+def test_static_assets_are_not_cached(api_client) -> None:
+    """El JS del cliente se revalida siempre.
+
+    Sin Cache-Control, Chrome aplica su heurístico de frescura (10% de la
+    antigüedad del Last-Modified) y puede servir un módulo viejo sin preguntar
+    al servidor. Eso hizo que un arreglo en api.js no se viera en el navegador
+    y el síntoma fuera "hay que recargar con F5 para que aparezca el cambio".
+    """
+    index = api_client.get("/")
+    assert index.status_code == 200
+    assert index.headers["cache-control"] == "no-cache"
+
+    for asset in ("/static/web/js/api.js", "/static/web/js/views-habitos.js"):
+        response = api_client.get(asset)
+        assert response.status_code == 200, asset
+        assert response.headers["cache-control"] == "no-cache", asset
